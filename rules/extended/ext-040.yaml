@@ -1,0 +1,15 @@
+id: NCSA-EXT-040
+title: Gateway anti-virus should be enabled
+field: security.gav.enabled
+operator: equals
+expected: true
+severity: medium
+tier: extended
+rationale: >-
+  Gateway scanning catches what endpoint controls miss in transit.
+frameworks:
+  nist_800_53: ["SI-3"]
+  iso_27001_2022: ["A.8.7"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

@@ -1,0 +1,17 @@
+id: NCSA-AAA-003
+title: Role-based authorisation must be in use
+field: authorization.role_based
+operator: equals
+expected: true
+severity: medium
+tier: core
+rationale: >-
+  Least privilege requires distinguishing operator from administrator.
+frameworks:
+  nist_800_53: [AC-3, AC-6]
+  iso_27001_2022: [A.5.15, A.5.33, A.8.18, A.8.2, A.8.20, A.8.26, A.8.3, A.8.4]
+  # STIG Vuln IDs are per-platform. Derived from the downloaded
+  # XCCDF files, not recalled -- a control may map to several.
+  stig_by_platform:
+    juniper_srx: [V-223186]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).

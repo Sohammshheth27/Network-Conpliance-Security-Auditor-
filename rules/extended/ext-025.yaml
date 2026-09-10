@@ -1,0 +1,15 @@
+id: NCSA-EXT-025
+title: SNMP access must be restricted by ACL
+field: snmp.community_acl
+operator: equals
+expected: true
+severity: high
+tier: extended
+rationale: >-
+  A community string reachable from anywhere is a credential with no perimeter.
+frameworks:
+  nist_800_53: ["AC-3", "SC-7"]
+  iso_27001_2022: ["A.5.14", "A.5.15", "A.5.33", "A.8.16", "A.8.18", "A.8.20", "A.8.22", "A.8.23", "A.8.26", "A.8.3", "A.8.4"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

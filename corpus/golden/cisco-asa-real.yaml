@@ -1,0 +1,78 @@
+name: cisco-asa-real
+config: E:\ASA.txt
+platform: cisco_asa
+source: >-
+  A real Cisco ASA running config supplied by the device owner. The most
+  valuable case in the corpus, because nobody authored it to suit our parser:
+  reading it found four bugs on the first run, including a high-severity
+  control that could never fail and a training queue that was dead for every
+  CLI vendor.
+
+# Each expectation was checked against the file by hand. `because` cites the
+# line, so a reviewer can re-verify the claim without running anything.
+controls:
+  NCSA-TEL-001:
+    expect: PASS
+    because: >-
+      L87 `telnet timeout 5` sets an idle timer and does NOT permit telnet.
+      Only `telnet <net> <mask> <interface>` does, and no such line exists.
+      A keyword-matching tool reports a telnet finding here; this device is
+      genuinely unreachable by telnet.
+
+  NCSA-EXT-002:
+    expect: PASS
+    because: "L88 `ssh stricthostkeycheck` is present."
+
+  NCSA-EXT-003:
+    expect: PASS
+    because: "L89 `ssh 192.168.5.0 255.255.255.0 inside` binds SSH to a source."
+
+  NCSA-TIME-001:
+    expect: FAIL
+    because: "L90 `ssh timeout 15` exceeds the 10-minute maximum."
+
+  NCSA-SSH-003:
+    expect: FAIL
+    because: >-
+      L91 `ssh key-exchange group dh-group1-sha1` is 768-bit Diffie-Hellman
+      with SHA-1 -- the weakest option the platform offers.
+
+  NCSA-EXT-001:
+    expect: FAIL
+    because: "L91, same weak key exchange, evaluated as a crypto-strength control."
+
+  NCSA-EXT-012:
+    expect: FAIL
+    because: >-
+      L4 `enable password Marcraft1` carries no `encrypted`/`pbkdf2` keyword,
+      so the enable credential is stored reversibly. This control PASSED on
+      every device ever assessed until 2026-09-02: its field is a bool and it
+      compared against the string "password", which a bool can never equal.
+
+  NCSA-PWD-003:
+    expect: FAIL
+    because: >-
+      L4, same cleartext credential. This control previously read
+      `crypto.weak_ciphers` despite being titled "Stored passwords must be
+      encrypted", and produced the finding "Stored passwords must be
+      encrypted: observed dh-group1-sha1".
+
+  NCSA-EXT-015:
+    expect: FAIL
+    because: >-
+      L80 `aaa authentication ssh console LOCAL` authenticates against the
+      on-box user database. LOCAL is not an external method list, and the
+      pack originally captured group 1 ("ssh") rather than the server group,
+      so this passed.
+
+  NCSA-BAN-001:
+    expect: FAIL
+    because: "No `banner` line of any kind exists in the file."
+
+  NCSA-LOG-002:
+    expect: FAIL
+    because: "No `logging host` line exists; no remote syslog is configured."
+
+  NCSA-EXT-027:
+    expect: FAIL
+    because: "No `ntp server` line exists."

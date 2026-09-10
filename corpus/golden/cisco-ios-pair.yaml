@@ -1,0 +1,95 @@
+name: cisco-ios-vulnerable
+config: samples/cisco/edge-rtr-01.cfg
+platform: cisco_iosxe_router
+source: >-
+  A deliberately weak IOS-XE router. Paired with cisco-ios-hardened below:
+  a pack validated only against configs its own author wrote is not
+  validated, so every positive case here has a negative twin.
+
+controls:
+  NCSA-HTTP-001:
+    expect: FAIL
+    because: >-
+      L30 `ip http server`. This control produced a FALSE PASS until the
+      `_extract` helper stopped using `mo.lastindex` -- which is None when an
+      optional group does not participate, so `^(no )?ip http server` matching
+      the enabled form fell through to the whole line and inverted to "off".
+
+  NCSA-SNMP-002:
+    expect: FAIL
+    because: "L43-44 `snmp-server community public RO` and `private RW`."
+
+  NCSA-VTY-001:
+    expect: FAIL
+    because: >-
+      L59 and L63 `transport input telnet ssh` on two vty ranges. L54 is
+      `transport input none`, so a tool that checks only the first vty line
+      reports a PASS on a device that accepts telnet.
+
+  NCSA-BAN-001:
+    expect: FAIL
+    because: "No `banner login` line exists in this file."
+
+  NCSA-LOG-002:
+    expect: PARTIAL
+    because: >-
+      L48 has one `logging host`; the control requires two. EXPECTATION
+      CORRECTED 2026-09-03: I first wrote FAIL and the tool said PARTIAL. The
+      tool is right -- `op_min_count` documents that one of two required is
+      genuinely partial compliance, the device does ship logs, it just has no
+      redundant collector. Recorded here because the corpus adjudicated this,
+      and the opposite call was made for VTY-001 in the same run.
+
+  NCSA-NTP-001:
+    expect: PASS
+    because: "L50 `ntp server 10.10.0.9` is configured."
+
+---
+name: cisco-ios-hardened
+config: samples/cisco/hardened-per-cisco-guide.cfg
+platform: cisco_iosxe_router
+source: >-
+  Built line by line from Cisco's own "Guide to Harden Cisco IOS Devices",
+  NOT from our pack. That provenance is the point: a fixture derived from the
+  parser it validates proves only that the parser agrees with itself.
+
+controls:
+  NCSA-HTTP-001:
+    expect: PASS
+    because: >-
+      L47 `no ip http server` -- an OBSERVED false, not an absence. L48
+      `ip http secure-server` is HTTPS and must not be read as cleartext
+      management; the universal detector fired on it until `secure-server`
+      was excluded, because the "s" of https is in the next word.
+
+  NCSA-VTY-001:
+    expect: PASS
+    because: "L104 `transport input ssh`, and L99 `transport input none`."
+
+  NCSA-BAN-001:
+    expect: PASS
+    because: "L87 `banner login ^C`."
+
+  NCSA-EXT-012:
+    expect: PASS
+    because: "L36 `enable secret 5 $1$...` -- hashed, not a reversible password."
+
+  NCSA-AAA-001:
+    expect: PASS
+    because: "L25 `aaa new-model`."
+
+  NCSA-NTP-001:
+    expect: PASS
+    because: "L78 `ntp server 192.168.100.9`."
+
+  NCSA-SSH-003:
+    expect: FAIL
+    because: >-
+      L85 `snmp-server user snmpv3user PRIVGROUP v3 auth md5 authpassword priv
+      3des`. MD5 authentication and 3DES privacy are weak whatever the version
+      number suggests. ADDED 2026-09-03: the consensus layer DISPUTED this --
+      the universal detector saw `md5` and the pack reported
+      crypto.weak_ciphers = [], because it read `ip ssh server algorithm` and
+      nothing else. The detector was right and the pack was blind, on the
+      fixture built specifically to demonstrate correct configuration. The
+      fixture is named "hardened" and was not entirely hardened.

@@ -1,0 +1,14 @@
+id: NCSA-EXT-015
+title: An external authentication method list must be configured
+field: authentication.aaa_authentication
+operator: is_set
+severity: high
+tier: extended
+rationale: >-
+  `aaa new-model` alone proves nothing; a method list pointing at TACACS+ or RADIUS is what delivers per-administrator accountability.
+frameworks:
+  nist_800_53: ["IA-2", "AC-2"]
+  iso_27001_2022: ["A.5.16", "A.5.18", "A.8.2"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

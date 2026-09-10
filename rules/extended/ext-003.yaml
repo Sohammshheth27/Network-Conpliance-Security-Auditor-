@@ -1,0 +1,14 @@
+id: NCSA-EXT-003
+title: SSH must be bound to a management source interface
+field: management.ssh.source_interface
+operator: is_set
+severity: medium
+tier: extended
+rationale: >-
+  Sourcing SSH from a dedicated management interface keeps the control plane off transit paths.
+frameworks:
+  nist_800_53: ["SC-7"]
+  iso_27001_2022: ["A.5.14", "A.8.16", "A.8.20", "A.8.22", "A.8.23"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

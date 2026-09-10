@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NEGATIVE CONTROL. Same device, same schema, deliberately misconfigured.
+     A pack validated only against a config its own author wrote is not
+     validated at all; this file exists so the Junos-XML pack has to
+     DISCRIMINATE rather than agree. Every weakness below is the exact
+     inverse of a strength in srx-display-xml.xml. -->
+<rpc-reply xmlns:junos="http://xml.juniper.net/junos/21.4R0/junos">
+  <configuration>
+    <version>12.1X44-D10</version>
+    <system>
+      <host-name>srx-legacy-01</host-name>
+      <login>
+        <user>
+          <name>admin</name>
+          <class>super-user</class>
+        </user>
+        <user>
+          <name>operator</name>
+          <class>super-user</class>
+        </user>
+        <user>
+          <name>backup</name>
+          <class>super-user</class>
+        </user>
+      </login>
+      <services>
+        <telnet/>
+        <ssh>
+          <protocol-version>v1</protocol-version>
+        </ssh>
+        <web-management>
+          <http>
+            <port>80</port>
+          </http>
+        </web-management>
+      </services>
+    </system>
+    <snmp>
+      <community>
+        <name>public</name>
+        <authorization>read-only</authorization>
+      </community>
+      <community>
+        <name>private</name>
+        <authorization>read-write</authorization>
+      </community>
+    </snmp>
+    <security>
+      <policies>
+        <default-policy>
+          <permit-all/>
+        </default-policy>
+      </policies>
+      <zones>
+        <security-zone>
+          <name>trust</name>
+        </security-zone>
+      </zones>
+    </security>
+  </configuration>
+</rpc-reply>

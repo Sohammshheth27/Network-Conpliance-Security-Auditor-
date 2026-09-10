@@ -1,0 +1,388 @@
+# Cisco IOS-XE mapping pack
+#
+# Reader 1 (indented). Plan 4.1 access pattern: find parent by regex, then
+# search children by regex.
+#
+# SCOPE IS THE WHOLE GAME HERE (plan 2.3.1). `transport input ssh` means one
+# thing under `line vty 0 4` and something else under `line con 0`. Every rule
+# below that reads a child declares its parent, and the resulting SBM path is
+# scoped by that parent -- management.vty[line vty 0 4].transport_input.
+#
+# Remediation lives in this same file, backwards (plan 8.1): the `remediate`
+# block on a rule is the fix for the control that reads its field.
+
+vendor: cisco
+platform: cisco_iosxe_router
+reader: indented
+version: "1.0"
+
+supported_domains: [device, management, authentication, authorization,
+                    logging, time, snmp, banner, crypto, routing, services,
+                    interfaces, firewall]
+
+# Domains this PLATFORM genuinely lacks, each with the reason published as the
+# finding's justification.
+#
+# Deliberately short. A domain merely absent from `supported_domains` is a gap
+# in OUR pack, not a fact about the device, and now resolves to UNKNOWN --
+# which keeps it in the denominator where it belongs.
+not_applicable_domains:
+  cloud: "this is an on-premises appliance, not a cloud resource"
+  security: "IPS, gateway antivirus and content filtering are next-generation firewall services this platform does not provide"
+
+
+fingerprint:
+  - "^\\s*service password-encryption"
+  - "^\\s*line vty"
+  - "^\\s*version 1[6-7]\\."
+
+mappings:
+  # --- device identity -----------------------------------------------------
+  - field: device.vendor
+    const: cisco
+  - field: device.hostname
+    regex: "^hostname (\\S+)"
+    value: {group: 1, as: str}
+  - field: device.version
+    regex: "^version (\\S+)"
+    value: {group: 1, as: str}
+
+  # --- SSH -----------------------------------------------------------------
+  - field: management.ssh.version
+    regex: "^ip ssh version (\\d+)"
+    value: {group: 1, as: int}
+  - field: management.ssh.enabled
+    regex: "^ip ssh (?:version|rsa|time-out|authentication-retries)"
+    value: {const: true}
+  - field: management.ssh.max_auth_tries
+    regex: "^ip ssh authentication-retries (\\d+)"
+    value: {group: 1, as: int}
+  - field: management.ssh.timeout
+    regex: "^ip ssh time-out (\\d+)"
+    value: {group: 1, as: int}
+
+  # --- cleartext management ------------------------------------------------
+  # `no ip http server` is an OBSERVED false, not an absence. That distinction
+  # is the reason Observation exists (plan 2.3): an admin who explicitly
+  # disabled HTTP is a provable PASS; a config that never mentions it is not.
+  - field: management.http.enabled
+    regex: "^(no )?ip http server\\s*$"
+    value: {group: 1, as: bool, invert: true}
+    if_absent: null
+  - field: management.https.enabled
+    regex: "^(no )?ip http secure-server\\s*$"
+    value: {group: 1, as: bool, invert: true}
+
+  # --- vty lines (scoped by parent) ---------------------------------------
+  - field: management.vty.transport_input
+    parent: "^line vty"
+    regex: "^\\s*transport input (.+)$"
+    value: {group: 1, as: list}
+    scope_by: parent
+  - field: management.vty.exec_timeout
+    parent: "^line vty"
+    regex: "^\\s*exec-timeout (\\d+)"
+    value: {group: 1, as: int}
+    scope_by: parent
+  - field: management.vty.access_class
+    parent: "^line vty"
+    regex: "^\\s*access-class (\\S+)"
+    value: {group: 1, as: str}
+    scope_by: parent
+
+  # telnet is enabled if any vty line accepts it -- see the derivation below,
+  # because it is a property of the set of lines, not of any single line.
+
+  # --- authentication ------------------------------------------------------
+  - field: authentication.aaa_enabled
+    regex: "^(no )?aaa new-model\\s*$"
+    value: {group: 1, as: bool, invert: true}
+  - field: authentication.min_password_length
+    regex: "^security passwords min-length (\\d+)"
+    value: {group: 1, as: int}
+  - field: authentication.local_accounts
+    regex: "^username (\\S+)"
+    value: {group: 1, as: str}
+    collect: true
+
+  # --- logging -------------------------------------------------------------
+  - field: logging.servers
+    regex: "^logging (?:host )?(\\d+\\.\\d+\\.\\d+\\.\\d+)"
+    value: {group: 1, as: str}
+    collect: true
+  - field: logging.enabled
+    regex: "^logging (?:buffered|host|trap|on)"
+    value: {const: true}
+
+  # --- time ----------------------------------------------------------------
+  - field: time.servers
+    regex: "^ntp server (\\S+)"
+    value: {group: 1, as: str}
+    collect: true
+  - field: time.ntp_enabled
+    regex: "^ntp server \\S+"
+    value: {const: true}
+  - field: time.authenticated
+    regex: "^ntp authenticate\\s*$"
+    value: {const: true}
+
+  # --- snmp ----------------------------------------------------------------
+  - field: snmp.communities
+    regex: "^snmp-server community (\\S+)"
+    value: {group: 1, as: str}
+    collect: true
+  - field: snmp.version
+    regex: "^snmp-server (?:group|user) \\S+ \\S+ v(3)"
+    value: {group: 1, as: str}
+    if_absent: "2c"
+
+  # --- banner --------------------------------------------------------------
+  - field: banner.login
+    regex: "^banner (?:login|motd) (.+)$"
+    value: {group: 1, as: str}
+
+  # --- fields reconciliation showed were declared but never populated -------
+  - field: device.os
+    const: IOS-XE
+  - field: device.platform
+    const: cisco_iosxe_router
+
+  - field: management.ssh.macs
+    regex: "^ip ssh server algorithm mac (.+)$"
+    value: {group: 1, as: list}
+  - field: management.ssh.ciphers
+    regex: "^ip ssh server algorithm encryption (.+)$"
+    value: {group: 1, as: list}
+  - field: management.ssh.kex
+    regex: "^ip ssh server algorithm kex (.+)$"
+    value: {group: 1, as: list}
+
+  - field: banner.motd
+    regex: "^banner motd (.+)$"
+    value: {group: 1, as: str}
+
+  - field: logging.severity
+    regex: "^logging trap (\\S+)"
+    value: {group: 1, as: str}
+  - field: logging.remote_syslog
+    regex: "^logging host \\S+"
+    value: {const: true}
+  - field: logging.log_denied
+    regex: "^ip access-list log|log-input"
+    value: {const: true}
+
+  - field: snmp.v3_auth
+    regex: "^snmp-server (?:group|user) \\S+ \\S+ v3 auth"
+    value: {const: true}
+  - field: snmp.v3_priv
+    regex: "^snmp-server (?:group|user) \\S+ \\S+ v3 priv"
+    value: {const: true}
+
+  - field: management.http.redirect_https
+    regex: "^ip http (?:secure-)?server"
+    value: {const: true}
+
+  # interfaces are SCOPED by name -- Gi0/0/0 and Gi0/0/1 are different objects
+  - field: interfaces.description
+    parent: "^interface "
+    regex: "^\\s*description (.+)$"
+    value: {group: 1, as: str}
+    scope_by: parent
+  - field: interfaces.address
+    parent: "^interface "
+    regex: "^\\s*ip address (\\S+)"
+    value: {group: 1, as: str}
+    scope_by: parent
+  - field: interfaces.shutdown
+    parent: "^interface "
+    regex: "^\\s*(no )?shutdown\\s*$"
+    value: {group: 1, as: bool, invert: true}
+    scope_by: parent
+
+  # crypto.weak_ciphers is filled by a derivation so it means the same thing
+  # here as on every other vendor: weak algorithms that are ENABLED.
+    collect: true
+  - field: authorization.role_based
+    regex: "^username \\S+ privilege \\d+"
+    value: {const: true}
+
+  - field: firewall.default_action
+    const: deny                      # IOS ACLs end in an implicit deny
+  - field: authentication.complexity
+    regex: "^aaa common-criteria policy|^security passwords complexity"
+    value: {const: true}
+
+  # ==== GROUNDED against the Cisco Guide to Harden Cisco IOS Devices ========
+  # https://www.cisco.com/c/en/us/support/docs/ip/access-lists/13608-21.html
+  # retrieved 2026-08-28. Before this the pack read 27 of 142 documented
+  # commands; these close the security-relevant remainder.
+
+  # --- AAA: `aaa new-model` alone proves nothing. The guide's baseline is a
+  # method list pointing at TACACS+/RADIUS. `default local` is NOT centralised.
+  - field: authentication.aaa_authentication
+    regex: "^aaa authentication login (.+)$"
+    value: {group: 1, as: list}
+    collect: true
+  - field: authorization.aaa_authorization
+    regex: "^aaa authorization (?:exec|commands \\d+) (.+)$"
+    value: {group: 1, as: list}
+    collect: true
+  - field: logging.command_accounting
+    regex: "^aaa accounting commands \\d+ "
+    value: {const: true}
+  - field: authorization.privilege_levels
+    regex: "^aaa (?:authorization|accounting) commands (\\d+)"
+    value: {group: 1, as: str}
+    collect: true
+  - field: authentication.lockout.enabled
+    regex: "^aaa local authentication attempts max-fail"
+    value: {const: true}
+
+  # --- privileged-mode credential. `enable password` is reversible; the guide
+  # is explicit that `enable secret` must be used instead.
+  # `authentication.enable_secret` is a BOOL -- is the enable credential
+  # stored hashed? This produced the STRING "secret" or "password", so once
+  # NCSA-EXT-012 was corrected to `equals true` the hardened fixture failed on
+  # the one line that proves it is hardened. Two mutually exclusive mappings,
+  # matched positively, so both answers carry evidence.
+  - field: authentication.enable_secret
+    regex: "^enable secret "
+    value: {const: true}
+  - field: authentication.enable_secret
+    regex: "^enable password "
+    value: {const: false}
+  - field: authentication.password_encryption
+    regex: "^service password-encryption\\s*$"
+    value: {const: true}
+  - field: authentication.password_encryption
+    regex: "^no service password-encryption\\s*$"
+    value: {const: false}
+
+  # --- SSH hardening beyond version 2 -------------------------------------
+  - field: management.ssh.strict_host_key
+    regex: "^ip ssh stricthostkeycheck"
+    value: {const: true}
+  - field: management.ssh.source_interface
+    regex: "^ip ssh source-interface (\\S+.*)$"
+    value: {group: 1, as: str}
+  - field: management.ssh.pubkey_auth
+    regex: "^ip ssh pubkey-chain"
+    value: {const: true}
+  - field: crypto.rsa_modulus
+    regex: "^crypto key generate rsa.*modulus (\\d+)"
+    value: {group: 1, as: int}
+
+  # --- unnecessary services. The guide devotes a whole section to these;
+  # every one left enabled is attack surface.
+  - field: services.unused_enabled
+    regex: "^(?:no )?(ip finger|ip bootp server|ip source-route|ip redirects|ip proxy-arp|ip unreachables|ip directed-broadcast|service tcp-small-servers|service udp-small-servers|ip http server)"
+    value: {group: 1, as: str}
+    collect: true
+
+  # --- logging durability --------------------------------------------------
+  - field: logging.persistent
+    regex: "^logging persistent"
+    value: {const: true}
+  - field: logging.source_interface
+    regex: "^logging source-interface (\\S+.*)$"
+    value: {group: 1, as: str}
+
+  # --- SNMP: a v3 group and a restricted view are what make SNMP acceptable;
+  # a community bound to an ACL is the minimum for v2c.
+  - field: snmp.views
+    regex: "^snmp-server view (\\S+)"
+    value: {group: 1, as: str}
+    collect: true
+  - field: snmp.community_acl
+    regex: "^snmp-server community \\S+ (?:view \\S+ )?(?:RO|RW) \\d+"
+    value: {const: true}
+
+  # --- line hardening. The aux port is a documented back door.
+  - field: management.aux.exec_disabled
+    parent: "^line aux"
+    regex: "^\\s*no exec\\s*$"
+    value: {const: true}
+    scope_by: parent
+  - field: management.vty.transport_output
+    parent: "^line vty"
+    regex: "^\\s*transport output (.+)$"
+    value: {group: 1, as: list}
+    scope_by: parent
+
+  - field: time.timezone
+    regex: "^clock timezone (\\S+)"
+    value: {group: 1, as: str}
+
+  # --- remaining documented hardening commands ----------------------------
+  - field: crypto.weak_ciphers
+    regex: "^(?:no )?service password-encryption"
+    value: {group: 0, as: str}
+    collect: true
+  - field: services.unused_enabled
+    regex: "^(?:no )?(service password-recovery|ip http server|ip scp server)"
+    value: {group: 1, as: str}
+    collect: true
+  - field: logging.severity
+    regex: "^(?:no )?logging (console|monitor|trap \\S+)"
+    value: {group: 1, as: str}
+    collect: true
+  - field: logging.enabled
+    regex: "^logging (?:enable|buffered|host|trap|on|persistent)"
+    value: {const: true}
+  - field: authorization.aaa_authorization
+    regex: "^aaa accounting (?:exec|commands) (.+)$"
+    value: {group: 1, as: list}
+    collect: true
+
+  # --- ACL, L2 and routing hardening (Cisco guide sections 3-5) ------------
+  - field: firewall.acls
+    regex: "^(?:ip access-list (?:extended|standard) (\\S+)|access-list (\\d+))"
+    value: {group: 0, as: str}
+    collect: true
+  - field: firewall.acl_applied
+    regex: "^\\s*(?:ip access-group (\\S+)|ip receive access-list (\\S+))"
+    value: {group: 0, as: str}
+    collect: true
+  - field: l2.arp_inspection
+    regex: "^ip arp inspection"
+    value: {const: true}
+  - field: l2.dhcp_snooping
+    regex: "^ip dhcp snooping"
+    value: {const: true}
+  - field: l2.ip_source_guard
+    regex: "^ip verify (?:source|unicast)"
+    value: {const: true}
+  - field: routing.prefix_filtering
+    regex: "^ip (?:prefix-list|as-path access-list) (\\S+)"
+    value: {group: 1, as: str}
+    collect: true
+  - field: routing.ospf_auth
+    regex: "^ip (?:ospf message-digest-key|authentication mode (?:eigrp|ospf))"
+    value: {const: true}
+  - field: routing.bgp_auth
+    regex: "^ip (?:rip authentication|authentication key-chain)"
+    value: {const: true}
+  - field: logging.netflow
+    regex: "^ip (?:flow-export|route-cache flow|flow )"
+    value: {const: true}
+  - field: management.icmp_ratelimit
+    regex: "^ip icmp rate-limit"
+    value: {const: true}
+  - field: platform.memory_thresholds
+    regex: "^memory (?:free low-watermark|reserve)"
+    value: {const: true}
+  - field: platform.config_archive
+    regex: "^archive"
+    value: {const: true}
+  - field: services.unused_enabled
+    regex: "^(?:no )?(ip cef|ip domain-name|ip options)"
+    value: {group: 1, as: str}
+    collect: true
+
+derivations:
+  - field: crypto.weak_ciphers
+    op: ios_weak_ssh_crypto
+  # Telnet reachability is a property of the vty set, not of one line, and
+  # `no ip telnet` does not exist on IOS -- the answer lives in transport input.
+  - field: management.telnet.enabled
+    op: ios_telnet_reachable

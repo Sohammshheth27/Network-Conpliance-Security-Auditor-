@@ -1,0 +1,90 @@
+{
+ "before": {
+  "management.http.enabled": {
+   "nist_800_53": "SC-2 Separation of System and User Func",
+   "disa_stig": "V-220534 The Cisco switch must be configure",
+   "cis": "6.10.2.1 Ensure Web-Management is not Set t",
+   "iso_27001_2022": "A.8.23 Web filtering"
+  },
+  "banner.login": {
+   "nist_800_53": "AC-8 System Use Notification",
+   "disa_stig": "V-223189 The Juniper SRX Services Gateway m",
+   "cis": "1.1.2 Ensure login disclaimer is set",
+   "iso_27001_2022": "A.5.31 Legal, statutory, regulatory and c"
+  },
+  "logging.servers": {
+   "nist_800_53": "MA-4.1 Logging and Review",
+   "disa_stig": "V-223197 The Juniper SRX Services Gateway m",
+   "cis": "1.4.2.6 Configure Audit Logging to be Sent",
+   "iso_27001_2022": "A.8.15 Logging"
+  },
+  "snmp.communities": {
+   "nist_800_53": "PM-15 Security and Privacy Groups and As",
+   "disa_stig": "V-223211 The Juniper SRX Services Gateway m",
+   "cis": "1.5.3 Do not set 'RW' for any 'snmp-serv",
+   "iso_27001_2022": "A.8.16 Monitoring activities"
+  },
+  "authentication.min_password_length": {
+   "nist_800_53": "IA-5.1 Password-based Authentication",
+   "disa_stig": "V-215826 The Cisco router must be configure",
+   "cis": "1.1.3 Hardening Password Rules",
+   "iso_27001_2022": "A.5.17 Authentication information"
+  },
+  "management.vty.exec_timeout": {
+   "nist_800_53": "AC-12.3 Timeout Warning Message",
+   "disa_stig": "V-220544 The Cisco switch must be configure",
+   "cis": "1.2.9 Set 'exec-timeout' to less than or",
+   "iso_27001_2022": "A.8.6 Capacity management"
+  },
+  "time.ntp_enabled": {
+   "nist_800_53": "AU-8 Time Stamps",
+   "disa_stig": "V-223205 The Juniper SRX Services Gateway m",
+   "cis": "1.3.2 Configuring Time Services",
+   "iso_27001_2022": "A.8.17 Clock synchronization"
+  }
+ },
+ "after": {
+  "management.http.enabled": {
+   "nist_800_53": "SC-7.4 External Telecommunications Servic",
+   "disa_stig": "V-220534 The Cisco switch must be configure",
+   "cis": "6.10.2.1 Ensure Web-Management is not Set t",
+   "iso_27001_2022": "A.8.23 Web filtering"
+  },
+  "banner.login": {
+   "nist_800_53": "AC-8 System Use Notification",
+   "disa_stig": "V-223189 The Juniper SRX Services Gateway m",
+   "cis": "1.1.2 Ensure login disclaimer is set",
+   "iso_27001_2022": "A.5.31 Legal, statutory, regulatory and c"
+  },
+  "logging.servers": {
+   "nist_800_53": "AU-2 Event Logging",
+   "disa_stig": "V-223197 The Juniper SRX Services Gateway m",
+   "cis": "1.4.2.6 Configure Audit Logging to be Sent",
+   "iso_27001_2022": "A.8.15 Logging"
+  },
+  "snmp.communities": {
+   "nist_800_53": "PM-15 Security and Privacy Groups and As",
+   "disa_stig": "V-223211 The Juniper SRX Services Gateway m",
+   "cis": "1.5.3 Do not set 'RW' for any 'snmp-serv",
+   "iso_27001_2022": "A.8.16 Monitoring activities"
+  },
+  "authentication.min_password_length": {
+   "nist_800_53": "IA-5.1 Password-based Authentication",
+   "disa_stig": "V-215826 The Cisco router must be configure",
+   "cis": "1.1.3 Hardening Password Rules",
+   "iso_27001_2022": "A.5.17 Authentication information"
+  },
+  "management.vty.exec_timeout": {
+   "nist_800_53": "AC-12.3 Timeout Warning Message",
+   "disa_stig": "V-220544 The Cisco switch must be configure",
+   "cis": "1.2.9 Set 'exec-timeout' to less than or",
+   "iso_27001_2022": "A.8.8 Management of technical vulnerabil"
+  },
+  "time.ntp_enabled": {
+   "nist_800_53": "AU-8 Time Stamps",
+   "disa_stig": "V-223205 The Juniper SRX Services Gateway m",
+   "cis": "1.3.2 Configuring Time Services",
+   "iso_27001_2022": "A.8.17 Clock synchronization"
+  }
+ }
+}

@@ -1,0 +1,25 @@
+id: NCSA-SSH-004
+title: SSH authentication attempts must be limited
+field: management.ssh.max_auth_tries
+operator: lte
+expected: 3
+severity: medium
+tier: core
+rationale: >-
+  Limiting retries per connection raises the cost of credential guessing.
+frameworks:
+  nist_800_53: [AC-7]
+  iso_27001_2022: [A.8.5]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).
+
+remediation:
+  cisco_iosxe_router:
+    commands:
+    - ip ssh authentication-retries 3
+    phase: 30
+    verify: show ip ssh
+  juniper_srx:
+    commands:
+    - set system services ssh connection-limit 3
+    phase: 30
+    verify: show configuration system services ssh

@@ -1,0 +1,593 @@
+"""HTTP surface for NCSA.
+
+    uvicorn ncsa.api.app:app --reload --port 8000
+    http://localhost:8000/docs        interactive schema for UI work
+
+Deliberately thin. Every route is a call into functions that already exist and
+are already tested; the engine must never gain behaviour that only the web
+layer knows about, or the CLI and the API start disagreeing about the same
+device.
+
+UPLOADS ARE UNTRUSTED. A configuration file arrives from whoever runs the
+device, and this project has already found injection-shaped content inside real
+device data. Files are written to a temp directory, never executed, never
+interpolated into a prompt, and redaction is ON by default -- a decoded
+SonicOS export carries password hashes and real addressing.
+"""
+from __future__ import annotations
+
+import shutil
+import tempfile
+import uuid
+from pathlib import Path
+
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+from .convert import assessment_out, candidate_out, remediation_out
+from .schemas import (ApprovalIn, ApprovalOut, AssessmentOut, ReachQueryIn,
+                      RemediationOut, TopologyIn, TrainingCandidateOut)
+
+app = FastAPI(
+    title="NCSA -- Network Compliance & Security Auditor",
+    version="0.1.0",
+    description="Vendor-agnostic configuration compliance. Every finding "
+                "carries the file and line it came from.")
+
+# The UI is served from a different origin during development.
+app.add_middleware(CORSMiddleware, allow_origins=["*"],
+                   allow_methods=["*"], allow_headers=["*"])
+
+_STATIC = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")
+
+
+@app.get("/", include_in_schema=False)
+def landing():
+    """The public page. Same process, same origin, no build step.
+
+    It reads its figures from /frameworks and /platforms rather than carrying
+    its own copy, so the landing page and the console cannot drift apart into
+    quoting different numbers for the same engine.
+    """
+    return FileResponse(str(_STATIC / "landing.html"))
+
+
+@app.get("/app", include_in_schema=False)
+def console():
+    """The operator console. Served by the same process as the API so a demo
+    needs one command and no build step."""
+    return FileResponse(str(_STATIC / "index.html"))
+
+
+# Assessments live for the session. A database is the right answer later; an
+# in-memory dict is the honest answer now, and swapping it is one function.
+_STORE: dict = {}
+_UPLOADS = Path(tempfile.gettempdir()) / "ncsa_uploads"
+_UPLOADS.mkdir(parents=True, exist_ok=True)
+
+MAX_UPLOAD_MB = 64
+
+
+# --------------------------------------------------------------- ingestion
+@app.post("/assess", response_model=list[AssessmentOut], tags=["assess"])
+async def assess_upload(files: list[UploadFile] = File(...),
+                        redact: bool = Query(True)):
+    """Deliverable 1: single or bulk ingestion.
+
+    One unreadable file must never abort a batch -- an administrator uploading
+    forty devices should get thirty-nine assessments and one clear error, not
+    a stack trace.
+    """
+    from ..pipeline import assess
+
+    out = []
+    for f in files:
+        dest = _UPLOADS / f"{uuid.uuid4().hex}_{Path(f.filename or 'config').name}"
+        size = 0
+        with dest.open("wb") as fh:
+            while chunk := await f.read(1 << 20):
+                size += len(chunk)
+                if size > MAX_UPLOAD_MB * 1024 * 1024:
+                    dest.unlink(missing_ok=True)
+                    raise HTTPException(413, f"{f.filename} exceeds "
+                                             f"{MAX_UPLOAD_MB} MB")
+                fh.write(chunk)
+
+        aid = uuid.uuid4().hex[:12]
+        try:
+            da = assess(dest, redact=redact, assessment_id=aid)
+        except Exception as exc:                       # noqa: BLE001
+            # A refusal is a RESULT, not a failure: the tool declining an
+            # encrypted backup is the behaviour we want to surface, with the
+            # reason attached.
+            from ..pipeline import DeviceAssessment, DeviceIdentity
+            da = DeviceAssessment(
+                identity=DeviceIdentity(source_file=f.filename or dest.name),
+                supported=False,
+                notes=[f"{type(exc).__name__}: {exc}"])
+        _STORE[aid] = (da, dest)
+        out.append(assessment_out(da, aid))
+    return out
+
+
+@app.get("/assessment/{aid}", response_model=AssessmentOut, tags=["assess"])
+def get_assessment(aid: str):
+    da, _ = _get(aid)
+    return assessment_out(da, aid)
+
+
+@app.get("/assessments", tags=["assess"])
+def list_assessments():
+    return [{"assessment_id": k,
+             "device": v[0].identity.hostname or v[0].identity.source_file,
+             "vendor": v[0].identity.vendor,
+             "score_pct": v[0].coverage()["score_pct"],
+             "assessed_pct": v[0].coverage()["assessed_pct"]}
+            for k, v in _STORE.items()]
+
+
+# ------------------------------------------------------------- remediation
+@app.get("/assessment/{aid}/remediation", response_model=RemediationOut,
+         tags=["remediate"])
+def get_remediation(aid: str):
+    """Ordered, lockout-checked CLI steps. Steps that would sever the only
+    management path are returned in `deferred`, never in the script."""
+    from ..engine.remediate import build_plan
+    from ..engine.rules import load_rules
+
+    da, _ = _get(aid)
+    controls = {c.id: c for c in load_rules(
+        "rules", platform=da.identity.platform)}
+    sbm = _sbm_for(da)
+    return remediation_out(build_plan(da, controls_by_id=controls, sbm=sbm))
+
+
+@app.get("/assessment/{aid}/hygiene", tags=["analyse"])
+def get_hygiene(aid: str, limit: int = Query(400, le=5000)):
+    """Dead, shadowed, redundant and over-broad policy.
+
+    Unevaluable rules are returned alongside the findings: a rule we could not
+    resolve is not a clean rule, and a summary that hid them would report a
+    policy as tidier than we can actually confirm.
+    """
+    from ..graph.hygiene import analyse
+
+    da, _ = _get(aid)
+    if da.graph is None:
+        # Deliberately 200, not 422: a dashboard asks this for every device and
+        # should not have to special-case an expected gap. But zero findings
+        # here does NOT mean a tidy policy, so the response says the analysis
+        # never ran rather than leaving a reader to infer it from a note.
+        from ..pipeline import GRAPH_BUILDERS
+
+        return {"analysis_ran": False, "not_a_finding": True,
+                "summary": None, "findings": [],
+                "reason": f"no rule-graph builder is registered for platform "
+                          f"{da.identity.platform!r}, so rule hygiene could "
+                          f"not be attempted; this is a gap in our coverage, "
+                          f"not a statement about the device",
+                "supported_platforms": [l for _, l in GRAPH_BUILDERS.values()]}
+    rep = analyse(da.graph)
+    return {"analysis_ran": True, "summary": rep.summary(),
+            "findings": [f.to_json() for f in rep.findings[:limit]],
+            "unevaluable": rep.unevaluable[:50]}
+
+
+# ---------------------------------------------------------------- training
+@app.get("/assessment/{aid}/training", response_model=list[TrainingCandidateOut],
+         tags=["training"])
+def get_training_queue(aid: str, limit: int = Query(200, le=2000),
+                       suggest: bool = Query(True)):
+    """Deliverable 2: what the administrator is asked to teach the system.
+
+    Deduplicated by setting NAME, because one approval covers every instance
+    of that name on every device of the platform. 84,214 unmapped records is a
+    number that makes people give up; the same gap is 841 names.
+    """
+    from ..training import build_queue
+
+    da, _ = _get(aid)
+    return [candidate_out(c)
+            for c in build_queue(da, with_suggestions=suggest, limit=limit)]
+
+
+@app.post("/training/approve", response_model=ApprovalOut, tags=["training"])
+def approve_mapping(body: ApprovalIn):
+    """A human decision, regression-gated and hash-chained.
+
+    The mapping is written, the golden corpus is re-run, and if any verified
+    result would change the write is REVERTED and the approval refused with
+    the specific expectation that broke. A blocked approval leaves nothing
+    behind -- otherwise the gate itself becomes a way to poison the tool.
+    """
+    from ..ai.registry import MappingRegistry
+    from ..training.apply import approve
+
+    try:
+        registry = MappingRegistry("reference/approved_mappings.jsonl")
+    except Exception:                                  # noqa: BLE001
+        registry = None
+
+    r = approve(body.setting_name, body.field, body.platform, body.approved_by,
+                value_hint=body.value_hint, registry=registry)
+    return ApprovalOut(accepted=r.accepted, reason=r.reason,
+                       registry_version=r.registry_version,
+                       regression=r.to_json())
+
+
+# ------------------------------------------------------- reachability
+@app.post("/assessment/{aid}/reach", tags=["analyse"])
+def ask_reachability(aid: str, q: ReachQueryIn):
+    """Would this device permit that traffic? First-match-wins, with the rule.
+
+    The answer names the rule that decided it, so a reviewer can check the
+    verdict rather than take it. A device with no object graph cannot answer
+    at all, and says so instead of returning a default.
+    """
+    from ..graph.reach import Query, ask
+
+    da, _ = _get(aid)
+    _require_graph(da, "reachability")
+    answer = ask(da.graph, Query(
+        source=q.source, destination=q.destination, port=q.port,
+        protocol=q.protocol, source_zone=q.source_zone,
+        destination_zone=q.destination_zone))
+    return {"answer": answer.to_json(), "explain": answer.explain()}
+
+
+# ----------------------------------------------------------- topology
+@app.post("/topology", tags=["topology"])
+def build_topology(body: TopologyIn):
+    """A fabric from several assessed devices, and an end-to-end question.
+
+    Adjacency is INFERRED from shared subnets rather than read from the wire.
+    That is true of most networks and false in some, so the caveat travels on
+    every answer rather than sitting in documentation nobody opens.
+    """
+    from ..topology.fabric import Fabric
+
+    fabric = Fabric()
+    added, skipped = [], []
+    for aid in body.assessment_ids:
+        da, _ = _get(aid)
+        try:
+            fabric.add(da)
+            added.append({
+                "assessment_id": aid,
+                "device": da.identity.hostname or da.identity.source_file})
+        except Exception as exc:                          # noqa: BLE001
+            # Most often RedactedAddressing: the upload was redacted, so the
+            # interface addresses adjacency depends on are gone. That is a
+            # REASON, and reporting it beats silently dropping the device.
+            skipped.append({"assessment_id": aid,
+                            "reason": f"{type(exc).__name__}: {exc}"})
+
+    out = {"devices": added, "skipped": skipped,
+           "summary": fabric.summary(), "adjacency": fabric.adjacency()}
+
+    if body.source and body.destination:
+        answer = fabric.can_reach(body.source, body.destination,
+                                  port=body.port, protocol=body.protocol)
+        out["path"] = answer.to_json()
+        out["explain"] = answer.explain()
+    return out
+
+
+@app.get("/assessment/{aid}/interfaces", tags=["topology"])
+def get_interfaces(aid: str):
+    """The addressing that topology is inferred from. Empty when redacted."""
+    from ..topology.interfaces import RedactedAddressing, extract
+
+    da, _ = _get(aid)
+    try:
+        return {"interfaces": [i.to_json() for i in extract(da)]}
+    except RedactedAddressing as exc:
+        return {"interfaces": [],
+                "note": f"addressing was redacted on upload, so topology "
+                        f"cannot be inferred from this assessment: {exc}"}
+
+
+# ------------------------------------------------------ change tracking
+@app.post("/assessment/{aid}/snapshot", tags=["change"])
+def take_snapshot(aid: str):
+    """Record this assessment so a later one can be compared against it."""
+    from ..diff.compare import save, snapshot
+
+    da, _ = _get(aid)
+    snap = snapshot(da)
+    path = save(snap)
+    return {"device_key": snap.device_key, "saved_to": str(path),
+            "taken_at": str(snap.taken_at)}
+
+
+@app.get("/assessment/{aid}/diff", tags=["change"])
+def get_diff(aid: str):
+    """What changed since the last snapshot of THIS device.
+
+    Device change and analysis change are reported separately. A new engine
+    version altering a verdict is not configuration drift, and conflating the
+    two would have an operator chasing a change nobody made.
+    """
+    from dataclasses import asdict
+
+    from ..diff.compare import compare_latest
+
+    da, _ = _get(aid)
+    report = compare_latest(da)
+    if report is None:
+        return {"note": "no earlier snapshot for this device; "
+                        "take one first via POST .../snapshot"}
+    # DiffReport is a dataclass, not a pydantic model. asdict walks the nested
+    # ControlChange list; summary() and explain() are what an operator reads
+    # first, so they travel with the raw delta rather than being recomputed.
+    return {**asdict(report), "summary": report.summary(),
+            "explain": report.explain()}
+
+
+# ----------------------------------------------------- recertification
+@app.get("/assessment/{aid}/recertification", tags=["workflow"])
+def get_recertification(aid: str, expiring_within: int = Query(30, le=365)):
+    """Which rules need re-certifying, and which look like deletion candidates."""
+    from ..graph.hygiene import analyse
+    from ..workflow.recert import Register, deletion_candidates, review
+
+    da, _ = _get(aid)
+    _require_graph(da, "recertification")
+    register = Register()
+    hygiene = analyse(da.graph)
+    return {
+        "due": [f.to_json()
+                for f in review(da, register, hygiene=hygiene,
+                                expiring_within=expiring_within)],
+        # deletion_candidates already returns plain dicts, unlike review()
+        # which returns RecertFinding objects.
+        "deletion_candidates": deletion_candidates(da, hygiene, register),
+    }
+
+
+# ----------------------------------------------------- log correlation
+@app.post("/assessment/{aid}/logs", tags=["analyse"])
+async def correlate_logs(aid: str, file: UploadFile = File(...),
+                         quiet_days: int = Query(90, le=3650)):
+    """Is an unused rule genuinely unused, or was its counter reset?
+
+    A rule with no hits is only dead if the logs covering that window agree.
+    Without them the honest answer is that we do not know, and the verdicts
+    below say which of the two it is.
+    """
+    from ..graph.hygiene import analyse
+    from ..logs.correlate import corroborate, parse
+
+    da, _ = _get(aid)
+    if da.graph is None:
+        raise HTTPException(
+            422, f"no object graph for platform {da.identity.platform!r}")
+    raw = (await file.read()).decode("utf-8", errors="replace")
+    summary = parse(raw.splitlines())
+    analyse(da.graph)                       # hit counters populate the graph
+    return {"log_summary": summary.to_json(),
+            "corroboration": [
+                c.to_json()
+                for c in corroborate(da.graph, summary, quiet_days=quiet_days)]}
+
+
+# --------------------------------------------------------- corroboration
+@app.get("/assessment/{aid}/consensus", tags=["analyse"])
+def get_consensus(aid: str):
+    """Where an independent second method disagrees with the first.
+
+    Agreement only means something if both methods actually looked at the same
+    thing, so a comparison with no shared paths is reported as inconclusive
+    rather than as agreement.
+    """
+    da, _ = _get(aid)
+    return {"consensus": da.consensus, "parser_agreement": da.parser_agreement}
+
+
+# ------------------------------------------------------- host firewall
+def _hostfw_report(fw, reach: "ReachQueryIn | None" = None) -> dict:
+    """Graph + hygiene for a host firewall, using the appliance analysers.
+
+    The whole point of the vendor-neutral graph is that a laptop and an
+    appliance take the same code path once their rules are SecurityRule
+    objects. Two host semantics survive into the response rather than being
+    smoothed away: Windows Firewall has NO evaluation order, so shadow
+    analysis is suppressed and `ordered` says so; and a profile whose default
+    action was never observed is reported as unobserved, not assumed to block.
+    """
+    from ..graph.hostfw_builder import build
+    from ..graph.hygiene import analyse
+
+    g = build(fw)
+    rep = analyse(g)
+    out = {
+        "host": {"source": fw.source_file, "os": fw.os,
+                 "collected_at": fw.collected_at,
+                 "rules_read": len(fw.rules),
+                 "profiles_read": len(fw.profiles)},
+        "ordered": not getattr(g, "unordered", False),
+        "default_action_observed": getattr(g, "default_action_observed", None),
+        "untrusted_zones": sorted(getattr(g, "untrusted_zones", []) or []),
+        "hygiene": {"summary": rep.summary(),
+                    "findings": [f.to_json() for f in rep.findings[:400]],
+                    "unevaluable": rep.unevaluable[:50]},
+    }
+    if getattr(g, "unordered", False):
+        out["note"] = ("this platform does not evaluate rules top-to-bottom, "
+                       "so shadow analysis was not run; its absence from the "
+                       "findings is correct, not a clean result")
+    if reach is not None:
+        from ..graph.reach import Query, ask
+
+        a = ask(g, Query(source=reach.source, destination=reach.destination,
+                         port=reach.port, protocol=reach.protocol,
+                         source_zone=reach.source_zone,
+                         destination_zone=reach.destination_zone))
+        out["reach"] = {"answer": a.to_json(), "explain": a.explain()}
+    return out
+
+
+@app.post("/hostfw/iptables", tags=["host"])
+async def assess_iptables(file: UploadFile = File(...)):
+    """`iptables-save` output in, rule hygiene out. No shell, no host access."""
+    from ..readers.hostfw import parse_iptables
+
+    text = (await file.read()).decode("utf-8", "replace")
+    if not text.strip():
+        raise HTTPException(400, "empty upload")
+    fw = parse_iptables(text, host=file.filename or "uploaded")
+    if not fw.rules:
+        raise HTTPException(422, {
+            "error": "no iptables rules were parsed from this upload",
+            "reason": "expected `iptables-save` output; a rule count of zero "
+                      "here means we could not read the file, which is not "
+                      "the same as a host with no rules",
+            "not_a_finding": True})
+    return _hostfw_report(fw)
+
+
+@app.post("/hostfw/local", tags=["host"])
+def assess_this_host(enable: bool = Query(
+        False, description="must be true; this runs commands on the server")):
+    """Assess the firewall of the machine RUNNING THIS API.
+
+    Behind an explicit opt-in flag because, unlike every other endpoint, it
+    reads the server itself rather than an uploaded file -- it shells out to
+    `netsh`/`Get-NetFirewallRule` on Windows or `iptables-save` on Linux. That
+    is a different trust decision from parsing an upload and is not something
+    a caller should be able to trigger by accident.
+    """
+    if not enable:
+        raise HTTPException(400, {
+            "error": "refused: pass ?enable=true to assess the API host",
+            "reason": "this endpoint inspects the server this API runs on, "
+                      "not an uploaded configuration"})
+    from ..readers.hostfw import collect
+
+    try:
+        fw = collect()
+    except Exception as exc:                              # noqa: BLE001
+        # Almost always insufficient privilege. Saying so beats a 500, and
+        # beats returning an empty rule set that would read as "no rules".
+        raise HTTPException(422, {
+            "error": f"could not read this host firewall: "
+                     f"{type(exc).__name__}: {exc}",
+            "reason": "collection needs administrator/root; a failed "
+                      "collection is reported, never returned as zero rules",
+            "not_a_finding": True}) from exc
+    return _hostfw_report(fw)
+
+
+# -------------------------------------------------------------- frameworks
+@app.get("/frameworks", tags=["meta"])
+def frameworks():
+    from ..frameworks.registry import load_all
+
+    reg = load_all("reference")
+    return {"catalogs": {fw.value: len(cat.entries)
+                         for fw, cat in reg.catalogs.items()},
+            "note": "CIS and ISO entries are cited by identifier only; their "
+                    "text is copyrighted and never leaves this machine."}
+
+
+@app.get("/platforms", tags=["meta"])
+def platforms():
+    from ..pipeline import load_packs
+
+    return [{"vendor": p.vendor, "platform": p.platform, "reader": p.reader,
+             "mappings": len(p.mappings)} for p in load_packs()]
+
+
+@app.get("/health", tags=["meta"])
+def health():
+    """Liveness, plus what this build can actually answer.
+
+    Deliberately more than {"ok": true}. Several analyses -- rule hygiene,
+    reachability, recertification -- need an object graph, and a graph is only
+    built for platforms with a registered builder. Every other platform gets a
+    truthful refusal instead. Publishing that list here means a caller can see
+    the boundary before hitting it, and means the boundary is read from the
+    code rather than from a slide that nobody re-checks.
+    """
+    from ..pipeline import GRAPH_BUILDERS, PACK_LOAD_ERRORS, load_packs
+
+    packs = load_packs()          # repopulates PACK_LOAD_ERRORS
+    return {
+        # A pack that will not load is OUR fault, and it silently removes a
+        # platform from the supported list. `ok` reports it rather than
+        # leaving a device to be assessed with no pack and no explanation.
+        "ok": not PACK_LOAD_ERRORS,
+        "pack_load_errors": list(PACK_LOAD_ERRORS),
+        "assessments": len(_STORE),
+        "platforms_parsed": sorted({p.platform for p in packs}),
+        "graph_analyses": {
+            "capabilities": ["rule_hygiene", "reachability", "recertification"],
+            "platforms": [label for _, label in GRAPH_BUILDERS.values()],
+            "note": "platforms outside this list still parse and still produce "
+                    "control findings; only the graph-based analyses above are "
+                    "unavailable, and they refuse rather than returning zero",
+        },
+    }
+
+
+# ---------------------------------------------------------------- internals
+def _get(aid: str):
+    if aid not in _STORE:
+        raise HTTPException(404, f"no assessment {aid!r}")
+    return _STORE[aid]
+
+
+def _require_graph(da, capability: str):
+    """Refuse a graph question the platform cannot answer, and say why.
+
+    A bare "no object graph" reads as a fault. It usually is not: it means no
+    builder is registered for that platform yet, which is a gap in us, not a
+    finding about the device. The supported list is read from the pipeline so
+    this message cannot claim more or less than the code actually does.
+    """
+    if da.graph is not None:
+        return da.graph
+    from ..pipeline import GRAPH_BUILDERS
+
+    raise HTTPException(422, {
+        "error": f"{capability} needs an object graph, and none was built "
+                 f"for platform {da.identity.platform!r}",
+        "reason": "no rule-graph builder is registered for this platform; "
+                  "the configuration parsed correctly and its control "
+                  "findings are unaffected",
+        "supported_platforms": [lbl for _, lbl in GRAPH_BUILDERS.values()],
+        "not_a_finding": True,
+    })
+
+
+def _sbm_for(da):
+    """Re-derive the SBM for remediation's lockout check.
+
+    Remediation needs to know which management transports are LIVE, which is a
+    property of the parsed device rather than of the findings.
+    """
+    import hashlib
+
+    from ..pipeline import _read_and_apply, load_packs, select_pack
+
+    _da, path = _STORE[da.identity.sha256[:12]] if False else (None, None)
+    for _aid, (stored, p) in _STORE.items():
+        if stored is da:
+            path = p
+            break
+    if path is None:
+        return None
+    pack = select_pack(load_packs(), da.fingerprint)
+    if pack is None:
+        return None
+    try:
+        sbm, _doc = _read_and_apply(
+            path, pack, aid="remediation",
+            sha=hashlib.sha256(Path(path).read_bytes()).hexdigest(),
+            redact=True)
+        return sbm
+    except Exception:                                  # noqa: BLE001
+        return None

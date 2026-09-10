@@ -1,0 +1,22 @@
+id: NCSA-API-001
+title: Management API must not accept HTTP basic authentication
+field: platform.api.basic_auth
+operator: equals
+expected: false
+severity: high
+tier: extended
+rationale: >-
+  Basic authentication sends the administrator credential on every request, recoverable by anyone who can observe or replay the session.
+frameworks:
+  nist_800_53: ['IA-2', 'IA-5', 'SC-8']
+  iso_27001_2022: ['A.5.15', 'A.5.17', 'A.8.5']
+  # STIG/CIS ids are per-platform and belong in the vendor pack.
+
+# The management API's auth settings are moot when the API is switched off.
+# On the reference NSA 3700 `sonicOsApi_enable = off`, so every one of these
+# resolves to NOT_APPLICABLE with the disabling setting cited as evidence --
+# not to a FAIL about an attack surface that does not exist.
+requires:
+  - field: platform.api.enabled
+    equals: true
+    because: "the management REST API is disabled, so its authentication settings are moot"

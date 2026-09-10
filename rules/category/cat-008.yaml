@@ -1,0 +1,14 @@
+id: NCSA-CAT-008
+title: Cloud security groups must be identified
+field: cloud.security_groups.id
+operator: is_set
+severity: low
+tier: category
+rationale: >-
+  Inventory precedes assessment.
+frameworks:
+  nist_800_53: ["CM-8"]
+  iso_27001_2022: ["A.5.9", "A.8.9"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

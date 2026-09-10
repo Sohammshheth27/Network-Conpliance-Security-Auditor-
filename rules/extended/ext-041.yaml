@@ -1,0 +1,14 @@
+id: NCSA-EXT-041
+title: Firmware version must be recorded for vulnerability tracking
+field: platform.firmware.version
+operator: is_set
+severity: medium
+tier: extended
+rationale: >-
+  Without a recorded firmware version, no CVE can be matched to this device.
+frameworks:
+  nist_800_53: ["CM-8", "RA-5"]
+  iso_27001_2022: ["A.5.9", "A.8.8", "A.8.9"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

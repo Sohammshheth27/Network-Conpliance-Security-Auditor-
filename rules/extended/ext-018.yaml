@@ -1,0 +1,14 @@
+id: NCSA-EXT-018
+title: Logging severity must capture informational events
+field: logging.severity
+operator: is_set
+severity: medium
+tier: extended
+rationale: >-
+  A severity threshold set too high discards the events an investigation needs.
+frameworks:
+  nist_800_53: ["AU-2"]
+  iso_27001_2022: ["A.8.15"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

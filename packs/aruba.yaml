@@ -1,0 +1,165 @@
+# HPE Aruba AOS-CX mapping pack -- Reader 1 (indented)
+#
+# Source artifact: `show running-config`.
+#
+# AOS-CX looks IOS-like at a glance and is not. The differences that matter:
+#
+#   * services are bound to a VRF: `ssh server vrf mgmt`, `https-server vrf
+#     mgmt`. The VRF is part of the statement, so a bare `^ssh server$` regex
+#     never matches a real switch.
+#   * users are `user <name> group <group> password ciphertext ...` -- no
+#     `privilege 15`, no `secret`.
+#   * interfaces are `interface 1/1/1` (member/slot/port), not `GigabitEthernet0/1`.
+#   * NTP needs an explicit `ntp enable`; configuring a server does not start it.
+#     That distinction is real and worth a separate field.
+#
+# ── VALIDATION STATUS ─────────────────────────────────────────────────────
+# CONSTRUCTED FIXTURE, NOT CAPTURED DEVICE OUTPUT.
+#
+# tests/fixtures/aruba_aoscx.cfg was written from HPE's published AOS-CX CLI
+# syntax; it is not a real `show running-config`. The fixture and this pack
+# therefore agree by construction, which is weaker evidence than a pack
+# validated against genuine output.
+#
+# Re-verify against a real AOS-CX config before relying on this pack.
+# `test_aruba.py` states the same caveat.
+
+vendor: hpe_aruba
+platform: aruba_aoscx
+reader: indented
+version: "0.9"          # 0.9 deliberately: not validated against real output
+
+supported_domains: [device, platform, management, authentication, authorization,
+                    logging, time, snmp, banner, crypto, interfaces, firewall]
+
+# Domains this PLATFORM genuinely lacks, each with the reason published as the
+# finding's justification.
+#
+# Deliberately short. A domain merely absent from `supported_domains` is a gap
+# in OUR pack, not a fact about the device, and now resolves to UNKNOWN --
+# which keeps it in the denominator where it belongs.
+not_applicable_domains:
+  cloud: "this is an on-premises appliance, not a cloud resource"
+  security: "IPS, gateway antivirus and content filtering are next-generation firewall services this platform does not provide"
+
+
+fingerprint:
+  - "^\\s*(ssh|https) server vrf"
+  - "^\\s*user \\S+ group "
+  - "^\\s*vsf member"
+
+mappings:
+  # ---------------------------------------------------------------- identity
+  - field: device.vendor
+    const: aruba
+  - field: device.os
+    const: AOS-CX
+  - field: device.hostname
+    regex: "^hostname (\\S+)"
+    value: {group: 1, as: str}
+  - field: device.version
+    regex: "^!Version (.+)$"
+    value: {group: 1, as: str}
+
+  # -------------------------------------------------------------- management
+  # The VRF is part of the statement on AOS-CX; matching it is what makes these
+  # work against a real switch rather than only against a tidy example.
+  - field: management.ssh.enabled
+    regex: "^ssh server vrf \\S+"
+    value: {const: true}
+  - field: management.https.enabled
+    regex: "^https-server vrf \\S+"
+    value: {const: true}
+  - field: management.telnet.enabled
+    regex: "^telnet server vrf \\S+"
+    value: {const: true}
+  - field: management.vty.exec_timeout
+    regex: "^cli-session timeout (\\d+)"
+    value: {group: 1, as: int}
+  - field: management.ssh.ciphers
+    regex: "^ssh ciphers (.+)$"
+    value: {group: 1, as: str}
+  - field: management.ssh.macs
+    regex: "^ssh macs (.+)$"
+    value: {group: 1, as: str}
+
+  # ------------------------------------------------------------ authentication
+  - field: authentication.local_accounts
+    regex: "^user (\\S+) group"
+    value: {group: 1, as: str}
+  - field: authentication.password_encryption
+    regex: "^user \\S+ group \\S+ password (ciphertext|plaintext)"
+    value: {group: 1, as: str}
+  - field: authentication.aaa_enabled
+    regex: "^aaa authentication login"
+    value: {const: true}
+  - field: authentication.aaa_authentication
+    regex: "^aaa authentication login (\\S+) (.+)$"
+    value: {group: 2, as: str}
+  - field: authentication.lockout.enabled
+    regex: "^aaa authentication limit-login-attempts (\\d+)"
+    value: {const: true}
+
+  # ----------------------------------------------------------------- banners
+  - field: banner.motd
+    regex: "^banner motd"
+    value: {const: true}
+  - field: banner.login
+    regex: "^banner exec"
+    value: {const: true}
+
+  # ----------------------------------------------------------------- logging
+  - field: logging.servers
+    regex: "^logging (\\S+)(?: vrf \\S+)?"
+    value: {group: 1, as: str}
+  - field: logging.enabled
+    regex: "^logging \\S+"
+    value: {const: true}
+  - field: logging.severity
+    regex: "^logging \\S+(?: vrf \\S+)? severity (\\S+)"
+    value: {group: 1, as: str}
+
+  # -------------------------------------------------------------------- time
+  # Configuring a server does NOT start the client on AOS-CX; `ntp enable` is
+  # required. Two fields, because they are two facts.
+  - field: time.servers
+    regex: "^ntp server (\\S+)"
+    value: {group: 1, as: str}
+  - field: time.ntp_enabled
+    regex: "^ntp enable\\s*$"
+    value: {const: true}
+  - field: time.authenticated
+    regex: "^ntp authentication enable"
+    value: {const: true}
+  - field: time.timezone
+    regex: "^clock timezone (\\S+)"
+    value: {group: 1, as: str}
+
+  # -------------------------------------------------------------------- snmp
+  - field: snmp.communities
+    regex: "^snmp-server community (\\S+)"
+    value: {group: 1, as: str}
+  - field: snmp.version
+    regex: "^snmpv3 (user)"
+    value: {group: 1, as: str}
+  - field: snmp.v3_auth
+    regex: "^snmpv3 user \\S+ auth (\\S+)"
+    value: {group: 1, as: str}
+  - field: snmp.v3_priv
+    regex: "^snmpv3 user \\S+ auth \\S+ \\S+ priv (\\S+)"
+    value: {group: 1, as: str}
+
+  # -------------------------------------------------------------- interfaces
+  - field: interfaces.name
+    regex: "^interface (\\S+)"
+    value: {group: 1, as: str}
+
+not_applicable_fields:
+  # {field: reason}. The reason is published as the finding's justification --
+  # an auditor asked to accept an exclusion needs to know why, and "verified
+  # against the setting inventory" asserts a check without stating its result.
+  authentication.enable_secret: "no enable-secret concept on AOS-CX"
+  management.aux.exec_disabled: "no AUX port"
+  management.vty.transport_input: "services are VRF-bound, not line-based"
+  management.vty.transport_output: "services are VRF-bound on AOS-CX, not line-based"
+  crypto.rsa_modulus: "key generation is not represented in the running-config"

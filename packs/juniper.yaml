@@ -1,0 +1,129 @@
+# Juniper Junos (SRX) mapping pack -- Reader 3 (braces)
+#
+# Handles BOTH export forms. The reader normalises hierarchical `{ }` blocks and
+# flat `set ...` lines to identical paths (plan 4.1), so every rule below fires
+# regardless of how the operator exported the config. Writing two rules per
+# field would have meant half of them silently never firing.
+
+vendor: juniper
+platform: juniper_srx
+reader: braces
+version: "1.0"
+
+supported_domains: [device, management, authentication, authorization,
+                    logging, time, snmp, banner, crypto, interfaces, firewall,
+                    exposure]
+
+# Domains this PLATFORM genuinely lacks, each with the reason published as the
+# finding's justification.
+#
+# Deliberately short. A domain merely absent from `supported_domains` is a gap
+# in OUR pack, not a fact about the device, and now resolves to UNKNOWN --
+# which keeps it in the denominator where it belongs.
+not_applicable_domains:
+  cloud: "this is an on-premises appliance, not a cloud resource"
+
+
+fingerprint:
+  - "system/host-name"
+  - "system/services/ssh"
+
+mappings:
+  - field: device.vendor
+    const: juniper
+  - field: device.hostname
+    path: "system/host-name"
+
+  - field: management.ssh.version
+    path: "system/services/ssh/protocol-version"
+    value: {as: int}                 # "v2" -> 2 via normalise
+  - field: management.ssh.max_auth_tries
+    path: "system/services/ssh/connection-limit"
+    value: {as: int}
+
+  - field: management.vty.exec_timeout
+    path: "system/login/idle-timeout"
+    value: {as: int}
+
+  - field: authentication.min_password_length
+    path: "system/login/password/minimum-length"
+    value: {as: int}
+  - field: authentication.aaa_enabled
+    path: "system/radius-server"
+    value: {const: true, empty_is_true: true}
+
+  - field: logging.servers
+    path: "system/syslog/host/*"
+    scope_from: 3
+
+  # `set system ntp server 10.20.0.9` is a LEAF, not a block, so it is an
+  # exact path -- not every repeated element in Junos is a named object.
+  - field: time.servers
+    path: "system/ntp/server"
+  - field: time.authenticated
+    path: "system/ntp/authentication-key"
+    value: {const: true, empty_is_true: true}
+
+  - field: snmp.communities
+    path: "snmp/community/*"
+    scope_from: 2
+
+  - field: banner.login
+    path: "system/login/message"
+
+  - field: management.http.enabled
+    path: "system/services/web-management/http"
+    value: {const: true, empty_is_true: true}
+
+  # --- reconciliation gaps -------------------------------------------------
+  - field: device.os
+    const: Junos
+  - field: device.platform
+    const: juniper_srx
+  - field: authorization.role_based
+    path: "system/login/user/*/class"
+    value: {const: true, empty_is_true: true}
+  - field: banner.motd
+    path: "system/login/announcement"
+  - field: interfaces.address
+    path: "interfaces/*/unit/*/family/inet/address"
+    scope_from: 1
+
+  # --- gaps the reconciliation surfaced on this vendor ---------------------
+  # NOT a const. `set security policies default-policy permit-all` is a
+  # documented, valid configuration; hardcoding deny would report such a
+  # device as compliant. The graph builder reads it; if the config is silent,
+  # the platform default applies and is recorded as an ASSUMPTION.
+  - field: firewall.default_action
+    path: "security/policies/default-policy"
+    if_absent: deny
+  - field: authentication.local_accounts
+    path: "system/login/user/*/uid"
+    scope_from: 3
+  - field: logging.enabled
+    path: "system/syslog/host"
+    value: {const: true, empty_is_true: true}
+  - field: time.ntp_enabled
+    path: "system/ntp/server"
+    value: {const: true, empty_is_true: true}
+  - field: authentication.complexity
+    path: "system/login/password/change-type"
+    value: {const: true, empty_is_true: true}
+  - field: crypto.weak_ciphers
+    path: "system/services/ssh/ciphers"
+    value: {as: list}
+  - field: snmp.version
+    path: "snmp/v3"
+    value: {const: "3"}
+    if_absent: "2c"
+  - field: management.vty.transport_input
+    path: "system/services/ssh"
+    value: {const: ["ssh"]}
+  - field: management.vty.access_class
+    path: "system/services/ssh/connection-limit"
+
+derivations:
+  - field: management.telnet.enabled
+    op: junos_telnet_enabled
+  - field: management.ssh.enabled
+    op: junos_ssh_enabled

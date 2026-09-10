@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NCSA — Network Compliance &amp; Security Auditor</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+
+<!-- The full-bleed gradient ground. Fixed behind everything, so the glass
+     panels have something real to blur and the page reads as one surface
+     rather than as cards on a flat colour. -->
+<div class="bgfield" aria-hidden="true"></div>
+
+<header class="topbar">
+  <a class="brand" href="/">
+    <span class="mark">NCSA</span>
+    <span class="sub">Network Compliance &amp; Security Auditor</span>
+  </a>
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-view="upload">Ingest</button>
+    <button class="tab" data-view="results">Results</button>
+    <button class="tab" data-view="hygiene">Rule hygiene</button>
+    <button class="tab" data-view="training">Training</button>
+    <button class="tab" data-view="remediate">Remediation</button>
+  </nav>
+  <div class="status" id="apiStatus"><span class="dot"></span><span>checking…</span></div>
+</header>
+
+<main>
+
+<!-- ─────────────────────────────── INGEST ─────────────────────────────── -->
+<section class="view active" id="view-upload">
+  <div class="hero">
+    <h1>Assess any network<br>device configuration</h1>
+    <p>Firewalls, routers, switches, cloud security groups and host firewalls.
+       Every finding carries the file and the line it came from.</p>
+    <div class="hero-stats" id="heroStats"></div>
+  </div>
+
+  <div class="dropzone" id="dropzone">
+    <input type="file" id="fileInput" multiple hidden>
+    <div class="dz-inner">
+      <div class="dz-icon">⇪</div>
+      <p><strong>Drop configuration files here</strong> or click to browse</p>
+      <p class="muted">Single or bulk · .cfg .conf .txt .xml .json .exp</p>
+    </div>
+  </div>
+
+  <label class="redact">
+    <input type="checkbox" id="redact" checked>
+    <span>Redact addresses and secrets <em>(turn off only for topology analysis)</em></span>
+  </label>
+
+  <div id="uploadLog" class="log"></div>
+
+  <div class="platforms">
+    <h3>Supported platforms</h3>
+    <div id="platformList" class="chips"></div>
+    <p class="muted small">An unrecognised vendor is not an error — it routes to
+      the vendor-agnostic detectors and the training queue.</p>
+  </div>
+</section>
+
+<!-- ─────────────────────────────── RESULTS ────────────────────────────── -->
+<section class="view" id="view-results">
+  <div class="empty" id="resultsEmpty">
+    <p>No assessments yet. Upload a configuration to begin.</p>
+  </div>
+  <div id="resultsBody" hidden>
+    <div class="devicebar" id="deviceBar"></div>
+
+    <!-- The signature moment: score and coverage as one figure, because they
+         only mean anything together. The ring is the pass rate; the track
+         behind it is how much of the device we could assess. -->
+    <div class="summary" id="summary"></div>
+
+    <div class="scorecards" id="scoreCards"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Source accounting</h2>
+        <span class="muted small">total = mapped + parsed-not-mapped + unreadable</span>
+      </div>
+      <div class="records" id="recordsGrid"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Findings</h2>
+        <div class="filters" id="stateFilters"></div>
+      </div>
+      <table class="grid" id="findingsTable">
+        <thead><tr>
+          <th style="width:7.5rem">Control</th><th>Title</th>
+          <th style="width:6rem">State</th><th style="width:5.5rem">Risk</th>
+          <th style="width:9rem">Observed</th><th>Evidence</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────── HYGIENE ────────────────────────────── -->
+<section class="view" id="view-hygiene">
+  <div class="empty" id="hygieneEmpty"><p>Assess a device first.</p></div>
+  <div id="hygieneBody" hidden>
+    <div class="panel">
+      <div class="panel-head"><h2>Rule hygiene</h2>
+        <span class="muted small">shadowed · redundant · unused · overly permissive</span></div>
+      <div class="scorecards" id="hygieneCards"></div>
+      <table class="grid" id="hygieneTable">
+        <thead><tr><th style="width:9rem">Kind</th><th style="width:8rem">Severity</th>
+          <th>Rule</th><th>Detail</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────── TRAINING ───────────────────────────── -->
+<section class="view" id="view-training">
+  <div class="empty" id="trainEmpty"><p>Assess a device first.</p></div>
+  <div id="trainBody" hidden>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Teach the system a new setting</h2>
+        <span class="muted small">One approval covers every instance of that
+          setting name, on every device of this platform</span>
+      </div>
+      <div class="approver">
+        <label>Approving as
+          <input type="text" id="approver" placeholder="your name" value="">
+        </label>
+        <span class="muted small">An approval is regression-gated: 35 verified
+          results are re-run, and a change that breaks one is refused.</span>
+      </div>
+      <table class="grid" id="trainTable">
+        <thead><tr><th>Setting</th><th style="width:5rem">Seen</th>
+          <th style="width:9rem">Sample value</th><th>Proposed field</th>
+          <th style="width:6rem">Confidence</th><th style="width:7rem"></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ────────────────────────────── REMEDIATION ─────────────────────────── -->
+<section class="view" id="view-remediate">
+  <div class="empty" id="remEmpty"><p>Assess a device first.</p></div>
+  <div id="remBody" hidden>
+    <div class="panel">
+      <div class="panel-head"><h2>Remediation plan</h2>
+        <span class="muted small">ordered · rollback-wrapped · lockout-checked</span></div>
+      <div id="remDeferred"></div>
+      <pre class="script" id="remScript"></pre>
+      <div id="remUnavailable" class="muted small"></div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h3 id="drawerTitle">Finding</h3>
+    <button class="close" id="drawerClose">×</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</div>
+<div class="scrim" id="scrim"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

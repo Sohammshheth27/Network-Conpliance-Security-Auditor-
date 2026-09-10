@@ -1,0 +1,32 @@
+id: NCSA-NTP-001
+title: Time must be synchronised to authoritative sources
+field: time.ntp_enabled
+operator: equals
+expected: true
+severity: medium
+tier: core
+rationale: >-
+  Without synchronised time, log correlation across devices is unreliable and forensic timelines cannot be defended.
+frameworks:
+  nist_800_53: [AU-8, AU-8(1)]
+  iso_27001_2022: [A.8.17]
+  # STIG Vuln IDs are per-platform. Derived from the downloaded
+  # XCCDF files, not recalled -- a control may map to several.
+  stig_by_platform:
+    cisco_iosxe_router: [V-215838]
+    cisco_iosxe_switch: [V-220549]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).
+
+remediation:
+  cisco_iosxe_router:
+    commands:
+    - ntp server 10.0.0.20
+    - ntp server 10.0.0.21
+    phase: 10
+    verify: show ntp associations
+  juniper_srx:
+    commands:
+    - set system ntp server 10.0.0.20
+    - set system ntp server 10.0.0.21
+    phase: 10
+    verify: show configuration system ntp

@@ -1,0 +1,22 @@
+id: NCSA-API-004
+title: Management API must not permit unrestricted cross-origin requests
+field: platform.api.cors
+operator: equals
+expected: false
+severity: medium
+tier: extended
+rationale: >-
+  Cross-origin access lets a page the administrator merely visits drive the firewall using their session.
+frameworks:
+  nist_800_53: ['AC-4', 'SC-7']
+  iso_27001_2022: ['A.8.20', 'A.8.23']
+  # STIG/CIS ids are per-platform and belong in the vendor pack.
+
+# The management API's auth settings are moot when the API is switched off.
+# On the reference NSA 3700 `sonicOsApi_enable = off`, so every one of these
+# resolves to NOT_APPLICABLE with the disabling setting cited as evidence --
+# not to a FAIL about an attack surface that does not exist.
+requires:
+  - field: platform.api.enabled
+    equals: true
+    because: "the management REST API is disabled, so its authentication settings are moot"

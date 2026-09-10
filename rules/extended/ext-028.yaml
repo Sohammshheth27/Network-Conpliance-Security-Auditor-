@@ -1,0 +1,14 @@
+id: NCSA-EXT-028
+title: The device timezone must be set explicitly
+field: time.timezone
+operator: is_set
+severity: low
+tier: extended
+rationale: >-
+  An unset timezone makes cross-device log correlation ambiguous.
+frameworks:
+  nist_800_53: ["AU-8"]
+  iso_27001_2022: ["A.8.17"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

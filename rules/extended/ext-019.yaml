@@ -1,0 +1,14 @@
+id: NCSA-EXT-019
+title: Logs must be sourced from a stable interface
+field: logging.source_interface
+operator: is_set
+severity: low
+tier: extended
+rationale: >-
+  A fixed source address keeps log correlation stable across path changes.
+frameworks:
+  nist_800_53: ["AU-3"]
+  iso_27001_2022: ["A.5.28", "A.8.15"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

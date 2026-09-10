@@ -1,0 +1,240 @@
+# Fortinet FortiOS 7.x mapping pack -- Reader 2 (Fortinet block)
+#
+# Source artifact: `show full-configuration` from the CLI, or
+# System -> Configuration -> Backup (plain text, NOT encrypted).
+#
+# This is a mapping pack, not code (plan 3.3). FortiOS reuses the block reader
+# that already ships for SonicWall, so adding Fortinet is this file and nothing
+# else -- no Python, no redeploy. That claim is the whole architecture argument,
+# and this pack is the demonstration of it.
+#
+# On sourcing: the settings mapped below are FortiOS CLI syntax, taken from
+# Fortinet's own configuration grammar. The CIS FortiGate benchmark informed
+# WHICH settings matter; none of its text is reproduced here, and its
+# recommendation numbers are cited by identifier only in rules/, never inline.
+#
+# Block shape this reader consumes::
+#
+#     config system global
+#         set admintimeout 5
+#         set strong-crypto enable
+#     end
+#
+# producing paths like `system global/admintimeout`.
+
+vendor: fortinet
+platform: fortios
+reader: fortinet_block
+version: "1.0"
+
+# What a FortiGate actually HAS. Controls addressing anything outside these
+# domains resolve to NOT_APPLICABLE rather than UNKNOWN -- plan 6.5. Getting
+# this list right is the single largest lever on honest coverage, because a
+# correct "does not apply" is an answer, not a gap.
+supported_domains: [device, platform, management, authentication, authorization,
+                    logging, time, snmp, banner, crypto, interfaces,
+                    firewall, security]
+
+# Domains this PLATFORM genuinely lacks, each with the reason published as the
+# finding's justification.
+#
+# Deliberately short. A domain merely absent from `supported_domains` is a gap
+# in OUR pack, not a fact about the device, and now resolves to UNKNOWN --
+# which keeps it in the denominator where it belongs.
+not_applicable_domains:
+  cloud: "this is an on-premises appliance, not a cloud resource"
+
+
+# Identity. `system global` with a FortiOS-specific key is what distinguishes a
+# FortiGate from the SonicWall CLI export, which shares this reader.
+fingerprint:
+  - "system global/admintimeout"
+  - "system global/hostname"
+
+mappings:
+  # ---------------------------------------------------------------- identity
+  - field: device.vendor
+    const: fortinet
+  - field: device.os
+    const: FortiOS
+  - field: device.hostname
+    path: "system global/hostname"
+  - field: device.platform
+    path: "system global/alias"
+
+  # -------------------------------------------------------------- management
+  - field: management.vty.exec_timeout
+    path: "system global/admintimeout"
+    value: {as: int}
+  - field: management.console.exec_timeout
+    path: "system console/output"
+
+  # FortiOS declares admin access per-interface via `set allowaccess`, not as a
+  # global service toggle. These read the management interface's allow list;
+  # the derivations below turn that list into the boolean the controls expect.
+  - field: management.https.enabled
+    path: "system global/admin-https-redirect"
+    value: {as: bool}
+  - field: management.http.redirect_https
+    path: "system global/admin-https-redirect"
+    value: {as: bool}
+  - field: management.https.tls_version
+    path: "system global/admin-https-ssl-versions"
+  - field: management.https.cert_source
+    path: "system global/admin-server-cert"
+
+  # ------------------------------------------------------------ authentication
+  - field: authentication.min_password_length
+    path: "system password-policy/minimum-length"
+    value: {as: int}
+  - field: authentication.complexity
+    path: "system password-policy/status"
+    value: {as: bool}
+  - field: authentication.lockout.enabled
+    path: "system global/admin-lockout-threshold"
+    value: {as: bool}
+  - field: authentication.mfa.admin_required
+    path: "system global/two-factor-ha-direct"
+    value: {as: bool}
+  # scoped by the admin's edit key; `accprofile` always exists on an admin
+  - field: authentication.local_accounts
+    path: "system admin/*/accprofile"
+    scope_from: 1
+  - field: authentication.aaa_authentication
+    path: "user radius/*/server"
+    scope_from: 1
+
+  # ----------------------------------------------------------------- banners
+  - field: banner.login
+    path: "system global/pre-login-banner"
+  - field: banner.motd
+    path: "system global/post-login-banner"
+
+  # ----------------------------------------------------------------- logging
+  - field: logging.servers
+    path: "log syslogd setting/server"
+  - field: logging.remote_syslog
+    path: "log syslogd setting/status"
+    value: {as: bool}
+  - field: logging.severity
+    path: "log syslogd setting/severity"
+  - field: logging.source_interface
+    path: "log syslogd setting/source-ip"
+  - field: logging.log_denied
+    path: "log setting/local-in-deny-unicast"
+    value: {as: bool}
+
+  # -------------------------------------------------------------------- time
+  - field: time.servers
+    path: "system ntp/ntpserver/*/server"
+    scope_from: 2
+  - field: time.ntp_enabled
+    path: "system ntp/ntpsync"
+    value: {as: bool}
+  - field: time.timezone
+    path: "system global/timezone"
+
+  # -------------------------------------------------------------------- snmp
+  - field: snmp.communities
+    path: "system snmp community/*/name"
+    scope_from: 2
+  - field: snmp.v3_auth
+    path: "system snmp user/*/auth-proto"
+    scope_from: 2
+  - field: snmp.v3_priv
+    path: "system snmp user/*/priv-proto"
+    scope_from: 2
+  - field: snmp.community_acl
+    path: "system snmp community/*/hosts"
+    scope_from: 2
+
+  # ------------------------------------------------------------------ crypto
+  # `strong-crypto enable` is FortiOS's single switch for disabling weak
+  # ciphers and low TLS versions across the management plane.
+  - field: crypto.weak_ciphers
+    path: "system global/ssl-static-key-ciphers"
+    value: {as: bool}
+  - field: crypto.tls.minimum_version
+    path: "system global/admin-https-ssl-versions"
+
+  # -------------------------------------------------------------- interfaces
+  # No `interfaces.name` mapping: the interface name IS the scope segment, so
+  # every scoped interface field already carries it. Cisco and Juniper model it
+  # the same way.
+  - field: interfaces.address
+    path: "system interface/*/ip"
+    scope_from: 1
+  - field: interfaces.description
+    path: "system interface/*/description"
+    scope_from: 1
+  - field: interfaces.zone
+    path: "system interface/*/role"
+    scope_from: 1
+
+  # ---------------------------------------------------------------- firewall
+  - field: firewall.rules.id
+    path: "firewall policy/*/policyid"
+    scope_from: 1
+  - field: firewall.rules.action
+    path: "firewall policy/*/action"
+    scope_from: 1
+  - field: firewall.rules.source
+    path: "firewall policy/*/srcaddr"
+    scope_from: 1
+  - field: firewall.rules.destination
+    path: "firewall policy/*/dstaddr"
+    scope_from: 1
+  - field: firewall.rules.service
+    path: "firewall policy/*/service"
+    scope_from: 1
+  - field: firewall.rules.log
+    path: "firewall policy/*/logtraffic"
+    scope_from: 1
+  - field: firewall.rules.description
+    path: "firewall policy/*/comments"
+    scope_from: 1
+  # scoped by the zone's edit key
+  - field: firewall.zones
+    path: "system zone/*/interface"
+    scope_from: 1
+
+  # ---------------------------------------------------------------- security
+  - field: security.ips.enabled
+    path: "ips global/database"
+    value: {as: bool}
+  - field: platform.config_archive
+    path: "system global/revision-backup-on-logout"
+    value: {as: bool}
+  - field: platform.firmware.version
+    path: "system global/admin-server-cert"
+
+derivations:
+  # FortiOS has no global telnet or http toggle. A service is reachable only by
+  # appearing in an interface's `allowaccess` list, so absence from EVERY
+  # interface is the evidence that it is off -- a real observation with lines to
+  # cite, not an assumption.
+  - field: management.telnet.enabled
+    op: path_glob_contains
+    params: {path: "system interface/*/allowaccess", token: telnet}
+
+  - field: management.http.enabled
+    op: path_glob_contains
+    params: {path: "system interface/*/allowaccess", token: http}
+
+  - field: management.ssh.enabled
+    op: path_glob_contains
+    params: {path: "system interface/*/allowaccess", token: ssh}
+
+# Genuinely absent from FortiOS. Declaring them keeps the controls at
+# NOT_APPLICABLE instead of leaving them UNKNOWN, which is what stops a
+# FortiGate assessment from looking less complete than it truly is.
+not_applicable_fields:
+  # {field: reason}. The reason is published as the finding's justification --
+  # an auditor asked to accept an exclusion needs to know why, and "verified
+  # against the setting inventory" asserts a check without stating its result.
+  authentication.enable_secret: "no enable-secret concept"
+  management.aux.exec_disabled: "no AUX port"
+  management.vty.transport_input: "not a line-based CLI model"
+  management.vty.transport_output: "not a line-based CLI model"
+  management.vty.access_class: "uses trusted hosts + local-in policy"
+  crypto.rsa_modulus: "certificate-based, not modulus-configured"

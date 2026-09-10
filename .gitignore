@@ -1,0 +1,61 @@
+# ---------------------------------------------------------------- licensing
+# CIS Benchmarks and ISO/IEC 27001 are copyrighted. Local reference is fine;
+# redistribution is not, and a git push is redistribution. Everything below
+# either IS that content or is derived closely enough from it to carry the
+# prose forward. See ncsa/rag/guard.py, which enforces the same line in code.
+reference/cis_benchmarks/
+reference/iso/
+reference/**/_body_cache.jsonl
+reference/mapping_proposals.jsonl        # carries CIS/ISO titles for local review
+
+# ------------------------------------------------------------ build outputs
+reference/.embed_cache*.npz
+reference/.framework_cache*
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+downloads/
+
+# ------------------------------------------------------------ customer data
+# Plan 5.1: never commit a real config. Run netconan on anything real first.
+samples/**/*.exp
+samples/**/real_*
+*.exp
+
+# ------------------------------------------------- assessed-device history
+# Snapshots taken by the change-tracking feature. They key on REAL device
+# identity -- hostname, serial number and the config's SHA256 -- so the
+# directory names alone disclose a live appliance (serial_18C241359276).
+# Local history is the point of the feature; publishing it is not.
+corpus/history/
+
+# ------------------------------------------------------------ node / build
+node_modules/
+frontend/dist/
+frontend/node_modules/
+web/node_modules/
+web/.next/
+web/out/
+.playwright/
+*.tsbuildinfo
+
+# ---------------------------------------------------------------- scratch
+.claude/
+*.log
+
+# ------------------------------------------------ vendor documentation
+# Crawled copies of Check Point, Juniper, Fortinet, F5, A10 and Arista
+# documentation. Same reasoning as the CIS/ISO block at the top: keeping a
+# local copy to write mappings against is fair use; republishing a vendor's
+# CLI reference PDF on a public repo is redistribution.
+#
+# SOURCES.md is kept -- it records WHERE each document came from, so anyone
+# cloning can fetch their own copy. tools/fetch_vendor_docs.py re-downloads
+# them.
+reference/vendor_docs/*
+!reference/vendor_docs/SOURCES.md
+
+# NIST OSCAL is public domain and legitimately redistributable, but it is
+# 121 MB of machine-generated JSON that tools/ can re-fetch on demand.
+reference/nist/

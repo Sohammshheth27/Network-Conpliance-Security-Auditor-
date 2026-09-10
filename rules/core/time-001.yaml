@@ -1,0 +1,32 @@
+id: NCSA-TIME-001
+title: Idle session timeout must be 10 minutes or less
+field: management.vty.exec_timeout
+operator: lte
+expected: 10
+severity: high
+tier: core
+rationale: >-
+  An unattended authenticated session is an unauthenticated path to administrative control.
+frameworks:
+  nist_800_53: [AC-12, SC-10]
+  iso_27001_2022: [A.8.20]
+  # STIG Vuln IDs are per-platform. Derived from the downloaded
+  # XCCDF files, not recalled -- a control may map to several.
+  stig_by_platform:
+    cisco_iosxe_router: [V-215833]
+    cisco_iosxe_switch: [V-220544]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).
+
+remediation:
+  cisco_iosxe_router:
+    commands:
+    - line vty 0 15
+    - ' exec-timeout 10 0'
+    - ' exit'
+    phase: 30
+    verify: show running-config | section line vty
+  juniper_srx:
+    commands:
+    - set system login idle-timeout 10
+    phase: 30
+    verify: show configuration system login

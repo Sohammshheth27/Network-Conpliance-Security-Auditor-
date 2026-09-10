@@ -1,0 +1,14 @@
+id: NCSA-CAT-007
+title: Defined ACLs must actually be applied
+field: firewall.acl_applied
+operator: is_set
+severity: high
+tier: category
+rationale: >-
+  An ACL that exists but is bound to no interface enforces nothing -- a common and easily missed misconfiguration.
+frameworks:
+  nist_800_53: ["AC-4"]
+  iso_27001_2022: ["A.5.14", "A.8.22", "A.8.23"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

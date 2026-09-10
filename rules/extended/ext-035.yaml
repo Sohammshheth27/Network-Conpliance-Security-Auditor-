@@ -1,0 +1,15 @@
+id: NCSA-EXT-035
+title: Dynamic ARP inspection should be enabled
+field: l2.arp_inspection
+operator: equals
+expected: true
+severity: medium
+tier: extended
+rationale: >-
+  DAI is what stops ARP poisoning turning a switched segment into a shared one.
+frameworks:
+  nist_800_53: ["SC-7"]
+  iso_27001_2022: ["A.5.14", "A.8.16", "A.8.20", "A.8.22", "A.8.23"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

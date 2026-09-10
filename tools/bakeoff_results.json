@@ -1,0 +1,20 @@
+[
+ {
+  "model": "qwen3.5:4b",
+  "accuracy": 57.142857142857146,
+  "abstain_rate": 66.66666666666667,
+  "false_answer": 2,
+  "schema_invalid": 0,
+  "median_s": 15.38126790523529,
+  "total_s": 314.9618923664093
+ },
+ {
+  "model": "qwen3.5:9b",
+  "accuracy": 42.857142857142854,
+  "abstain_rate": 66.66666666666667,
+  "false_answer": 2,
+  "schema_invalid": 0,
+  "median_s": 28.558623552322388,
+  "total_s": 584.9529995918274
+ }
+]

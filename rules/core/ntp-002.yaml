@@ -1,0 +1,32 @@
+id: NCSA-NTP-002
+title: NTP must be authenticated
+field: time.authenticated
+operator: equals
+expected: true
+severity: medium
+tier: core
+rationale: >-
+  Unauthenticated NTP allows an attacker to shift device time and invalidate or misdirect audit records.
+frameworks:
+  nist_800_53: [AU-8(1), SC-45]
+  iso_27001_2022: [A.8.17]
+  # STIG Vuln IDs are per-platform. Derived from the downloaded
+  # XCCDF files, not recalled -- a control may map to several.
+  stig_by_platform:
+    cisco_iosxe_router: [V-215843]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).
+
+remediation:
+  cisco_iosxe_router:
+    commands:
+    - ntp authenticate
+    - ntp authentication-key 1 md5 <KEY>
+    - ntp trusted-key 1
+    phase: 30
+    verify: show running-config | include ntp authent
+  juniper_srx:
+    commands:
+    - set system ntp authentication-key 1 type sha256 value <KEY>
+    - set system ntp trusted-key 1
+    phase: 30
+    verify: show configuration system ntp

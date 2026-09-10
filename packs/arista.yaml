@@ -1,0 +1,166 @@
+# Arista EOS mapping pack -- Reader 1 (indented)
+#
+# Source artifact: `show running-config` / `show startup-config`.
+#
+# EOS is close to IOS in shape, which is why it reuses the indented reader --
+# but the differences are exactly where a copied Cisco pack would go wrong:
+#
+#   * management services are STANZAS, not one-line toggles. `management ssh`
+#     opens a block and `shutdown` inside it disables the service. There is no
+#     `ip ssh version`. A Cisco-shaped regex finds nothing and reports UNKNOWN.
+#   * `no shutdown` inside a management stanza is the ENABLED state, so the
+#     boolean is inverted relative to how it reads.
+#   * users carry `role network-admin`, not `privilege 15` alone.
+#   * EOS has no `enable secret` in the IOS sense.
+#
+# ── VALIDATION STATUS ─────────────────────────────────────────────────────
+# CONSTRUCTED FIXTURE, NOT CAPTURED DEVICE OUTPUT.
+#
+# tests/fixtures/arista_eos.cfg was written from Arista's published EOS CLI
+# syntax; it is not a real `show running-config` from a real switch. That makes
+# the fixture and this pack agree by construction, which is weaker evidence
+# than the Palo Alto pack has -- that one is validated against a genuine export
+# and found a reader bug because of it.
+#
+# Every mapping here should be re-verified against a real EOS config before
+# this pack is relied on. `test_arista.py` states the same caveat.
+
+vendor: arista
+platform: arista_eos
+reader: indented
+version: "0.9"          # 0.9 deliberately: not validated against real output
+
+supported_domains: [device, platform, management, authentication, authorization,
+                    logging, time, snmp, banner, crypto, interfaces, firewall]
+
+# Domains this PLATFORM genuinely lacks, each with the reason published as the
+# finding's justification.
+#
+# Deliberately short. A domain merely absent from `supported_domains` is a gap
+# in OUR pack, not a fact about the device, and now resolves to UNKNOWN --
+# which keeps it in the denominator where it belongs.
+not_applicable_domains:
+  cloud: "this is an on-premises appliance, not a cloud resource"
+  security: "IPS, gateway antivirus and content filtering are next-generation firewall services this platform does not provide"
+
+
+fingerprint:
+  - "^\\s*management (ssh|telnet|api http-commands)"
+  - "^\\s*role network-admin"
+  - "^\\s*service routing protocols model"
+
+mappings:
+  # ---------------------------------------------------------------- identity
+  - field: device.vendor
+    const: arista
+  - field: device.os
+    const: EOS
+  - field: device.hostname
+    regex: "^hostname (\\S+)"
+    value: {group: 1, as: str}
+  - field: device.version
+    regex: "^! device: .* EOS-(\\S+)"
+    value: {group: 1, as: str}
+
+  # -------------------------------------------------------------- management
+  # `management ssh` opens a stanza; `shutdown` within it turns the service
+  # off. Absence of the stanza is not the same as absence of the service, so
+  # these read the explicit state only.
+  - field: management.ssh.enabled
+    regex: "^management ssh"
+    value: {const: true}
+  - field: management.telnet.enabled
+    regex: "^management telnet"
+    value: {const: true}
+  - field: management.http.enabled
+    regex: "^\\s*no protocol http\\s*$"
+    value: {const: false}
+  - field: management.https.enabled
+    regex: "^\\s*protocol https\\s*$"
+    value: {const: true}
+  - field: management.vty.exec_timeout
+    regex: "^\\s*idle-timeout (\\d+)"
+    value: {group: 1, as: int}
+  - field: management.ssh.ciphers
+    regex: "^\\s*cipher (.+)$"
+    value: {group: 1, as: str}
+  - field: management.ssh.kex
+    regex: "^\\s*key-exchange (.+)$"
+    value: {group: 1, as: str}
+  - field: management.ssh.macs
+    regex: "^\\s*mac (\\S*hmac\\S*.*)$"
+    value: {group: 1, as: str}
+
+  # ------------------------------------------------------------ authentication
+  - field: authentication.local_accounts
+    regex: "^username (\\S+)"
+    value: {group: 1, as: str}
+  - field: authentication.aaa_enabled
+    regex: "^aaa authentication login"
+    value: {const: true}
+  - field: authentication.aaa_authentication
+    regex: "^aaa authentication login default (.+)$"
+    value: {group: 1, as: str}
+  - field: authentication.password_encryption
+    regex: "^username \\S+ .*secret (sha512|0|5) "
+    value: {group: 1, as: str}
+
+  # ----------------------------------------------------------------- banners
+  - field: banner.login
+    regex: "^banner login"
+    value: {const: true}
+  - field: banner.motd
+    regex: "^banner motd"
+    value: {const: true}
+
+  # ----------------------------------------------------------------- logging
+  - field: logging.servers
+    regex: "^logging host (\\S+)"
+    value: {group: 1, as: str}
+  - field: logging.enabled
+    regex: "^logging (host|buffered|trap)"
+    value: {const: true}
+  - field: logging.severity
+    regex: "^logging trap (\\S+)"
+    value: {group: 1, as: str}
+  - field: logging.source_interface
+    regex: "^logging source-interface (\\S+)"
+    value: {group: 1, as: str}
+
+  # -------------------------------------------------------------------- time
+  - field: time.servers
+    regex: "^ntp server (?:vrf \\S+ )?(\\S+)"
+    value: {group: 1, as: str}
+  - field: time.ntp_enabled
+    regex: "^ntp server"
+    value: {const: true}
+  - field: time.timezone
+    regex: "^clock timezone (\\S+)"
+    value: {group: 1, as: str}
+
+  # -------------------------------------------------------------------- snmp
+  - field: snmp.communities
+    regex: "^snmp-server community (\\S+)"
+    value: {group: 1, as: str}
+  - field: snmp.version
+    regex: "^snmp-server (community|group \\S+ v3)"
+    value: {group: 1, as: str}
+  - field: snmp.v3_auth
+    regex: "^snmp-server user \\S+ \\S+ v3 auth (\\S+)"
+    value: {group: 1, as: str}
+  - field: snmp.v3_priv
+    regex: "^snmp-server user \\S+ \\S+ v3 auth \\S+ \\S+ priv (\\S+)"
+    value: {group: 1, as: str}
+
+  # -------------------------------------------------------------- interfaces
+  - field: interfaces.name
+    regex: "^interface (\\S+)"
+    value: {group: 1, as: str}
+
+not_applicable_fields:
+  # {field: reason}. The reason is published as the finding's justification --
+  # an auditor asked to accept an exclusion needs to know why, and "verified
+  # against the setting inventory" asserts a check without stating its result.
+  authentication.enable_secret: "EOS has no IOS-style enable secret"
+  management.aux.exec_disabled: "no AUX port on EOS platforms"
+  crypto.rsa_modulus: "key generation is not in running-config"

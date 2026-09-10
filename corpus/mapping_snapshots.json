@@ -1,0 +1,476 @@
+{
+ "describe-security-groups.json": {
+  "counts": {
+   "ERROR": 0,
+   "FAIL": 3,
+   "MANUAL_REVIEW": 0,
+   "NOT_APPLICABLE": 64,
+   "PARTIAL": 0,
+   "PASS": 3,
+   "UNKNOWN": 18
+  },
+  "fields": {
+   "cloud.security_groups.egress": [
+    "{'IpProtocol': '-1', 'IpRanges': [{'CidrIp': '0.0.0.0/0'}], 'Ipv6Ranges': [], 'UserIdGroupPairs': [], 'PrefixListIds': []}"
+   ],
+   "cloud.security_groups.id": "sg-0a1b2c3d4e5f60001",
+   "exposure.admin_ports_open_to_internet": [
+    "sg-0a1b2c3d4e5f60001:all/1433 from 0.0.0.0/0",
+    "sg-0a1b2c3d4e5f60001:all/21 from 0.0.0.0/0",
+    "sg-0a1b2c3d4e5f60001:all/22 from 0.0.0.0/0",
+    "sg-0a1b2c3d4e5f60001:all/23 from 0.0.0.0/0",
+    "sg-0a1b2c3d4e5f60001:all/27017 from 0.0.0.0/0",
+    "sg-0a1b2c3d4e5f60001:all/3306 from 0.0.0.0/0",
+    "sg-0a1b2c3d4e5f60001:all/3389 from 0.0.0.0/0",
+    "sg-0a1b2c3d4e5f60001:all/5432 from 0.0.0.0/0",
+    "sg-0a1b2c3d4e5f60001:all/6379 from 0.0.0.0/0",
+    "sg-0a1b2c3d4e5f60001:all/9200 from 0.0.0.0/0",
+    "sg-0a1b2c3d4e5f60002:tcp/22 from 0.0.0.0/0"
+   ],
+   "exposure.any_any_rules": [
+    "sg-0a1b2c3d4e5f60001 (default): all protocols from 0.0.0.0/0"
+   ],
+   "exposure.unrestricted_ingress": [
+    "sg-0a1b2c3d4e5f60001:all/all from 0.0.0.0/0",
+    "sg-0a1b2c3d4e5f60002:tcp/22 from 0.0.0.0/0",
+    "sg-0a1b2c3d4e5f60002:tcp/443 from 0.0.0.0/0",
+    "sg-0a1b2c3d4e5f60002:tcp/80 from 0.0.0.0/0"
+   ],
+   "firewall.default_action": "deny"
+  },
+  "platform": "security_groups",
+  "records": {
+   "PARSED": 78,
+   "UNKNOWN": 9
+  }
+ },
+ "edge-rtr-01.cfg": {
+  "counts": {
+   "ERROR": 0,
+   "FAIL": 44,
+   "MANUAL_REVIEW": 0,
+   "NOT_APPLICABLE": 4,
+   "PARTIAL": 2,
+   "PASS": 16,
+   "UNKNOWN": 22
+  },
+  "fields": {
+   "authentication.aaa_enabled": false,
+   "authentication.local_accounts": [
+    "admin",
+    "backup",
+    "svc-monitor"
+   ],
+   "authentication.min_password_length": 8,
+   "authentication.password_encryption": true,
+   "authorization.role_based": true,
+   "crypto.weak_ciphers": [],
+   "firewall.default_action": "deny",
+   "interfaces.description": "WAN to ISP",
+   "interfaces.shutdown": false,
+   "logging.enabled": true,
+   "logging.remote_syslog": true,
+   "logging.servers": [
+    "10.10.0.50"
+   ],
+   "management.http.enabled": true,
+   "management.http.redirect_https": true,
+   "management.https.enabled": true,
+   "management.ssh.enabled": true,
+   "management.ssh.max_auth_tries": 5,
+   "management.ssh.timeout": 120,
+   "management.ssh.version": 1,
+   "management.telnet.enabled": true,
+   "management.vty.exec_timeout": 30,
+   "management.vty.transport_input": [
+    "ssh",
+    "telnet"
+   ],
+   "services.unused_enabled": [
+    "ip http server"
+   ],
+   "snmp.communities": [
+    "private",
+    "public"
+   ],
+   "snmp.version": "2c",
+   "time.ntp_enabled": true,
+   "time.servers": [
+    "10.10.0.9"
+   ]
+  },
+  "platform": "cisco_iosxe_router",
+  "records": {
+   "MAPPED": 32,
+   "PARSED": 13,
+   "UNKNOWN": 0
+  }
+ },
+ "hardened-per-cisco-guide.cfg": {
+  "counts": {
+   "ERROR": 0,
+   "FAIL": 16,
+   "MANUAL_REVIEW": 0,
+   "NOT_APPLICABLE": 4,
+   "PARTIAL": 2,
+   "PASS": 46,
+   "UNKNOWN": 20
+  },
+  "fields": {
+   "authentication.aaa_authentication": [
+    "default",
+    "enable",
+    "group",
+    "tacacs+"
+   ],
+   "authentication.aaa_enabled": true,
+   "authentication.enable_secret": true,
+   "authentication.local_accounts": [
+    "ssh-user"
+   ],
+   "authentication.lockout.enabled": true,
+   "authentication.min_password_length": 15,
+   "authentication.password_encryption": true,
+   "authorization.aaa_authorization": [
+    "0",
+    "15",
+    "default",
+    "default",
+    "default",
+    "group",
+    "group",
+    "group",
+    "start-stop",
+    "start-stop",
+    "start-stop",
+    "tacacs",
+    "tacacs",
+    "tacacs"
+   ],
+   "authorization.role_based": true,
+   "banner.login": "^C",
+   "crypto.rsa_modulus": 2048,
+   "crypto.weak_ciphers": [
+    "snmpv3-auth-md5",
+    "snmpv3-priv-3des"
+   ],
+   "firewall.acls": [
+    "access-list 98"
+   ],
+   "firewall.default_action": "deny",
+   "interfaces.description": "WAN",
+   "interfaces.shutdown": false,
+   "logging.command_accounting": true,
+   "logging.enabled": true,
+   "logging.persistent": true,
+   "logging.remote_syslog": true,
+   "logging.servers": [
+    "192.168.100.50"
+   ],
+   "logging.severity": [
+    "console",
+    "monitor",
+    "trap 6"
+   ],
+   "logging.source_interface": "Loopback 0",
+   "management.aux.exec_disabled": true,
+   "management.http.enabled": false,
+   "management.http.redirect_https": true,
+   "management.https.enabled": true,
+   "management.ssh.enabled": true,
+   "management.ssh.max_auth_tries": 3,
+   "management.ssh.pubkey_auth": true,
+   "management.ssh.source_interface": "Loopback 0",
+   "management.ssh.strict_host_key": true,
+   "management.ssh.timeout": 60,
+   "management.ssh.version": 2,
+   "management.telnet.enabled": false,
+   "management.vty.access_class": "98",
+   "management.vty.exec_timeout": 5,
+   "management.vty.transport_input": [
+    "ssh"
+   ],
+   "management.vty.transport_output": [
+    "none"
+   ],
+   "services.unused_enabled": [
+    "ip domain-name"
+   ],
+   "snmp.communities": [
+    "READONLY"
+   ],
+   "snmp.community_acl": true,
+   "snmp.v3_auth": true,
+   "snmp.version": "3",
+   "snmp.views": [
+    "VIEW-SYSTEM-ONLY"
+   ],
+   "time.authenticated": true,
+   "time.ntp_enabled": true,
+   "time.servers": [
+    "192.168.100.9"
+   ],
+   "time.timezone": "PST"
+  },
+  "platform": "cisco_iosxe_router",
+  "records": {
+   "MAPPED": 65,
+   "PARSED": 13,
+   "UNKNOWN": 0
+  }
+ },
+ "nsa3700-fw.txt": {
+  "counts": {
+   "ERROR": 0,
+   "FAIL": 16,
+   "MANUAL_REVIEW": 0,
+   "NOT_APPLICABLE": 2,
+   "PARTIAL": 1,
+   "PASS": 16,
+   "UNKNOWN": 53
+  },
+  "fields": {
+   "authentication.aaa_enabled": false,
+   "authentication.complexity": false,
+   "authentication.local_accounts": [
+    "backup-admin"
+   ],
+   "authentication.lockout.enabled": false,
+   "authentication.min_password_length": 8,
+   "authorization.role_based": true,
+   "crypto.tls.minimum_version": "1.0",
+   "crypto.weak_ciphers": [
+    "3des",
+    "rc4"
+   ],
+   "exposure.admin_ports_open_to_internet": [],
+   "exposure.any_any_rules": [],
+   "exposure.unrestricted_ingress": [],
+   "firewall.default_action": "deny",
+   "logging.enabled": true,
+   "logging.servers": [
+    "10.30.0.50"
+   ],
+   "management.http.enabled": true,
+   "management.https.enabled": true,
+   "management.ssh.enabled": true,
+   "management.ssh.max_auth_tries": 6,
+   "management.ssh.version": 2,
+   "management.telnet.enabled": false,
+   "management.vty.exec_timeout": 60,
+   "management.vty.transport_input": [
+    "ssh"
+   ],
+   "platform.firmware.version": "7.3.0-7012",
+   "security.gav.enabled": true,
+   "security.ips.enabled": true,
+   "snmp.communities": [
+    "public"
+   ],
+   "snmp.version": "v2c",
+   "time.authenticated": false,
+   "time.ntp_enabled": true
+  },
+  "platform": "sonicwall_sonicos",
+  "records": {
+   "PARSED": 34,
+   "UNKNOWN": 13
+  }
+ },
+ "srx-combined.conf": {
+  "counts": {
+   "ERROR": 0,
+   "FAIL": 13,
+   "MANUAL_REVIEW": 0,
+   "NOT_APPLICABLE": 2,
+   "PARTIAL": 2,
+   "PASS": 13,
+   "UNKNOWN": 58
+  },
+  "fields": {
+   "authentication.local_accounts": [
+    "2001"
+   ],
+   "authentication.min_password_length": 8,
+   "authorization.role_based": true,
+   "banner.login": "Unauthorized access prohibited",
+   "exposure.admin_ports_open_to_internet": [
+    "rule allow-rdp-vendor: rdp/3389 from internet to 10.10.10.10/32",
+    "rule allow-web: https-mgmt/443 from internet to 10.10.20.50/32"
+   ],
+   "firewall.default_action": "deny",
+   "firewall.rules.service": [
+    "tcp/443"
+   ],
+   "firewall.rules.source": [
+    "0.0.0.0/0"
+   ],
+   "firewall.rules_unevaluable": [
+    "allow-db-broken: BROKEN_SET [UNRESOLVED]"
+   ],
+   "logging.servers": [
+    "notice"
+   ],
+   "management.ssh.enabled": true,
+   "management.ssh.max_auth_tries": 10,
+   "management.ssh.version": 2,
+   "management.telnet.enabled": true,
+   "management.vty.access_class": "10",
+   "management.vty.exec_timeout": 45,
+   "snmp.communities": [
+    "read-only"
+   ],
+   "snmp.version": "2c",
+   "time.ntp_enabled": true,
+   "time.servers": [
+    "10.20.0.9"
+   ]
+  },
+  "platform": "juniper_srx",
+  "records": {
+   "PARSED": 13,
+   "UNKNOWN": 35
+  }
+ },
+ "srx-display-xml-weak.xml": {
+  "counts": {
+   "ERROR": 0,
+   "FAIL": 9,
+   "MANUAL_REVIEW": 0,
+   "NOT_APPLICABLE": 4,
+   "PARTIAL": 0,
+   "PASS": 4,
+   "UNKNOWN": 71
+  },
+  "fields": {
+   "authentication.local_accounts": [
+    "admin",
+    "backup",
+    "operator"
+   ],
+   "authorization.role_based": true,
+   "firewall.default_action": "permit",
+   "firewall.zones": [
+    "trust"
+   ],
+   "logging.enabled": false,
+   "management.http.enabled": false,
+   "management.https.enabled": false,
+   "management.ssh.enabled": true,
+   "management.ssh.version": 1,
+   "management.telnet.enabled": true,
+   "snmp.communities": [
+    "private",
+    "public"
+   ],
+   "snmp.v3_auth": false,
+   "snmp.v3_priv": false,
+   "time.authenticated": false,
+   "time.ntp_enabled": false
+  },
+  "platform": "juniper_srx_xml",
+  "records": {
+   "MAPPED": 12,
+   "PARSED": 6,
+   "UNKNOWN": 0
+  }
+ },
+ "srx-display-xml.xml": {
+  "counts": {
+   "ERROR": 0,
+   "FAIL": 0,
+   "MANUAL_REVIEW": 0,
+   "NOT_APPLICABLE": 4,
+   "PARTIAL": 0,
+   "PASS": 20,
+   "UNKNOWN": 64
+  },
+  "fields": {
+   "authentication.local_accounts": [
+    "netadmin"
+   ],
+   "authorization.role_based": true,
+   "banner.login": "Authorised access only. Activity is monitored and logged.",
+   "firewall.default_action": "deny",
+   "firewall.zones": [
+    "trust",
+    "untrust"
+   ],
+   "logging.enabled": true,
+   "logging.servers": [
+    "10.20.0.50",
+    "10.20.0.51"
+   ],
+   "management.http.enabled": false,
+   "management.https.enabled": false,
+   "management.ssh.enabled": true,
+   "management.ssh.max_auth_tries": 3,
+   "management.ssh.version": 2,
+   "management.telnet.enabled": false,
+   "management.vty.exec_timeout": 10,
+   "snmp.v3_auth": true,
+   "snmp.v3_priv": true,
+   "time.authenticated": true,
+   "time.ntp_enabled": true,
+   "time.servers": [
+    "10.20.0.10",
+    "10.20.0.11"
+   ],
+   "time.timezone": "Asia/Kolkata"
+  },
+  "platform": "juniper_srx_xml",
+  "records": {
+   "MAPPED": 19,
+   "PARSED": 22,
+   "UNKNOWN": 0
+  }
+ },
+ "srx-fw-01.conf": {
+  "counts": {
+   "ERROR": 0,
+   "FAIL": 10,
+   "MANUAL_REVIEW": 0,
+   "NOT_APPLICABLE": 2,
+   "PARTIAL": 2,
+   "PASS": 15,
+   "UNKNOWN": 59
+  },
+  "fields": {
+   "authentication.local_accounts": [
+    "2001"
+   ],
+   "authentication.min_password_length": 8,
+   "authorization.role_based": true,
+   "banner.login": "Unauthorized access prohibited",
+   "exposure.admin_ports_open_to_internet": [],
+   "exposure.any_any_rules": [],
+   "exposure.unrestricted_ingress": [],
+   "firewall.default_action": "deny",
+   "logging.servers": [
+    "notice"
+   ],
+   "management.ssh.enabled": true,
+   "management.ssh.max_auth_tries": 10,
+   "management.ssh.version": 2,
+   "management.telnet.enabled": true,
+   "management.vty.access_class": "10",
+   "management.vty.exec_timeout": 45,
+   "snmp.communities": [
+    "read-only"
+   ],
+   "snmp.version": "2c",
+   "time.ntp_enabled": true,
+   "time.servers": [
+    "10.20.0.9"
+   ]
+  },
+  "platform": "juniper_srx",
+  "records": {
+   "PARSED": 13,
+   "UNKNOWN": 3
+  }
+ },
+ "srx-policy-01.conf": {
+  "_unsupported": "UNKNOWN"
+ }
+}

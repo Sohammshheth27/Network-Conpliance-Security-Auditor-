@@ -1,0 +1,14 @@
+id: NCSA-EXT-031
+title: Unnecessary services must be disabled
+field: services.unused_enabled
+operator: is_set
+severity: medium
+tier: extended
+rationale: >-
+  Every enabled service the device does not need is attack surface it need not have.
+frameworks:
+  nist_800_53: ["CM-7"]
+  iso_27001_2022: ["A.8.19"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

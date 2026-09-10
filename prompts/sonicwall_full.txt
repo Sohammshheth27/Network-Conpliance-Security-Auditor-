@@ -1,0 +1,89 @@
+You are a network security auditor. Below is a SonicWall SonicOS CLI settings
+export. Analyse it as thoroughly as you can.
+
+Produce, in this order:
+
+1. DEVICE IDENTIFICATION
+   Vendor, model, firmware version, hostname, and anything else identifying.
+
+2. EVERY SETTING YOU CAN READ
+   List each configuration setting you find and what it means. Do not skip
+   sections. Say explicitly if a section's meaning is unclear to you.
+
+3. SECURITY FINDINGS
+   For each problem: what is wrong, why it matters, and severity
+   (critical/high/medium/low). Include the exact config line as evidence.
+
+4. FRAMEWORK MAPPING
+   Map each finding to CIS, NIST SP 800-53, DISA STIG and ISO 27001:2022
+   identifiers where you can. If you are not certain of an identifier, say so
+   rather than inventing one.
+
+5. REMEDIATION
+   Exact SonicOS CLI commands to fix each finding, in a safe order. Flag any
+   command that risks locking out an administrator.
+
+6. WHAT YOU CANNOT DETERMINE
+   List every question this file does not answer, and anything you are
+   guessing at. Be explicit about uncertainty.
+
+CONFIGURATION FILE FOLLOWS:
+
+# SonicOS Enhanced 7.3.0-7012 CLI settings export
+config sonicos
+  config administration
+    set firewall-name NSA3700-EDGE
+    set firmware-version 7.3.0-7012
+    set http-management enable
+    set https-management enable
+    set ssh-management enable
+    set http-port 80
+    set https-port 443
+    set ssh-port 22
+    set inactivity-timeout 60
+    set password-min-length 8
+    set password-complexity disable
+    set login-lockout disable
+    set login-banner ""
+    set ssh-version 2
+    set ssh-max-auth-tries 6
+    set telnet-management disable
+    set management-transport ssh
+    set management-acl ""
+    set rbac enable
+    set tls-min-version 1.0
+    set weak-ciphers 3des,rc4
+  end
+  config authentication
+    set method local
+    set aaa-radius disable
+    set local-user admin
+    set local-user backup-admin
+    set password-complexity disable
+  end
+  config log
+    set logging enable
+  end
+  config time
+    set ntp-enable enable
+    set ntp-server 1 pool.ntp.org
+    set ntp-authenticate disable
+  end
+  config firewall
+    set default-action deny
+  end
+  config snmp
+    set version v2c
+    set get-community public
+  end
+  config log syslog
+    edit 1
+      set server 10.30.0.50
+    next
+  end
+  config security-services
+    set ips enable
+    set gateway-av enable
+    set dpi-ssl disable
+  end
+end

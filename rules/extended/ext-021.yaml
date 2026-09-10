@@ -1,0 +1,15 @@
+id: NCSA-EXT-021
+title: Denied traffic must be logged
+field: logging.log_denied
+operator: equals
+expected: true
+severity: medium
+tier: extended
+rationale: >-
+  Denied traffic is the signal; without it a blocked attack is invisible.
+frameworks:
+  nist_800_53: ["AU-2", "AC-4"]
+  iso_27001_2022: ["A.5.14", "A.8.15", "A.8.22", "A.8.23"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

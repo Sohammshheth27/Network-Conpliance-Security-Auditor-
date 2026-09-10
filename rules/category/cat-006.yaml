@@ -1,0 +1,14 @@
+id: NCSA-CAT-006
+title: Access control lists must be defined
+field: firewall.acls
+operator: is_set
+severity: medium
+tier: category
+rationale: >-
+  A device with no ACLs is forwarding without policy.
+frameworks:
+  nist_800_53: ["AC-4"]
+  iso_27001_2022: ["A.5.14", "A.8.22", "A.8.23"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

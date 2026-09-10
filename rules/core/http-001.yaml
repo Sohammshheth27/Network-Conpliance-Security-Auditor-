@@ -1,0 +1,32 @@
+id: NCSA-HTTP-001
+title: Cleartext HTTP management must be disabled
+field: management.http.enabled
+operator: equals
+expected: false
+severity: high
+tier: core
+rationale: >-
+  An unencrypted web management interface exposes administrative credentials to anyone on the path.
+frameworks:
+  nist_800_53: [AC-17(2), SC-8, SC-8(1)]
+  iso_27001_2022: [A.5.10, A.5.14, A.5.33, A.6.7, A.8.20, A.8.26]
+  # STIG Vuln IDs are per-platform. Derived from the downloaded
+  # XCCDF files, not recalled -- a control may map to several.
+  stig_by_platform:
+    cisco_iosxe_router: [V-215823]
+    cisco_iosxe_switch: [V-220534]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).
+
+remediation:
+  cisco_iosxe_router:
+    commands:
+    - no ip http server
+    phase: 40
+    management_impact: disables_http
+    verify: show running-config | include ip http server
+  juniper_srx:
+    commands:
+    - delete system services web-management http
+    phase: 40
+    management_impact: disables_http
+    verify: show configuration system services web-management

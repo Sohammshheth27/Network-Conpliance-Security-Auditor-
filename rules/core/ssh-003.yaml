@@ -1,0 +1,22 @@
+id: NCSA-SSH-003
+title: Weak SSH ciphers must not be permitted
+field: crypto.weak_ciphers
+operator: max_count
+expected: 0
+severity: medium
+tier: core
+# crypto.weak_ciphers holds algorithms that are BOTH weak AND enabled,
+# on every vendor. Any entry is a violation, so this is max_count 0.
+# Previously contains_none matched literal tokens, which passed when a
+# vendor named the algorithm differently -- a false PASS on real weak crypto.
+rationale: >-
+  A strong protocol negotiated down to a weak cipher provides no protection.
+frameworks:
+  nist_800_53: [SC-8(1), SC-13]
+  iso_27001_2022: [A.5.10, A.5.14, A.5.33, A.8.20, A.8.24, A.8.26]
+  # STIG Vuln IDs are per-platform. Derived from the downloaded
+  # XCCDF files, not recalled -- a control may map to several.
+  stig_by_platform:
+    cisco_iosxe_router: [V-215844]
+    cisco_iosxe_switch: [V-220555]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).

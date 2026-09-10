@@ -1,0 +1,19 @@
+id: NCSA-CLD-003
+title: Unrestricted ingress must be justified and minimal
+field: exposure.unrestricted_ingress
+operator: max_count
+expected: 0
+severity: medium
+tier: category
+# No applies_to: these controls read exposure.*/firewall.* which ANY vendor
+# whose pack builds an object graph can populate. Platform applicability is
+# already handled by supported_domains -- a platform with no 'exposure' domain
+# gets NOT_APPLICABLE automatically. Pinning them to security_groups was a
+# Day-2 artefact from when only AWS could produce these fields.
+rationale: >-
+  Public services legitimately need open ingress; the count is reported so each instance can be reviewed rather than assumed correct.
+frameworks:
+  nist_800_53: [AC-4, SC-7]
+  iso_27001_2022: [A.5.14, A.8.16, A.8.20, A.8.22, A.8.23]
+  # AWS has no DISA STIG. CIS Foundations recommendation numbers
+  # belong in the vendor pack, not here (plan 6.1).

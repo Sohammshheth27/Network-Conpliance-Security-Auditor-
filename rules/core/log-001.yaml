@@ -1,0 +1,25 @@
+id: NCSA-LOG-001
+title: Logging must be enabled
+field: logging.enabled
+operator: equals
+expected: true
+severity: high
+tier: core
+rationale: >-
+  Without local logging there is no record of administrative action.
+frameworks:
+  nist_800_53: [AU-2, AU-3, AU-12]
+  iso_27001_2022: [A.5.28, A.8.15]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).
+
+remediation:
+  cisco_iosxe_router:
+    commands:
+    - logging on
+    phase: 20
+    verify: show running-config | include logging on
+  juniper_srx:
+    commands:
+    - set system syslog file messages any notice
+    phase: 20
+    verify: show configuration system syslog

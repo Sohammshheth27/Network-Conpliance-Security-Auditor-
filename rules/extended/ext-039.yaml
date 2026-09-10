@@ -1,0 +1,15 @@
+id: NCSA-EXT-039
+title: Intrusion prevention should be enabled
+field: security.ips.enabled
+operator: equals
+expected: true
+severity: high
+tier: extended
+rationale: >-
+  IPS is the appliance's primary detection capability; disabled, the licence is unused.
+frameworks:
+  nist_800_53: ["SI-4"]
+  iso_27001_2022: ["A.8.16"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

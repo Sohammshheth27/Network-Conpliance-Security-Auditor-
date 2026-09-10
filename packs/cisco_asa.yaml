@@ -1,0 +1,282 @@
+# Cisco ASA (Adaptive Security Appliance) mapping pack
+#
+# ASA is NOT IOS-XE, and treating them as one platform is a real hazard: the
+# syntax rhymes but the security semantics differ. On IOS you write
+# `ip ssh time-out`; on ASA it is `ssh timeout`. On IOS `transport input` on a
+# vty line governs telnet; on ASA telnet is permitted by the PRESENCE of a
+# `telnet <net> <mask> <interface>` line and by nothing else. A pack that
+# guessed the shared parts right and the different parts wrong would produce a
+# confident, wrong report -- so ASA gets its own platform key and its own
+# fingerprint, and the engine's confidence floor keeps an ASA file from being
+# handed to the IOS pack.
+#
+# Grounded in a real ASA running config, not recalled: every regex below was
+# written against `E:\ASA.txt` and checked against the lines it matches.
+
+vendor: cisco
+platform: cisco_asa
+reader: indented
+version: "1.0"
+
+supported_domains: [device, management, authentication, authorization,
+                    logging, time, snmp, banner, crypto, services,
+                    interfaces, firewall]
+
+# Domains this PLATFORM genuinely lacks, each with the reason published as the
+# finding's justification.
+#
+# Deliberately short. A domain merely absent from `supported_domains` is a gap
+# in OUR pack, not a fact about the device, and now resolves to UNKNOWN --
+# which keeps it in the denominator where it belongs.
+not_applicable_domains:
+  cloud: "this is an on-premises appliance, not a cloud resource"
+  security: "IPS, gateway antivirus and content filtering are next-generation firewall services this platform does not provide (they require the FirePOWER module)"
+  l2: "an ASA in routed mode has no switch ports, so DHCP snooping and dynamic ARP inspection have nothing to attach to"
+
+
+fingerprint:
+  - "^\\s*nameif "
+  - "^\\s*security-level \\d+"
+  - "^\\s*ssh \\d+\\.\\d+\\.\\d+\\.\\d+ "
+
+mappings:
+  # --- device identity -----------------------------------------------------
+  - field: device.vendor
+    const: cisco
+  - field: device.platform
+    const: cisco_asa
+  - field: device.os
+    const: ASA
+  - field: device.hostname
+    regex: "^hostname (\\S+)"
+    value: {group: 1, as: str}
+
+  # --- SSH -----------------------------------------------------------------
+  # ASA has no `ssh version` command; SSHv2 is the only protocol modern ASA
+  # speaks, so a version field would be inventing an observation.
+  - field: management.ssh.enabled
+    regex: "^ssh (?:\\d+\\.\\d+\\.\\d+\\.\\d+|timeout|stricthostkeycheck|key-exchange)"
+    value: {const: true}
+  - field: management.ssh.timeout
+    regex: "^ssh timeout (\\d+)"
+    value: {group: 1, as: int}
+  - field: management.ssh.strict_host_key
+    regex: "^ssh stricthostkeycheck\\s*$"
+    value: {const: true}
+    if_absent: false
+  # `ssh <net> <mask> <if>` is ASA's source restriction -- the equivalent of an
+  # IOS vty access-class. Its presence is the control.
+  - field: management.ssh.source_interface
+    regex: "^ssh \\d+\\.\\d+\\.\\d+\\.\\d+ \\S+ (\\S+)\\s*$"
+    value: {group: 1, as: str}
+  - field: management.vty.access_class
+    regex: "^ssh (\\d+\\.\\d+\\.\\d+\\.\\d+ \\S+) \\S+\\s*$"
+    value: {group: 1, as: str}
+
+  # --- SSH key exchange: the real crypto finding on this platform ----------
+  # `dh-group1-sha1` is 768-bit Diffie-Hellman with SHA-1. It is the ASA
+  # default on older images and it is the weakest option the box offers.
+  - field: management.ssh.kex
+    regex: "^ssh key-exchange group (\\S+)"
+    value: {group: 1, as: list}
+  - field: crypto.weak_ciphers
+    regex: "^ssh key-exchange group (dh-group1-sha1|dh-group14-sha1)\\s*$"
+    value: {group: 1, as: list}
+    collect: true
+
+  # --- telnet: PRESENCE is the control, not the timeout --------------------
+  # `telnet timeout 5` configures the idle timer for telnet sessions and does
+  # NOT permit telnet. Only `telnet <net> <mask> <interface>` does. Reading the
+  # timeout line as "telnet enabled" would report a false FAIL on a device
+  # where telnet is genuinely unreachable -- which is exactly what this config
+  # is, and the distinction the whole product is built on.
+  - field: management.telnet.enabled
+    regex: "^telnet \\d+\\.\\d+\\.\\d+\\.\\d+ \\S+ \\S+\\s*$"
+    value: {const: true}
+    if_absent: false
+
+  # --- HTTP / ASDM management ----------------------------------------------
+  # ASA's web management is ASDM over HTTPS, enabled by `http server enable`.
+  - field: management.https.enabled
+    regex: "^http server enable"
+    value: {const: true}
+    if_absent: false
+  - field: management.http.enabled
+    const: false
+
+  # --- console -------------------------------------------------------------
+  # `console timeout 0` means NEVER time out. Zero is not "unset" here, it is
+  # an explicitly configured never -- an observed weakness, not an absence.
+  - field: management.console.exec_timeout
+    regex: "^console timeout (\\d+)"
+    value: {group: 1, as: int}
+  - field: management.vty.exec_timeout
+    regex: "^ssh timeout (\\d+)"
+    value: {group: 1, as: int}
+
+  # --- authentication ------------------------------------------------------
+  - field: authentication.local_accounts
+    regex: "^username (\\S+) "
+    value: {group: 1, as: list}
+    collect: true
+  # Stored-credential encryption. On ASA an encrypted value carries a trailing
+  # `encrypted` or `pbkdf2` keyword; without it the password is recoverable.
+  # This config has `enable password Marcraft1` -- no keyword, so cleartext.
+  # Two mappings, mutually exclusive, and NEITHER uses `if_absent`.
+  #
+  # `if_absent: false` records DEFAULT_ASSUMED, and plan 7.3 forbids an assumed
+  # value from carrying a FAIL -- correctly, since "we did not see it" is not
+  # "it is wrong". So the assumed version reported UNKNOWN on a device whose
+  # config plainly reads `enable password Marcraft1`. The cleartext form is
+  # POSITIVELY OBSERVABLE: a trailing `encrypted`/`pbkdf2` keyword is present
+  # or it is not, and its absence on a line that IS there is evidence, not a
+  # gap. Matching the weak form directly turns an assumption into a fact with a
+  # line number attached.
+  - field: authentication.password_encryption
+    regex: "^enable password \\S+\\s*$"
+    value: {const: false}
+  - field: authentication.password_encryption
+    regex: "^enable password \\S+ (?:encrypted|pbkdf2)\\s*$"
+    value: {const: true}
+
+  # Same reasoning for the enable credential itself.
+  - field: authentication.enable_secret
+    regex: "^enable password \\S+\\s*$"
+    value: {const: false}
+  - field: authentication.enable_secret
+    regex: "^enable password \\S+ (?:encrypted|pbkdf2)\\s*$"
+    value: {const: true}
+
+  # The SERVER GROUP, not the service being authenticated. The first version
+  # captured group 1 of `aaa authentication ssh console LOCAL`, which is "ssh"
+  # -- so a device authenticating against its own local user database reported
+  # an external method list as configured, and NCSA-EXT-015 passed. LOCAL is
+  # excluded here because on-box accounts are precisely what that control
+  # exists to detect the absence of an alternative to.
+  - field: authentication.aaa_authentication
+    regex: "^aaa authentication \\S+ console (?!LOCAL\\s*$)(\\S+)"
+    value: {group: 1, as: list}
+    collect: true
+  # LOCAL-only is not centralised AAA. `aaa authentication ssh console LOCAL`
+  # authenticates against the on-box user database, so aaa_enabled must be
+  # false unless a real server group is named.
+  - field: authentication.aaa_enabled
+    regex: "^aaa authentication \\S+ console (?!LOCAL)(\\S+)"
+    value: {const: true}
+    if_absent: false
+  - field: authorization.aaa_authorization
+    regex: "^aaa authorization (\\S+) "
+    value: {group: 1, as: list}
+    collect: true
+
+  # --- logging -------------------------------------------------------------
+  - field: logging.enabled
+    regex: "^logging enable\\s*$"
+    value: {const: true}
+    if_absent: false
+  - field: logging.servers
+    regex: "^logging host \\S+ (\\S+)"
+    value: {group: 1, as: list}
+    collect: true
+  - field: logging.severity
+    regex: "^logging trap (\\S+)"
+    value: {group: 1, as: str}
+  - field: logging.command_accounting
+    regex: "^aaa accounting command "
+    value: {const: true}
+    if_absent: false
+
+  # --- time ----------------------------------------------------------------
+  - field: time.ntp_enabled
+    regex: "^ntp server \\S+"
+    value: {const: true}
+    if_absent: false
+  - field: time.servers
+    regex: "^ntp server (\\S+)"
+    value: {group: 1, as: list}
+    collect: true
+  - field: time.authenticated
+    regex: "^ntp authenticate\\s*$"
+    value: {const: true}
+    if_absent: false
+
+  # --- banner --------------------------------------------------------------
+  - field: banner.login
+    regex: "^banner login (.+)$"
+    value: {group: 1, as: str}
+  - field: banner.motd
+    regex: "^banner motd (.+)$"
+    value: {group: 1, as: str}
+
+  # --- snmp ----------------------------------------------------------------
+  - field: snmp.communities
+    regex: "^snmp-server community (\\S+)"
+    value: {group: 1, as: list}
+    collect: true
+  - field: snmp.version
+    regex: "^snmp-server group \\S+ (v3)"
+    value: {group: 1, as: str}
+
+  # --- appliance security services -----------------------------------------
+  - field: security.ips.enabled
+    regex: "^threat-detection basic-threat\\s*$"
+    value: {const: true}
+    if_absent: false
+
+# Concepts SonicOS-style or IOS-style configs have that ASA genuinely does not.
+# Verified against Cisco's ASA command reference rather than assumed: reporting
+# these UNKNOWN would claim we failed to determine something with nothing to
+# determine (plan 6.5).
+  # --- verified against a real ASA export -----------------------------------
+  # Every mapping below was checked against a captured `show running-config`
+  # before being written. The device in question is minimally configured -- 9
+  # interfaces, all shut, no nameif, no ACLs -- which is exactly why it exposed
+  # these gaps: a hardened sample would have hidden them.
+
+  # Interfaces are SCOPED by name; each is a separate object.
+  - field: interfaces.name
+    parent: "^interface "
+    regex: '^interface (\S+)'
+    value: {group: 1, as: str}
+    scope_by: parent
+  - field: interfaces.shutdown
+    parent: "^interface "
+    regex: '^\s*(no )?shutdown\s*$'
+    value: {group: 1, as: bool, invert: true}
+    scope_by: parent
+  - field: interfaces.description
+    parent: "^interface "
+    regex: '^\s*description (.+)$'
+    value: {group: 1, as: str}
+    scope_by: parent
+
+  # `aaa authentication <svc> console LOCAL` is the device STATING that the
+  # service authenticates against the on-box user database and no AAA server.
+  # That is an observation with a line behind it, not an assumption.
+  #
+  # The existing mapping expresses the same conclusion via `if_absent: false`,
+  # which produces a DEFAULT_ASSUMED value -- correctly reported as UNKNOWN,
+  # because an assumed value cannot decide a control. So the finding vanished
+  # on a device that plainly says what it does. This reads the LOCAL form
+  # directly and carries the line as evidence.
+  - field: authentication.aaa_enabled
+    regex: '^aaa authentication \S+ console LOCAL\s*$'
+    value: {const: false}
+
+  # NOT MAPPED: `no snmp-server`.
+  #
+  # The reference ASA carries `no snmp-server location` and `no snmp-server
+  # contact`, which clear the location and contact strings and say NOTHING
+  # about whether the agent runs. A bare `no snmp-server` does disable it, but
+  # no config we hold contains that form, so mapping it would be a guess
+  # dressed as a reading -- and a wrong one here reports a live SNMP agent as
+  # switched off. It stays unmapped until a real config shows the form.
+
+not_applicable_fields:
+  # {field: reason}. The reason is published as the finding's justification --
+  # an auditor asked to accept an exclusion needs to know why, and "verified
+  # against the setting inventory" asserts a check without stating its result.
+  management.ssh.version: "ASA speaks SSHv2 only; no selector exists"
+  management.vty.transport_input: "no `line vty` construct on ASA"
+  management.ssh.max_auth_tries: "no equivalent command"
+  logging.netflow: "ASA uses NSEL, configured differently"

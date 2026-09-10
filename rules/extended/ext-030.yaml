@@ -1,0 +1,14 @@
+id: NCSA-EXT-030
+title: A MOTD banner should be present
+field: banner.motd
+operator: is_set
+severity: low
+tier: extended
+rationale: >-
+  The MOTD banner carries the monitoring notice on pre-login connection.
+frameworks:
+  nist_800_53: ["AC-8"]
+  iso_27001_2022: ["A.8.5"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

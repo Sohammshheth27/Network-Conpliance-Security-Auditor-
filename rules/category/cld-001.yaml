@@ -1,0 +1,19 @@
+id: NCSA-CLD-001
+title: Administrative ports must not be open to the internet
+field: exposure.admin_ports_open_to_internet
+operator: max_count
+expected: 0
+severity: critical
+tier: category
+# No applies_to: these controls read exposure.*/firewall.* which ANY vendor
+# whose pack builds an object graph can populate. Platform applicability is
+# already handled by supported_domains -- a platform with no 'exposure' domain
+# gets NOT_APPLICABLE automatically. Pinning them to security_groups was a
+# Day-2 artefact from when only AWS could produce these fields.
+rationale: >-
+  An administrative port reachable from 0.0.0.0/0 is exposed to continuous automated scanning. This is the most frequently exploited cloud misconfiguration and needs no further vulnerability to be dangerous.
+frameworks:
+  nist_800_53: [AC-17(1), SC-7, SC-7(5)]
+  iso_27001_2022: [A.5.14, A.6.7, A.8.16, A.8.20, A.8.22, A.8.23]
+  # AWS has no DISA STIG. CIS Foundations recommendation numbers
+  # belong in the vendor pack, not here (plan 6.1).

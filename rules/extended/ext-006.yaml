@@ -1,0 +1,15 @@
+id: NCSA-EXT-006
+title: SSH idle sessions must time out
+field: management.ssh.timeout
+operator: lte
+expected: 120
+severity: medium
+tier: extended
+rationale: >-
+  An idle authenticated SSH session is an unattended path to the control plane.
+frameworks:
+  nist_800_53: ["AC-12", "SC-10"]
+  iso_27001_2022: ["A.8.20"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

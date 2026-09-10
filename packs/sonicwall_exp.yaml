@@ -1,0 +1,330 @@
+# SonicWall SonicOS `.exp` mapping pack
+#
+# GROUNDED IN THE DEVICE. Every path below is a key decoded from our own
+# NSA 3700 export (92,635 settings / 4,708 distinct names). SonicWall publishes
+# no CLI grammar in the vendor-doc set we hold, so the device itself is the
+# authority -- which also means this pack is validated against a file nobody
+# authored to suit it.
+#
+# Plan 4.2 recorded this artifact as "obfuscated ... Unusable". It is base64 of
+# a URL-encoded key=value blob and carries ~40x what the CLI export does,
+# including the full firewall policy.
+#
+# Key selection note: many keys match a concept but only one is authoritative.
+# `sshCipherControlConfig` is the real SSH crypto policy; `sonicPointSshEnable`
+# is about access points and `DpiSshEnabled` is SSH *inspection*. Choosing by
+# keyword rather than meaning is how a pack starts reporting the wrong field.
+
+vendor: sonicwall
+platform: sonicwall_sonicos
+reader: sonicos_exp
+version: "3.0"
+
+supported_domains: [device, management, authentication, authorization,
+                    logging, time, snmp, banner, crypto, interfaces,
+                    firewall, security, platform, exposure, l2, routing]
+
+# Domains this PLATFORM genuinely lacks, each with the reason published as the
+# finding's justification.
+#
+# Deliberately short. A domain merely absent from `supported_domains` is a gap
+# in OUR pack, not a fact about the device, and now resolves to UNKNOWN --
+# which keeps it in the denominator where it belongs.
+not_applicable_domains:
+  cloud: "this is an on-premises appliance, not a cloud resource"
+
+
+fingerprint:
+  - "shortProdName"
+  - "buildNum"
+
+mappings:
+  # --- device identity -----------------------------------------------------
+  - field: device.vendor
+    const: sonicwall
+  - field: device.platform
+    const: sonicwall_sonicos
+  - field: device.os
+    const: SonicOS
+  - field: device.hostname
+    path: "shortProdName"
+  - field: device.version
+    path: "buildNum"
+  - field: platform.firmware.version
+    path: "buildNum"
+
+  # --- management plane ----------------------------------------------------
+  - field: management.http.enabled
+    path: "allowHttpMgmt"
+    value: {as: bool}
+  - field: management.https.enabled
+    path: "wseIsHttpsEnabled"
+    value: {as: bool}
+  # adminLoginTimeout is in MINUTES and is the admin idle session limit.
+  - field: management.vty.exec_timeout
+    path: "adminLoginTimeout"
+    value: {as: int}
+  - field: management.ssh.timeout
+    path: "cli_idleTimeout"
+    value: {as: int}
+  # The SonicOS REST API is remote management surface; plan 15.3 platform.api.
+  - field: platform.api.enabled
+    path: "sonicOsApi_enable"
+    value: {as: bool}
+
+  # --- authentication ------------------------------------------------------
+  - field: authentication.min_password_length
+    path: "minPasswordLength"
+    value: {as: int}
+  - field: authentication.complexity
+    path: "passwordComplexity"
+    value: {as: bool}
+  - field: authentication.lockout.enabled
+    path: "loginFailLockoutEnable"
+    value: {as: bool}
+  - field: authentication.mfa.admin_required
+    path: "adminLoginOtpRequire"
+    value: {as: bool}
+  # userRadiusSelect names the external auth source; absence means local-only.
+  # authentication.aaa_enabled is derived from ALL its sources -- see the
+  # path_any_true derivation below. A single-source mapping here reported a
+  # device running LDAP as having no external authentication, because RADIUS
+  # happened to be the source that was mapped.
+
+  # --- crypto --------------------------------------------------------------
+  # The real SSH crypto policy: a JSON blob of permitted kex/cipher/mac.
+  # sshCipherControlConfig is JSON, not a scalar -- see the derivation below,
+  # which reports WHICH algorithms are enabled rather than that it exists.
+  - field: crypto.tls.minimum_version
+    path: "tlsMinVersion"
+
+  # --- logging -------------------------------------------------------------
+  # syslogServerName EMPTY means no remote collector -- plan 2.3: that is a
+  # provable absence, not an assumption.
+  - field: logging.servers
+    path: "syslogServerName"
+  - field: logging.severity
+    path: "syslogFieldSettings1"
+  - field: logging.enabled
+    path: "syslogAnalyzerMode"
+    value: {as: bool}
+
+  # --- time ----------------------------------------------------------------
+  - field: time.ntp_enabled
+    path: "ntp_useNtp"
+    value: {as: bool}
+  - field: time.servers
+    path: "ntp_srv_intfs"
+  - field: time.timezone
+    path: "timezone"
+
+  # --- snmp ----------------------------------------------------------------
+  # A GetCommunity string means v1/v2c is in use unless v3 is mandatory.
+  - field: snmp.communities
+    path: "snmp_GetCommunity"
+  - field: snmp.v3_auth
+    path: "Snmp3_Mand_Required"
+    value: {as: bool}
+
+  # --- banner --------------------------------------------------------------
+  - field: banner.login
+    path: "cli_loginBanner"
+  - field: banner.motd
+    path: "cli_connectionBanner"
+
+  # --- appliance security services (NOT_APPLICABLE on a router) ------------
+  - field: security.dpi_ssl.enabled
+    path: "DpiSshEnabled"
+    value: {as: bool}
+  - field: security.ips.enabled
+    path: "uuidIpsObjEnable"
+    value: {as: bool}
+  - field: security.gav.enabled
+    path: "uuidGavObjEnable"
+    value: {as: bool}
+  - field: security.cfs.enabled
+    path: "uuidCfsObjEnable"
+    value: {as: bool}
+
+  # --- firewall / objects (instance tables -> counted, not flattened) -----
+  - field: firewall.default_action
+    path: "fwDefaultAction"
+    if_absent: deny
+  - field: firewall.acls
+    path: "policyNgName*"
+  - field: firewall.zones
+    path: "zoneObjName*"
+
+  # --- mapped after searching the device's 4,708 names for each UNKNOWN ----
+  - field: management.ssh.max_auth_tries
+    path: "loginAttemptCLI"
+    value: {as: int}
+  - field: management.vty.transport_input
+    path: "allowMgmtTraffic"
+    value: {as: list}
+  - field: authentication.local_accounts
+    path: "adminName*"
+  - field: authorization.role_based
+    path: "radiusDfltUserGroup"
+  # snmp.version comes from a derivation -- SonicOS has no version key, it is
+  # implied by Snmp3_Mand_Required + whether a community string exists.
+  - field: logging.log_denied
+    path: "loginFailLockoutLog"
+    value: {as: bool}
+  - field: crypto.tls_versions
+    path: "cipherControlTLS"
+    value: {as: str}
+
+# Controls whose CONCEPT does not exist on this platform. Searched all 4,708
+# setting names: SonicOS 7.3 exposes no telnet management, no SSH protocol
+# selector (it is v2-only), and no vty access-class. Reporting these as UNKNOWN
+# would claim we failed to determine something that has nothing to determine --
+# plan 6.5 says that is NOT_APPLICABLE.
+  # --- fields added after auditing why 37 controls came back UNKNOWN --------
+  # Each key below was confirmed PRESENT in the real NSA 3700 export before
+  # being mapped. A mapping written from a plausible-looking key name is worse
+  # than an UNKNOWN: it produces a confident finding about the wrong setting.
+  #
+  # `interface_Zone` carries LAN / WAN / MGMT, and blank on unused interfaces.
+  # A blank zone is a real finding (an interface outside any zone has undefined
+  # policy), so it is mapped rather than filtered.
+  - field: interfaces.zone
+    path: "interface_Zone_*"
+    value: {as: str}
+  - field: interfaces.description
+    path: "iface_comment_*"
+    value: {as: str}
+  # 0/1 per interface. `zoneObjExtAAAHttpsRedirect` is the AAA login redirect,
+  # a different setting -- choosing it would report the wrong control.
+  - field: management.http.redirect_https
+    path: "iface_http_redirect_rule_*"
+    value: {as: bool}
+  - field: logging.command_accounting
+    path: "enableCfgAuditing"
+    value: {as: bool}
+  - field: platform.config_archive
+    path: "backupStorage"
+    value: {as: bool}
+  # SonicOS has no DHCP snooping or dynamic ARP inspection; its equivalent
+  # control is MAC-IP anti-spoof, which is what this field means here.
+  - field: l2.ip_source_guard
+    path: "macIpSpoofMgmt_*"
+    value: {as: bool}
+
+  # --- management REST API auth surface ------------------------------------
+  # Parsed on every SonicWall run and mapped to nothing until now: 22 keys
+  # describing how the management API authenticates. An enabled REST API is
+  # remote administrative access, and it was going entirely unaudited.
+  #
+  # All of these are gated on platform.api.enabled by the rules, so on a device
+  # with the API switched off they report NOT_APPLICABLE rather than inventing
+  # findings about a surface that is not exposed.
+  - field: platform.api.basic_auth
+    path: "sonicOsApi_basicAuth"
+    value: {as: bool}
+  - field: platform.api.digest_md5
+    path: "sonicOsApi_dgstMD5"
+    value: {as: bool}
+  # RSA key length for API public-key auth. 1024 on the reference device.
+  - field: platform.api.pubkey_bits
+    path: "sonicOsApi_pubKeyBits"
+    value: {as: int}
+  - field: platform.api.cors
+    path: "sonicOsApi_CORS"
+    value: {as: bool}
+  - field: platform.api.session_security
+    path: "sonicOsApi_sessSecurity"
+    value: {as: bool}
+  - field: platform.api.logging
+    path: "sonicOsApi_enableLog"
+    value: {as: bool}
+
+  # `encUsernamePassword` governs whether stored credentials are encrypted in
+  # the saved configuration -- which is what a leaked backup exposes.
+  - field: platform.stored_credentials_encrypted
+    path: "encUsernamePassword"
+    value: {as: bool}
+
+  # --- snmp, continued ------------------------------------------------------
+  # NOTE: snmp_Enable is ON here. `snmpStateEnable` is PER-INTERFACE (8 of them,
+  # all off), so it must not be read as a global disable -- doing so would
+  # report a device running a v2c agent as having SNMP switched off.
+  - field: snmp.views
+    path: "Snmp3_View_Name_*"
+    value: {as: str}
+  # Empty means no source restriction on SNMP management, which matters because
+  # a v2c GetCommunity string is configured.
+  - field: snmp.community_acl
+    path: "snmp_mgmt_src_addr_*"
+    value: {as: str}
+
+  # --- Phase 3: verified against the real 92,635-setting export -------------
+  # An LDAP server switched on IS external authentication in use, which is what
+  # this field asks. Confirmed: ldapSrvrEnabled=on, alongside a populated
+  # ldapSrvrHostName.
+
+  # DELIBERATELY NOT MAPPED, though a key-name search offers each one. Recorded
+  # so the next person does not re-derive the same rejections:
+  #
+  #   platform.memory_thresholds  <- snmpCpuUtilThreshold(95)
+  #       CPU, not memory. Different resource, same-sounding name.
+  #   authorization.aaa_authorization <- radiusAcctAuthEnabled(off)
+  #       RADIUS ACCOUNTING, not authorization.
+  #   interfaces.shutdown         <- iface_enable_PD(off)
+  #       A single instance whose "PD" suffix is undocumented; the export has
+  #       36 interfaces, so a per-interface enable would appear 36 times.
+  #   logging.netflow             <- flowReportingViaHgms(off)
+  #       Flow reporting to the management system, not IPFIX/NetFlow export.
+  #   authorization.role_based    <- userGroupObjPrivMask(0,1,1032)
+  #       Genuinely the right concept, but it needs "any group has a non-zero
+  #       mask" and a per-instance bool cast would FAIL on the first group
+  #       holding 0, which is normal. Needs a derivation, not a mapping.
+  #
+  # Each of these would have produced a confident finding about the wrong
+  # setting, which is worse than the UNKNOWN it replaced.
+
+not_applicable_fields:
+  # {field: reason}. Each was confirmed ABSENT from a 4,708-key export before
+  # being listed, and the reason travels onto the finding as its justification.
+  #
+  # "Absent from this config" alone is NOT sufficient grounds: a feature the
+  # platform supports but the operator did not configure is a FINDING, not an
+  # inapplicable control. Everything here is a property of the platform.
+  authentication.enable_secret: "no IOS-style enable secret on SonicOS"
+  management.aux.exec_disabled: "the appliance has no AUX port"
+  management.vty.transport_output: "no VTY lines; management is zone-bound"
+  management.ssh.pubkey_auth: "admin SSH authenticates by password or TOTP, not public key"
+  management.ssh.strict_host_key: "SonicOS is not acting as an SSH client here"
+  crypto.rsa_modulus: "key size is not represented anywhere in the export"
+  l2.dhcp_snooping: "not a SonicOS feature; its equivalent control is MAC-IP anti-spoof"
+  l2.arp_inspection: "as above -- the equivalent is MAC-IP anti-spoof, mapped at l2.ip_source_guard"
+  management.telnet.enabled: "SonicOS exposes no telnet management service"
+  management.ssh.version: "SonicOS speaks SSHv2 only; no version selector exists"
+  management.ssh.enabled: "SSH management is bound per zone rather than globally toggled"
+  management.vty.access_class: "management access is zone-bound, not ACL-bound"
+
+derivations:
+  # External authentication is in use if ANY server type is enabled. Confirmed
+  # on the reference device: ldapSrvrEnabled_0=on with a populated
+  # ldapSrvrHostName, while RADIUS is off. Keys are indexed (_0, _1 ...), so
+  # these are globs -- an exact path silently matches nothing.
+  - field: authentication.aaa_enabled
+    op: path_any_true
+    params:
+      paths: ["ldapSrvrEnabled*", "userRadiusSelect*", "tacEnabled*"]
+  # `syslogServerName=` (blank) is the device stating that NO remote syslog
+  # server is configured. A bool cast of "" yields None, which the engine
+  # honestly reports as UNKNOWN -- and a high-severity control then vanishes
+  # from the report. This reads the blank as the fact it is: not configured.
+  - field: logging.remote_syslog
+    op: path_non_empty
+    params: {path: "syslogServerName", blank: ["0.0.0.0", "none"]}
+  - field: logging.servers
+    op: path_non_empty
+    params: {path: "syslogServerName"}
+  - field: exposure.admin_ports_open_to_internet
+    op: sonicos_admin_ports
+  - field: crypto.weak_ciphers
+    op: sonicos_weak_ssh_crypto
+  - field: snmp.version
+    op: sonicos_snmp_version

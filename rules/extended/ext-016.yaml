@@ -1,0 +1,14 @@
+id: NCSA-EXT-016
+title: Command authorization must be configured
+field: authorization.aaa_authorization
+operator: is_set
+severity: medium
+tier: extended
+rationale: >-
+  Authentication says who; authorization says what they may run.
+frameworks:
+  nist_800_53: ["AC-3", "AC-6"]
+  iso_27001_2022: ["A.5.15", "A.5.33", "A.8.18", "A.8.2", "A.8.20", "A.8.26", "A.8.3", "A.8.4"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

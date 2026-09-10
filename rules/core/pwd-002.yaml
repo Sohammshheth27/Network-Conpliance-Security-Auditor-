@@ -1,0 +1,17 @@
+id: NCSA-PWD-002
+title: Password complexity must be enforced
+field: authentication.complexity
+operator: equals
+expected: true
+severity: medium
+tier: core
+rationale: >-
+  Complexity requirements reduce the effectiveness of dictionary attacks.
+frameworks:
+  nist_800_53: [IA-5(1)]
+  iso_27001_2022: [A.5.16, A.5.17]
+  # STIG Vuln IDs are per-platform. Derived from the downloaded
+  # XCCDF files, not recalled -- a control may map to several.
+  stig_by_platform:
+    cisco_iosxe_router: [V-215827, V-215828]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).

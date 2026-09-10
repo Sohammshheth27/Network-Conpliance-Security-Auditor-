@@ -1,0 +1,147 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  
+  --color-ncsa-bg: #080F20;
+  --color-ncsa-bg-dark: #060B18;
+  --color-ncsa-surface: #0B1428;
+  --color-ncsa-surface-elevated: #0E1B32;
+  --color-ncsa-surface-card: #0D172B;
+  --color-ncsa-surface-panel: #10213B;
+  
+  --color-ncsa-blue: #1677FF;
+  --color-ncsa-blue-bright: #2D8CFF;
+  --color-ncsa-blue-deep: #0B3A78;
+  --color-ncsa-blue-glow: rgba(22, 119, 255, 0.25);
+  
+  --color-ncsa-text: #F5F8FF;
+  --color-ncsa-text-secondary: #AAB8D0;
+  --color-ncsa-text-muted: #65738B;
+  
+  --color-ncsa-border: rgba(100, 150, 220, 0.12);
+  --color-ncsa-border-highlight: rgba(80, 150, 255, 0.28);
+  
+  --color-ncsa-positive: #32D6A8;
+  --color-ncsa-warning: #F5B82E;
+  --color-ncsa-critical: #E5484D;
+  --color-ncsa-info: #35D4C0;
+  
+  --radius-shell: 48px;
+  --radius-card: 30px;
+  --radius-panel: 20px;
+  --radius-control: 18px;
+  --radius-pill: 999px;
+}
+
+@layer base {
+  :root {
+    --bg-base: #080F20;
+    --bg-surface: #0D172B;
+    --bg-surface-elevated: #10213B;
+    --border-color: rgba(100, 150, 220, 0.12);
+    
+    --text-primary: #F5F8FF;
+    --text-secondary: #AAB8D0;
+    --text-muted: #65738B;
+    
+    --accent-primary: #1677FF;
+    --accent-hover: #2D8CFF;
+    --accent-foreground: #FFFFFF;
+    
+    --success: #32D6A8;
+    --warning: #F5B82E;
+    --danger: #E5484D;
+  }
+
+  body {
+    background-color: #060B18;
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+}
+
+/* NCSA Card & Surface Treatments matching the reference image */
+.ncsa-shell {
+  background: radial-gradient(circle at 50% 0%, #0E1B32 0%, #080F20 70%, #060B18 100%);
+  border: 1px solid rgba(80, 150, 255, 0.14);
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.6), 0 0 80px -20px rgba(22, 119, 255, 0.15);
+  border-radius: 48px;
+}
+
+.ncsa-card {
+  background: linear-gradient(145deg, rgba(17, 34, 64, 0.75) 0%, rgba(10, 20, 40, 0.92) 100%);
+  border: 1px solid rgba(110, 160, 230, 0.12);
+  box-shadow: 0 14px 30px -8px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border-radius: 30px;
+}
+
+.ncsa-card-interactive {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ncsa-card-interactive:hover {
+  border-color: rgba(80, 150, 255, 0.35);
+  box-shadow: 0 18px 36px -8px rgba(0, 0, 0, 0.55), 0 0 24px -4px rgba(22, 119, 255, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.ncsa-panel {
+  background: rgba(14, 27, 50, 0.7);
+  border: 1px solid rgba(100, 150, 220, 0.10);
+  border-radius: 20px;
+}
+
+.ncsa-btn-primary {
+  background: linear-gradient(135deg, #2D8CFF 0%, #1677FF 100%);
+  box-shadow: 0 4px 18px rgba(22, 119, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  border-radius: 18px;
+  color: #FFFFFF;
+}
+
+.ncsa-btn-primary:hover {
+  background: linear-gradient(135deg, #409CFF 0%, #1A7FFF 100%);
+  box-shadow: 0 6px 24px rgba(22, 119, 255, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.ncsa-btn-secondary {
+  background: rgba(14, 27, 50, 0.85);
+  border: 1px solid rgba(100, 150, 220, 0.16);
+  border-radius: 18px;
+  color: #F5F8FF;
+  transition: all 0.18s ease;
+}
+
+.ncsa-btn-secondary:hover {
+  background: rgba(22, 42, 77, 0.95);
+  border-color: rgba(80, 150, 255, 0.3);
+}
+
+/* Custom scrollbar for data tables & lists */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(8, 15, 32, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 150, 220, 0.2);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(80, 150, 255, 0.4);
+}
+
+
+/* Indeterminate progress: the engine reports no percentage, so the bar
+   travels rather than filling. A bar that crept to 100% on a timer would be
+   inventing information the engine never supplied. */
+@keyframes ncsa-indeterminate {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}

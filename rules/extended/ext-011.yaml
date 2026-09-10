@@ -1,0 +1,14 @@
+id: NCSA-EXT-011
+title: The REST/management API must be deliberately controlled
+field: platform.api.enabled
+operator: is_set
+severity: medium
+tier: extended
+rationale: >-
+  An enabled management API is remote administrative surface and must be a conscious decision, not a default.
+frameworks:
+  nist_800_53: ["AC-17", "CM-7"]
+  iso_27001_2022: ["A.5.14", "A.6.7", "A.8.19"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

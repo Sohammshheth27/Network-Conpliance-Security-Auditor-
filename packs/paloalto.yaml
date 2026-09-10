@@ -1,0 +1,199 @@
+# Palo Alto PAN-OS mapping pack -- Reader 4 (XML)
+#
+# Source artifact: the running configuration.
+#   Device -> Setup -> Operations -> Export named configuration snapshot
+#   or  `scp export configuration from running-config.xml ...`
+#   or  the XML API: /api/?type=export&category=configuration
+#
+# THE STRUCTURED TIER. PAN-OS's running config IS XML -- the device already
+# parsed itself and emitted the tree, so this pack is a mapping problem, not a
+# parsing problem. No context stack, no `no ` prefixes, no firmware spelling
+# drift.
+#
+# ── TWO THINGS THAT WILL BITE A PACK AUTHOR HERE ──────────────────────────
+#
+# 1. NEGATIVE BOOLEANS. PAN-OS expresses management services as `disable-X`:
+#
+#        <service><disable-telnet>yes</disable-telnet></service>
+#
+#    `yes` means telnet is OFF. Every one of those below uses
+#    `value: {invert: true}` so a control asking "is telnet enabled" gets
+#    false, and gets it as an OBSERVED false with a line to cite.
+#
+# 2. WILDCARDS MATCH WHOLE SEGMENTS. The reader folds an entry's name into its
+#    segment as `entry[secrule1]`, so `entry[*]` matches nothing -- the
+#    wildcard has to replace the segment entirely:
+#
+#        vsys/*/rulebase/security/rules/*/action        correct
+#        vsys/entry[*]/rulebase/.../entry[*]/action     matches nothing
+#
+#    The device-entry segment is wildcarded too: it is normally
+#    `entry[localhost.localdomain]`, but a Panorama-managed device is not
+#    guaranteed to use that name, and pinning it would silently break.
+#
+# ── VALIDATION STATUS ─────────────────────────────────────────────────────
+# Mappings are validated against a real PAN-OS export (tests/fixtures).
+# Sections that sample does not contain -- NTP, syslog, login banner,
+# permitted-ip -- are written from the PAN-OS schema and marked
+# `# UNVALIDATED` below. `test_paloalto.py` reports them explicitly rather
+# than letting an untested path masquerade as a working one.
+
+vendor: paloalto
+platform: panos
+reader: xml
+version: "1.0"
+
+supported_domains: [device, platform, management, authentication, authorization,
+                    logging, time, snmp, banner, crypto, interfaces,
+                    firewall, security]
+
+# Domains this PLATFORM genuinely lacks, each with the reason published as the
+# finding's justification.
+#
+# Deliberately short. A domain merely absent from `supported_domains` is a gap
+# in OUR pack, not a fact about the device, and now resolves to UNKNOWN --
+# which keeps it in the denominator where it belongs.
+not_applicable_domains:
+  cloud: "this is an on-premises appliance, not a cloud resource"
+
+
+# `deviceconfig/system` under a device entry is PAN-OS and nothing else. Junos
+# XML, which shares this reader, has no such path.
+fingerprint:
+  - "devices/*/deviceconfig/system/hostname"
+  - "devices/*/deviceconfig"
+
+mappings:
+  # ---------------------------------------------------------------- identity
+  - field: device.vendor
+    const: paloalto
+  - field: device.os
+    const: PAN-OS
+  - field: device.hostname
+    path: "devices/*/deviceconfig/system/hostname"
+
+  # -------------------------------------------------------------- management
+  # Negative booleans -- see the header. `disable-telnet yes` => telnet OFF.
+  - field: management.telnet.enabled
+    path: "devices/*/deviceconfig/system/service/disable-telnet"
+    value: {invert: true}
+  - field: management.http.enabled
+    path: "devices/*/deviceconfig/system/service/disable-http"
+    value: {invert: true}
+  - field: management.ssh.enabled
+    path: "devices/*/deviceconfig/system/service/disable-ssh"
+    value: {invert: true}
+  - field: management.https.enabled
+    path: "devices/*/deviceconfig/system/service/disable-https"
+    value: {invert: true}
+  - field: management.icmp_ratelimit
+    path: "devices/*/deviceconfig/system/service/disable-icmp"
+    value: {invert: true}
+
+  # UNVALIDATED -- absent from the reference export
+  - field: management.vty.access_class          # UNVALIDATED
+    path: "devices/*/deviceconfig/system/permitted-ip/*"
+    scope_from: 5
+  - field: management.vty.exec_timeout          # UNVALIDATED
+    path: "devices/*/deviceconfig/setting/management/idle-timeout"
+    value: {as: int}
+
+  # ------------------------------------------------------------ authentication
+  - field: authentication.local_accounts
+    path: "mgt-config/users/*/phash"
+    scope_from: 2
+  - field: authentication.password_encryption
+    path: "mgt-config/users/*/phash"
+    scope_from: 2
+  # UNVALIDATED -- absent from the reference export
+  - field: authentication.min_password_length   # UNVALIDATED
+    path: "mgt-config/password-complexity/minimum-length"
+    value: {as: int}
+  - field: authentication.complexity            # UNVALIDATED
+    path: "mgt-config/password-complexity/enabled"
+    value: {as: bool}
+
+  # ----------------------------------------------------------------- banners
+  # UNVALIDATED -- absent from the reference export
+  - field: banner.login                         # UNVALIDATED
+    path: "devices/*/deviceconfig/system/login-banner"
+  - field: banner.motd                          # UNVALIDATED
+    path: "devices/*/deviceconfig/system/motd-and-banner/banner-header"
+
+  # ----------------------------------------------------------------- logging
+  # UNVALIDATED -- absent from the reference export
+  - field: logging.servers                      # UNVALIDATED
+    path: "shared/log-settings/syslog/*/server/*/server"
+    scope_from: 5
+  - field: logging.severity                     # UNVALIDATED
+    path: "shared/log-settings/syslog/*/server/*/format"
+    scope_from: 5
+
+  # -------------------------------------------------------------------- time
+  - field: time.timezone
+    path: "devices/*/deviceconfig/system/timezone"
+  # UNVALIDATED -- absent from the reference export
+  - field: time.servers                         # UNVALIDATED
+    path: "devices/*/deviceconfig/system/ntp-servers/*/ntp-server-address"
+    scope_from: 5
+  - field: time.authenticated                   # UNVALIDATED
+    path: "devices/*/deviceconfig/system/ntp-servers/*/authentication-type/symmetric-key/algorithm"
+    scope_from: 5
+
+  # -------------------------------------------------------------------- snmp
+  - field: snmp.version
+    path: "devices/*/deviceconfig/system/snmp-setting/snmp-system"
+  # UNVALIDATED -- the reference export declares snmp-system but no community
+  - field: snmp.communities                     # UNVALIDATED
+    path: "devices/*/deviceconfig/system/snmp-setting/access-setting/version/v2c/snmp-community-string"
+
+  # -------------------------------------------------------------- interfaces
+  # The IP is itself an entry name in PAN-OS:
+  #   network/interface/ethernet/entry[ethernet1/1]/layer3/ip/entry[81.81.0.1/24]
+  - field: interfaces.address
+    path: "devices/*/network/interface/ethernet/*/layer3/ip/*"
+    scope_from: 5
+  - field: interfaces.zone
+    path: "devices/*/vsys/*/zone/*/network/layer3/member"
+    scope_from: 5
+
+  # ---------------------------------------------------------------- firewall
+  - field: firewall.rules.action
+    path: "devices/*/vsys/*/rulebase/security/rules/*/action"
+    scope_from: 8
+  - field: firewall.rules.source
+    path: "devices/*/vsys/*/rulebase/security/rules/*/source/member"
+    scope_from: 8
+  - field: firewall.rules.destination
+    path: "devices/*/vsys/*/rulebase/security/rules/*/destination/member"
+    scope_from: 8
+  - field: firewall.rules.service
+    path: "devices/*/vsys/*/rulebase/security/rules/*/service/member"
+    scope_from: 8
+  - field: firewall.rules.log
+    path: "devices/*/vsys/*/rulebase/security/rules/*/log-end"
+    scope_from: 8
+  - field: firewall.rules.description
+    path: "devices/*/vsys/*/rulebase/security/rules/*/description"
+    scope_from: 8
+  - field: firewall.zones
+    path: "devices/*/vsys/*/zone/*/network/layer3/member"
+    scope_from: 5
+
+  # ---------------------------------------------------------------- security
+  - field: security.ips.enabled
+    path: "devices/*/vsys/*/rulebase/security/rules/*/profile-setting/group/member"
+    scope_from: 8
+
+# Genuinely absent from PAN-OS. Declaring them keeps the controls at
+# NOT_APPLICABLE instead of UNKNOWN, which is what stops a correct answer from
+# looking like a gap.
+not_applicable_fields:
+  # {field: reason}. The reason is published as the finding's justification --
+  # an auditor asked to accept an exclusion needs to know why, and "verified
+  # against the setting inventory" asserts a check without stating its result.
+  authentication.enable_secret: "no enable-secret concept"
+  management.aux.exec_disabled: "no AUX port"
+  management.vty.transport_input: "not a line-based CLI model"
+  management.vty.transport_output: "not a line-based CLI model"
+  crypto.rsa_modulus: "certificate-based"

@@ -1,0 +1,15 @@
+id: NCSA-CAT-002
+title: Firewall rules must not permit any source to any destination
+field: firewall.rules.source
+operator: contains_none
+expected: ["0.0.0.0/0", "any"]
+severity: critical
+tier: category
+rationale: >-
+  An any-source rule defeats the purpose of the policy it sits in.
+frameworks:
+  nist_800_53: ["AC-4", "SC-7.5"]
+  iso_27001_2022: ["A.5.14", "A.8.16", "A.8.20", "A.8.22", "A.8.23"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

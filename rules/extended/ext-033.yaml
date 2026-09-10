@@ -1,0 +1,15 @@
+id: NCSA-EXT-033
+title: Memory thresholds should be configured
+field: platform.memory_thresholds
+operator: equals
+expected: true
+severity: low
+tier: extended
+rationale: >-
+  Memory reservation keeps the console reachable during resource exhaustion.
+frameworks:
+  nist_800_53: ["SC-5"]
+  iso_27001_2022: []
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

@@ -1,0 +1,14 @@
+id: NCSA-CAT-011
+title: Unused interfaces should be shut down
+field: interfaces.shutdown
+operator: is_set
+severity: low
+tier: category
+rationale: >-
+  An enabled unused port is an unmonitored entry point.
+frameworks:
+  nist_800_53: ["CM-7"]
+  iso_27001_2022: ["A.8.19"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

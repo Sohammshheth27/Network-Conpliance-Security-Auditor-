@@ -1,0 +1,304 @@
+{
+ "generated": "2026-09-09T23:57:30",
+ "pairs": 378,
+ "vendors": [
+  "arista",
+  "aws",
+  "cisco",
+  "fortinet",
+  "hpe_aruba",
+  "juniper",
+  "paloalto",
+  "sonicwall"
+ ],
+ "overall": {
+  "lexical": {
+   "top1": 42.9,
+   "top5": 65.1,
+   "n": 378
+  },
+  "lexical+type": {
+   "top1": 55.0,
+   "top5": 69.8,
+   "n": 378
+  },
+  "dense-only": {
+   "top1": 46.6,
+   "top5": 72.5,
+   "n": 378
+  },
+  "dense-only+type": {
+   "top1": 59.0,
+   "top5": 77.5,
+   "n": 378
+  },
+  "hybrid": {
+   "top1": 34.9,
+   "top5": 70.1,
+   "n": 378
+  },
+  "hybrid+type": {
+   "top1": 48.1,
+   "top5": 79.1,
+   "n": 378
+  }
+ },
+ "per_vendor": {
+  "arista": {
+   "lexical": {
+    "top1": 67.9,
+    "top5": 89.3,
+    "n": 28
+   },
+   "lexical+type": {
+    "top1": 82.1,
+    "top5": 96.4,
+    "n": 28
+   },
+   "dense-only": {
+    "top1": 53.6,
+    "top5": 82.1,
+    "n": 28
+   },
+   "dense-only+type": {
+    "top1": 60.7,
+    "top5": 85.7,
+    "n": 28
+   },
+   "hybrid": {
+    "top1": 53.6,
+    "top5": 100.0,
+    "n": 28
+   },
+   "hybrid+type": {
+    "top1": 75.0,
+    "top5": 100.0,
+    "n": 28
+   }
+  },
+  "aws": {
+   "lexical": {
+    "top1": 0.0,
+    "top5": 12.5,
+    "n": 8
+   },
+   "lexical+type": {
+    "top1": 0.0,
+    "top5": 12.5,
+    "n": 8
+   },
+   "dense-only": {
+    "top1": 0.0,
+    "top5": 12.5,
+    "n": 8
+   },
+   "dense-only+type": {
+    "top1": 0.0,
+    "top5": 12.5,
+    "n": 8
+   },
+   "hybrid": {
+    "top1": 0.0,
+    "top5": 0.0,
+    "n": 8
+   },
+   "hybrid+type": {
+    "top1": 0.0,
+    "top5": 12.5,
+    "n": 8
+   }
+  },
+  "cisco": {
+   "lexical": {
+    "top1": 38.0,
+    "top5": 52.8,
+    "n": 108
+   },
+   "lexical+type": {
+    "top1": 46.3,
+    "top5": 55.6,
+    "n": 108
+   },
+   "dense-only": {
+    "top1": 40.7,
+    "top5": 62.0,
+    "n": 108
+   },
+   "dense-only+type": {
+    "top1": 51.9,
+    "top5": 66.7,
+    "n": 108
+   },
+   "hybrid": {
+    "top1": 21.3,
+    "top5": 61.1,
+    "n": 108
+   },
+   "hybrid+type": {
+    "top1": 37.0,
+    "top5": 67.6,
+    "n": 108
+   }
+  },
+  "fortinet": {
+   "lexical": {
+    "top1": 25.0,
+    "top5": 56.8,
+    "n": 44
+   },
+   "lexical+type": {
+    "top1": 45.5,
+    "top5": 63.6,
+    "n": 44
+   },
+   "dense-only": {
+    "top1": 45.5,
+    "top5": 81.8,
+    "n": 44
+   },
+   "dense-only+type": {
+    "top1": 61.4,
+    "top5": 81.8,
+    "n": 44
+   },
+   "hybrid": {
+    "top1": 38.6,
+    "top5": 72.7,
+    "n": 44
+   },
+   "hybrid+type": {
+    "top1": 38.6,
+    "top5": 81.8,
+    "n": 44
+   }
+  },
+  "hpe_aruba": {
+   "lexical": {
+    "top1": 51.9,
+    "top5": 77.8,
+    "n": 27
+   },
+   "lexical+type": {
+    "top1": 59.3,
+    "top5": 81.5,
+    "n": 27
+   },
+   "dense-only": {
+    "top1": 59.3,
+    "top5": 85.2,
+    "n": 27
+   },
+   "dense-only+type": {
+    "top1": 66.7,
+    "top5": 85.2,
+    "n": 27
+   },
+   "hybrid": {
+    "top1": 40.7,
+    "top5": 81.5,
+    "n": 27
+   },
+   "hybrid+type": {
+    "top1": 59.3,
+    "top5": 100.0,
+    "n": 27
+   }
+  },
+  "juniper": {
+   "lexical": {
+    "top1": 54.2,
+    "top5": 85.4,
+    "n": 48
+   },
+   "lexical+type": {
+    "top1": 72.9,
+    "top5": 91.7,
+    "n": 48
+   },
+   "dense-only": {
+    "top1": 56.2,
+    "top5": 81.2,
+    "n": 48
+   },
+   "dense-only+type": {
+    "top1": 70.8,
+    "top5": 85.4,
+    "n": 48
+   },
+   "hybrid": {
+    "top1": 52.1,
+    "top5": 87.5,
+    "n": 48
+   },
+   "hybrid+type": {
+    "top1": 70.8,
+    "top5": 95.8,
+    "n": 48
+   }
+  },
+  "paloalto": {
+   "lexical": {
+    "top1": 58.1,
+    "top5": 77.4,
+    "n": 31
+   },
+   "lexical+type": {
+    "top1": 67.7,
+    "top5": 80.6,
+    "n": 31
+   },
+   "dense-only": {
+    "top1": 58.1,
+    "top5": 83.9,
+    "n": 31
+   },
+   "dense-only+type": {
+    "top1": 80.6,
+    "top5": 90.3,
+    "n": 31
+   },
+   "hybrid": {
+    "top1": 35.5,
+    "top5": 77.4,
+    "n": 31
+   },
+   "hybrid+type": {
+    "top1": 48.4,
+    "top5": 83.9,
+    "n": 31
+   }
+  },
+  "sonicwall": {
+   "lexical": {
+    "top1": 39.3,
+    "top5": 61.9,
+    "n": 84
+   },
+   "lexical+type": {
+    "top1": 51.2,
+    "top5": 67.9,
+    "n": 84
+   },
+   "dense-only": {
+    "top1": 42.9,
+    "top5": 70.2,
+    "n": 84
+   },
+   "dense-only+type": {
+    "top1": 54.8,
+    "top5": 81.0,
+    "n": 84
+   },
+   "hybrid": {
+    "top1": 35.7,
+    "top5": 60.7,
+    "n": 84
+   },
+   "hybrid+type": {
+    "top1": 46.4,
+    "top5": 73.8,
+    "n": 84
+   }
+  }
+ }
+}

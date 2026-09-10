@@ -1,0 +1,112 @@
+# AWS Security Groups mapping pack
+#
+# Source artifact: `aws ec2 describe-security-groups --output json`
+# Plan 5.2 Tier 1 -- free-tier account, 10 minutes. Even an empty account has a
+# default security group with real rules.
+#
+# This is a mapping pack, not code (plan 3.3). Adding Azure or GCP means writing
+# a sibling of this file -- no Python, no redeploy.
+#
+# Note on what a security group IS: it is a stateful ingress/egress filter, not
+# a device. It has no SSH version, no banner, no NTP. Most Core-20 controls are
+# therefore NOT_APPLICABLE here, and that is the correct answer, not a gap
+# (plan 6.5). What it does have is exposure, which is where the real findings
+# live -- see `derivations`.
+
+vendor: aws
+platform: security_groups
+reader: json
+version: "1.0"
+
+# What a security group actually HAS. Controls addressing anything else are
+# NOT_APPLICABLE, not UNKNOWN -- plan 6.5. This is the mechanism behind the
+# demo claim "not even a device, and it still works".
+supported_domains: [cloud, firewall, exposure, device]
+
+# Domains an EC2 security group genuinely does not have.
+#
+# This is the one pack where the wholesale exclusion was sound, and it is
+# stated per domain with a reason so the NOT_APPLICABLE verdicts carry a
+# justification rather than an assertion. A security group is a packet filter
+# and nothing else: it has no console, no shell, no clock and no user database.
+#
+# NOTE what is deliberately NOT listed. `authentication` and `authorization`
+# are real concerns for AWS -- they live in IAM. They are absent from THIS
+# ARTIFACT rather than from the platform, so their controls resolve to UNKNOWN,
+# which is the honest answer: we did not look at IAM. Calling them
+# NOT_APPLICABLE would remove them from the denominator and quietly raise the
+# score of an account whose IAM policy nobody has audited.
+not_applicable_domains:
+  banner: "a security group has no console or login surface to display a banner on"
+  time: "clock and NTP are instance-level, not properties of a security group"
+  snmp: "a security group runs no SNMP agent"
+  logging: "flow logs are a VPC resource; this artifact is the rule set alone"
+  management: "there is no management plane on a security group -- access is via the AWS API"
+  crypto: "a security group terminates nothing, so it has no cipher or TLS configuration"
+  interfaces: "a security group attaches to interfaces but does not define them"
+  l2: "layer 2 is not exposed to the tenant in a VPC"
+  routing: "route tables are a separate VPC resource"
+  platform: "there is no appliance here: no firmware, no config archive, no local API"
+  security: "IPS, antivirus and content filtering are separate AWS services"
+  services: "a security group runs no services of its own"
+
+# Plan step 2 -- fingerprint. These JSONPaths existing identifies the artifact.
+fingerprint:
+  - "$[*].GroupId"
+  - "$[*].IpPermissions"
+
+mappings:
+  - field: cloud.provider
+    const: aws
+
+  - field: cloud.region
+    jsonpath: "$[0].Region"
+
+  - field: cloud.account_id
+    jsonpath: "$[0].OwnerId"
+
+  - field: cloud.security_groups.id
+    jsonpath: "$[*].GroupId"
+    scope: "$[*].GroupId"
+
+  - field: cloud.security_groups.name
+    jsonpath: "$[*].GroupName"
+    scope: "$[*].GroupId"
+
+  - field: cloud.security_groups.vpc
+    jsonpath: "$[*].VpcId"
+    scope: "$[*].GroupId"
+
+  - field: cloud.security_groups.ingress
+    jsonpath: "$[*].IpPermissions[*]"
+    scope: "$[*].GroupId"
+
+  - field: cloud.security_groups.egress
+    jsonpath: "$[*].IpPermissionsEgress[*]"
+    scope: "$[*].GroupId"
+
+  - field: firewall.rules.description
+    jsonpath: "$[*].Description"
+    scope: "$[*].GroupId"
+
+  # A security group has no explicit default action: anything not permitted is
+  # denied. That is a property of the platform, not of this file, so it is
+  # recorded as DEFAULT_ASSUMED rather than OBSERVED (plan 2.3).
+  - field: firewall.default_action
+    const: deny
+
+derivations:
+  # Plan 15.2 -- security facts are COMPUTED from the structure, never matched
+  # as keywords. Each op below is allow-listed in ncsa/readers/pack.py; a pack
+  # cannot introduce new behaviour.
+
+  - field: exposure.admin_ports_open_to_internet
+    op: admin_ports_open_to_world
+    params:
+      ports: [22, 23, 21, 3389, 3306, 5432, 1433, 27017, 6379, 9200]
+
+  - field: exposure.any_any_rules
+    op: any_any_rules
+
+  - field: exposure.unrestricted_ingress
+    op: unrestricted_ingress

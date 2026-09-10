@@ -1,0 +1,167 @@
+# Junos, read from `show configuration | display xml`
+#
+# THE STRUCTURED-INPUT TIER. This pack and `juniper.yaml` describe the same
+# device and the same settings; the difference is what they have to survive.
+#
+# The braces pack parses text: it has to track a context stack, split block
+# headers from their arguments, keep repeated leaf keys apart, and tell
+# `telnet;` under `system services` from the word telnet in a comment. Four
+# separate bugs in this project came from exactly those hazards -- block-header
+# arguments kept as one segment, repeated leaves overwriting each other,
+# `default-policy permit-all` hardcoded as deny.
+#
+# None of that exists here. The device already parsed its own configuration and
+# emitted the tree; a path is a path. Where a customer can produce XML, this is
+# the pack to use, and the accuracy difference is structural rather than a
+# matter of how carefully the regexes were written.
+#
+# `<foo/>` -- an empty element -- means the feature is PRESENT. Junos expresses
+# most booleans that way, so the reader records `<present>` and the mappings
+# below read it with `presence: true` rather than coercing an empty string.
+
+vendor: juniper
+platform: juniper_srx_xml
+reader: xml
+version: "1.0"
+
+supported_domains: [device, management, authentication, authorization,
+                    logging, time, snmp, banner, crypto, services,
+                    interfaces, firewall]
+
+# Domains this PLATFORM genuinely lacks, each with the reason published as the
+# finding's justification.
+#
+# Deliberately short. A domain merely absent from `supported_domains` is a gap
+# in OUR pack, not a fact about the device, and now resolves to UNKNOWN --
+# which keeps it in the denominator where it belongs.
+not_applicable_domains:
+  cloud: "this is an on-premises appliance, not a cloud resource"
+
+
+fingerprint:
+  - "configuration/version"
+  - "configuration/system/host-name"
+
+mappings:
+  # --- device identity -----------------------------------------------------
+  - field: device.vendor
+    const: juniper
+  - field: device.platform
+    const: juniper_srx_xml
+  - field: device.os
+    const: Junos
+  - field: device.hostname
+    path: "configuration/system/host-name"
+  - field: device.version
+    path: "configuration/version"
+
+  # --- SSH -----------------------------------------------------------------
+  - field: management.ssh.enabled
+    path: "configuration/system/services/ssh/protocol-version"
+    value: {const: true}
+    if_absent: false
+  - field: management.ssh.version
+    path: "configuration/system/services/ssh/protocol-version"
+    value: {as: int}
+  - field: management.ssh.max_auth_tries
+    path: "configuration/system/services/ssh/connection-limit"
+    value: {as: int}
+
+  # --- telnet: presence of the element IS the setting ----------------------
+  # `<telnet/>` under system/services means telnet is enabled. Its absence
+  # here is a real absence -- the device emitted its whole configuration, so
+  # nothing is missing because we failed to read it. That is the one case
+  # where `if_absent` is honest rather than an assumption.
+  - field: management.telnet.enabled
+    path: "configuration/system/services/telnet"
+    value: {const: true}
+    if_absent: false
+
+  # --- web management ------------------------------------------------------
+  - field: management.http.enabled
+    path: "configuration/system/services/web-management/http"
+    value: {const: true}
+    if_absent: false
+  - field: management.https.enabled
+    path: "configuration/system/services/web-management/https"
+    value: {const: true}
+    if_absent: false
+
+  # --- session / banner ----------------------------------------------------
+  - field: management.vty.exec_timeout
+    path: "configuration/system/login/idle-timeout"
+    value: {as: int}
+  - field: banner.login
+    path: "configuration/system/login/message"
+  - field: authentication.local_accounts
+    path: "configuration/system/login/user/name"
+    value: {as: list}
+  - field: authorization.role_based
+    path: "configuration/system/login/user/class"
+    value: {const: true}
+    if_absent: false
+
+  # --- logging -------------------------------------------------------------
+  - field: logging.servers
+    path: "configuration/system/syslog/host/name"
+    value: {as: list}
+  - field: logging.enabled
+    path: "configuration/system/syslog/host/name"
+    value: {const: true}
+    if_absent: false
+
+  # --- time ----------------------------------------------------------------
+  - field: time.servers
+    path: "configuration/system/ntp/server/name"
+    value: {as: list}
+  - field: time.ntp_enabled
+    path: "configuration/system/ntp/server/name"
+    value: {const: true}
+    if_absent: false
+  - field: time.authenticated
+    path: "configuration/system/ntp/authentication-key/type"
+    value: {const: true}
+    if_absent: false
+  - field: time.timezone
+    path: "configuration/system/time-zone"
+
+  # --- snmp ----------------------------------------------------------------
+  # A v1/v2c community is a `<community>` element; its absence alongside a
+  # populated `<v3>` block is what makes this device v3-only.
+  - field: snmp.communities
+    path: "configuration/snmp/community/name"
+    value: {as: list}
+  - field: snmp.v3_auth
+    path: "configuration/snmp/v3/usm/local-engine/user/authentication-sha/authentication-key"
+    value: {const: true}
+    if_absent: false
+  - field: snmp.v3_priv
+    path: "configuration/snmp/v3/usm/local-engine/user/privacy-aes128/privacy-key"
+    value: {const: true}
+    if_absent: false
+
+  # --- firewall ------------------------------------------------------------
+  # BOTH forms are mapped, and neither uses `if_absent`.
+  #
+  # Mapping only `deny-all` meant a device with an explicit `<permit-all/>`
+  # reported "default deny not configured -- (absence)", when the export
+  # plainly states the opposite policy on a line we could cite. The braces
+  # pack had the identical defect earlier in this project, where a hardcoded
+  # `deny` turned a permit-all device into a false PASS. The weak form must be
+  # matched as positively as the strong one.
+  - field: firewall.default_action
+    path: "configuration/security/policies/default-policy/deny-all"
+    value: {const: deny}
+  - field: firewall.default_action
+    path: "configuration/security/policies/default-policy/permit-all"
+    value: {const: permit}
+  - field: firewall.zones
+    path: "configuration/security/zones/security-zone/name"
+    value: {as: list}
+
+not_applicable_fields:
+  # {field: reason}. The reason is published as the finding's justification --
+  # an auditor asked to accept an exclusion needs to know why, and "verified
+  # against the setting inventory" asserts a check without stating its result.
+  management.vty.transport_input: "no vty line construct on Junos"
+  management.vty.access_class: "no vty line construct on Junos; access is controlled by firewall filters"

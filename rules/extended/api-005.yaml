@@ -1,0 +1,22 @@
+id: NCSA-API-005
+title: Management API session security must be enabled
+field: platform.api.session_security
+operator: equals
+expected: true
+severity: medium
+tier: extended
+rationale: >-
+  Without session binding an intercepted API session can be resumed from elsewhere.
+frameworks:
+  nist_800_53: ['AC-12', 'SC-23']
+  iso_27001_2022: ['A.8.5']
+  # STIG/CIS ids are per-platform and belong in the vendor pack.
+
+# The management API's auth settings are moot when the API is switched off.
+# On the reference NSA 3700 `sonicOsApi_enable = off`, so every one of these
+# resolves to NOT_APPLICABLE with the disabling setting cited as evidence --
+# not to a FAIL about an attack surface that does not exist.
+requires:
+  - field: platform.api.enabled
+    equals: true
+    because: "the management REST API is disabled, so its authentication settings are moot"

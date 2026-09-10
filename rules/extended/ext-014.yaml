@@ -1,0 +1,15 @@
+id: NCSA-EXT-014
+title: Administrative MFA should be required
+field: authentication.mfa.admin_required
+operator: equals
+expected: true
+severity: high
+tier: extended
+rationale: >-
+  A single factor protecting a firewall's administrative interface is the weakest link in the whole control plane.
+frameworks:
+  nist_800_53: ["IA-2.1"]
+  iso_27001_2022: ["A.5.16"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

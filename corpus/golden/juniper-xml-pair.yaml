@@ -1,0 +1,72 @@
+name: juniper-xml-hardened
+config: samples/juniper/srx-display-xml.xml
+platform: juniper_srx_xml
+source: >-
+  `show configuration | display xml` from a hardened SRX. The structured-input
+  tier: the device already parsed its own configuration, so none of the text
+  hazards that produced four separate bugs in the braces pack -- block-header
+  arguments, repeated leaf keys overwriting each other, a hardcoded
+  default-policy -- can occur here.
+
+controls:
+  NCSA-TEL-001:
+    expect: PASS
+    because: "No `<telnet/>` element under system/services."
+
+  NCSA-SSH-002:
+    expect: PASS
+    because: "`<protocol-version>v2</protocol-version>` at L23."
+
+  NCSA-CLD-004:
+    expect: PASS
+    because: >-
+      `<deny-all/>` under security/policies/default-policy. This regressed to
+      FAIL when a `permit-all` mapping was added: the non-matching alternative
+      overwrote the observed value with NOT_OBSERVED, so an explicitly
+      default-deny device reported no default policy at all.
+
+  NCSA-BAN-001:
+    expect: PASS
+    because: "`<message>Authorised access only...` under system/login."
+
+  NCSA-LOG-002:
+    expect: PASS
+    because: >-
+      Two `<host><name>` entries, 10.20.0.50 at L36 and 10.20.0.51 at L43.
+      Both cited L15 until the reader moved to expat for line numbers, so the
+      evidence for the second server pointed at the first.
+
+---
+name: juniper-xml-weak
+config: samples/juniper/srx-display-xml-weak.xml
+platform: juniper_srx_xml
+source: >-
+  NEGATIVE CONTROL. Same schema, deliberately misconfigured. Written because a
+  90% score on a fixture I authored against a pack I authored proves nothing;
+  this file is what forces the pack to discriminate. It found two real bugs on
+  its first run.
+
+controls:
+  NCSA-TEL-001:
+    expect: FAIL
+    because: "`<telnet/>` at L27 -- an empty element means the service is ON."
+
+  NCSA-SSH-002:
+    expect: FAIL
+    because: "`<protocol-version>v1</protocol-version>` at L29."
+
+  NCSA-SNMP-002:
+    expect: FAIL
+    because: "`<community><name>public` at L40 and `private` below it."
+
+  NCSA-CLD-004:
+    expect: FAIL
+    because: >-
+      `<permit-all/>` at L51. Reported as "(absence)" until the weak form was
+      mapped as positively as the strong one -- the same defect that let a
+      cleartext ASA password report UNKNOWN, and that once made a permit-all
+      Junos device a false PASS.
+
+  NCSA-BAN-001:
+    expect: FAIL
+    because: "No `<message>` element under system/login."

@@ -1,0 +1,34 @@
+id: NCSA-TEL-001
+title: Telnet must be disabled
+field: management.telnet.enabled
+operator: equals
+expected: false
+severity: critical
+tier: core
+rationale: >-
+  Telnet transmits credentials and session content in cleartext on the management path.
+frameworks:
+  nist_800_53: [AC-17(2), SC-8, SC-8(1)]
+  iso_27001_2022: [A.5.10, A.5.14, A.5.33, A.6.7, A.8.20, A.8.26]
+  # STIG Vuln IDs are per-platform. Derived from the downloaded
+  # XCCDF files, not recalled -- a control may map to several.
+  stig_by_platform:
+    juniper_srx: [V-223209]
+    paloalto_panos: [V-228655, V-228669]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).
+
+remediation:
+  cisco_iosxe_router:
+    commands:
+    - line vty 0 15
+    - ' transport input ssh'
+    - ' exit'
+    phase: 40
+    management_impact: disables_telnet
+    verify: show running-config | section line vty
+  juniper_srx:
+    commands:
+    - delete system services telnet
+    phase: 40
+    management_impact: disables_telnet
+    verify: show configuration system services

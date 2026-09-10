@@ -1,0 +1,26 @@
+id: NCSA-AAA-002
+title: Only one local emergency account may exist
+field: authentication.local_accounts
+operator: max_count
+expected: 1
+severity: medium
+tier: core
+rationale: >-
+  A single break-glass account is required for AAA outage; additional local accounts bypass central control and audit.
+frameworks:
+  nist_800_53: [AC-2, AC-6]
+  iso_27001_2022: [A.5.15, A.5.16, A.5.18, A.8.18, A.8.2]
+  # STIG Vuln IDs are per-platform. Derived from the downloaded
+  # XCCDF files, not recalled -- a control may map to several.
+  stig_by_platform:
+    cisco_iosxe_router: [V-215824]
+    cisco_iosxe_switch: [V-220535]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).
+
+remediation:
+  cisco_iosxe_router:
+    commands:
+    - '! review local accounts; keep ONE break-glass account'
+    - '! no username <name>   (repeat per surplus account)'
+    phase: 30
+    verify: show running-config | include ^username

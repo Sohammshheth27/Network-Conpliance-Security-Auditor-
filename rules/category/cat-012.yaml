@@ -1,0 +1,15 @@
+id: NCSA-CAT-012
+title: NetFlow/traffic export should be enabled
+field: logging.netflow
+operator: equals
+expected: true
+severity: low
+tier: category
+rationale: >-
+  Flow export is what makes retrospective investigation possible.
+frameworks:
+  nist_800_53: ["AU-12", "SI-4"]
+  iso_27001_2022: ["A.8.15", "A.8.16"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

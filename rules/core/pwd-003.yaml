@@ -1,0 +1,21 @@
+id: NCSA-PWD-003
+title: Stored passwords must be encrypted
+# Pointed at `crypto.weak_ciphers`, which is SSH key-exchange and cipher
+# state -- NCSA-SSH-003 already covers that field with the right title.
+# The effect was a finding that read 'Stored passwords must be encrypted:
+# observed dh-group1-sha1', which is not a sentence about passwords.
+field: authentication.password_encryption
+operator: equals
+expected: true
+severity: high
+tier: core
+# crypto.weak_ciphers holds algorithms that are BOTH weak AND enabled,
+# on every vendor. Any entry is a violation, so this is max_count 0.
+# Previously contains_none matched literal tokens, which passed when a
+# vendor named the algorithm differently -- a false PASS on real weak crypto.
+rationale: >-
+  Reversible password storage (e.g. Cisco type 7) is equivalent to storing the password in cleartext.
+frameworks:
+  nist_800_53: [IA-5(1), SC-28]
+  iso_27001_2022: [A.5.10, A.5.16, A.5.17, A.5.33]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).

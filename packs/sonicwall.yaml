@@ -1,0 +1,136 @@
+# SonicWall SonicOS 7.x mapping pack -- Reader 2 (Fortinet block)
+#
+# Source artifact: web console -> Device -> Settings -> Export CLI settings
+# (PLAIN TEXT). Plan 4.2: the `.exp` export is a base64-obfuscated settings
+# dump and is the WRONG artifact -- it cannot be parsed and must not be used.
+#
+# This is our own production firewall (plan 16.2). Sanitise with netconan
+# before it goes anywhere near a repo or a demo.
+
+vendor: sonicwall
+platform: sonicwall_sonicos
+reader: fortinet_block
+version: "1.0"
+
+supported_domains: [device, management, authentication, authorization,
+                    logging, time, snmp, banner, crypto, interfaces,
+                    firewall, security, platform]
+
+# Domains this PLATFORM genuinely lacks, each with the reason published as the
+# finding's justification.
+#
+# Deliberately short. A domain merely absent from `supported_domains` is a gap
+# in OUR pack, not a fact about the device, and now resolves to UNKNOWN --
+# which keeps it in the denominator where it belongs.
+not_applicable_domains:
+  cloud: "this is an on-premises appliance, not a cloud resource"
+
+
+fingerprint:
+  - "administration"
+  - "system/name"
+
+mappings:
+  - field: device.vendor
+    const: sonicwall
+  - field: device.hostname
+    path: "administration/firewall-name"
+  - field: platform.firmware.version
+    path: "administration/firmware-version"
+
+  - field: management.ssh.enabled
+    path: "administration/ssh-management"
+    value: {as: bool}
+  - field: management.http.enabled
+    path: "administration/http-management"
+    value: {as: bool}
+  - field: management.https.enabled
+    path: "administration/https-management"
+    value: {as: bool}
+  - field: management.vty.exec_timeout
+    path: "administration/inactivity-timeout"
+    value: {as: int}
+
+  - field: authentication.min_password_length
+    path: "administration/password-min-length"
+    value: {as: int}
+  - field: authentication.complexity
+    path: "administration/password-complexity"
+    value: {as: bool}
+  - field: authentication.lockout.enabled
+    path: "administration/login-lockout"
+    value: {as: bool}
+
+  - field: logging.servers
+    path: "log syslog/*/server"
+    scope_from: 1
+  - field: time.servers
+    path: "time/ntp-server/*"
+    scope_from: 2
+
+  - field: snmp.version
+    path: "snmp/version"
+  - field: snmp.communities
+    path: "snmp/get-community"
+
+  - field: banner.login
+    path: "administration/login-banner"
+
+  # Appliance security services -- these are NOT_APPLICABLE on a router,
+  # which is what supported_domains above is for.
+  - field: security.ips.enabled
+    path: "security-services/ips"
+    value: {as: bool}
+  - field: security.gav.enabled
+    path: "security-services/gateway-av"
+    value: {as: bool}
+  - field: security.dpi_ssl.enabled
+    path: "security-services/dpi-ssl"
+    value: {as: bool}
+
+  - field: crypto.tls.minimum_version
+    path: "administration/tls-min-version"
+  - field: crypto.weak_ciphers
+    path: "administration/weak-ciphers"
+  - field: authorization.role_based
+    path: "administration/rbac"
+    value: {as: bool}
+
+  # --- gaps the reconciliation surfaced -------------------------------------
+  - field: management.ssh.version
+    path: "administration/ssh-version"
+    value: {as: int}
+  - field: management.ssh.max_auth_tries
+    path: "administration/ssh-max-auth-tries"
+    value: {as: int}
+  - field: management.telnet.enabled
+    path: "administration/telnet-management"
+    value: {as: bool}
+  - field: management.vty.transport_input
+    path: "administration/management-transport"
+    value: {as: list}
+  - field: management.vty.access_class
+    path: "administration/management-acl"
+  - field: authentication.aaa_enabled
+    path: "authentication/aaa-radius"
+    value: {as: bool}
+  - field: authentication.local_accounts
+    path: "authentication/local-user"
+  - field: authentication.complexity
+    path: "authentication/password-complexity"
+    value: {as: bool}
+  - field: logging.enabled
+    path: "log/logging"
+    value: {as: bool}
+  - field: time.ntp_enabled
+    path: "time/ntp-enable"
+    value: {as: bool}
+  - field: time.authenticated
+    path: "time/ntp-authenticate"
+    value: {as: bool}
+  - field: firewall.default_action
+    path: "firewall/default-action"
+
+derivations:
+  - field: exposure.admin_ports_open_to_internet
+    op: sonicos_admin_ports

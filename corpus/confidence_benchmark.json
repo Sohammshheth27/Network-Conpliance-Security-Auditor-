@@ -1,0 +1,79 @@
+{
+ "pairs": 378,
+ "top1_pct": 68.8,
+ "bands": [
+  {
+   "low": 80,
+   "high": 101,
+   "n": 6,
+   "correct": 6,
+   "precision_pct": 100.0
+  },
+  {
+   "low": 60,
+   "high": 80,
+   "n": 41,
+   "correct": 36,
+   "precision_pct": 87.8
+  },
+  {
+   "low": 40,
+   "high": 60,
+   "n": 131,
+   "correct": 108,
+   "precision_pct": 82.4
+  },
+  {
+   "low": 20,
+   "high": 40,
+   "n": 198,
+   "correct": 110,
+   "precision_pct": 55.6
+  },
+  {
+   "low": 0,
+   "high": 20,
+   "n": 2,
+   "correct": 0,
+   "precision_pct": 0.0
+  }
+ ],
+ "thresholds": [
+  {
+   "threshold": 80,
+   "n": 6,
+   "precision_pct": 100.0,
+   "remaining": 372
+  },
+  {
+   "threshold": 70,
+   "n": 23,
+   "precision_pct": 95.7,
+   "remaining": 355
+  },
+  {
+   "threshold": 60,
+   "n": 47,
+   "precision_pct": 89.4,
+   "remaining": 331
+  },
+  {
+   "threshold": 50,
+   "n": 111,
+   "precision_pct": 87.4,
+   "remaining": 267
+  },
+  {
+   "threshold": 40,
+   "n": 178,
+   "precision_pct": 84.3,
+   "remaining": 200
+  },
+  {
+   "threshold": 30,
+   "n": 327,
+   "precision_pct": 74.0,
+   "remaining": 51
+  }
+ ]
+}

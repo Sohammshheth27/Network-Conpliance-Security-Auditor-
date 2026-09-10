@@ -1,0 +1,28 @@
+id: NCSA-PWD-001
+title: Minimum password length must be enforced
+field: authentication.min_password_length
+operator: gte
+expected: 15
+severity: high
+tier: core
+rationale: >-
+  Short passwords are trivially brute-forced offline once a hash is obtained. 15 characters matches the current DISA baseline.
+frameworks:
+  nist_800_53: [IA-5, IA-5(1)]
+  iso_27001_2022: [A.5.16, A.5.17]
+  # STIG Vuln IDs are per-platform. Derived from the downloaded
+  # XCCDF files, not recalled -- a control may map to several.
+  stig_by_platform:
+    cisco_iosxe_router: [V-215826]
+    cisco_iosxe_switch: [V-220537]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).
+
+remediation:
+  cisco_iosxe_router:
+    commands:
+    - aaa common-criteria policy NCSA-PWD
+    - ' min-length 15'
+    - ' exit'
+    - '! apply: username <n> common-criteria-policy NCSA-PWD'
+    phase: 30
+    verify: show aaa common-criteria policy all

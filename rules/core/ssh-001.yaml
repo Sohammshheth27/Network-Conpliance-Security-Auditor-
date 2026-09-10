@@ -1,0 +1,27 @@
+id: NCSA-SSH-001
+title: SSH must be enabled for management access
+field: management.ssh.enabled
+operator: equals
+expected: true
+severity: high
+tier: core
+rationale: >-
+  Encrypted management is the precondition for removing cleartext access; remove Telnet only after SSH is proven working.
+frameworks:
+  nist_800_53: [AC-17, AC-17(2), SC-8]
+  iso_27001_2022: [A.5.10, A.5.14, A.5.33, A.6.7, A.8.20, A.8.26]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).
+
+remediation:
+  cisco_iosxe_router:
+    commands:
+    - ip domain-name example.local
+    - crypto key generate rsa modulus 2048
+    - ip ssh version 2
+    phase: 20
+    verify: show ip ssh
+  juniper_srx:
+    commands:
+    - set system services ssh protocol-version v2
+    phase: 20
+    verify: show configuration system services ssh

@@ -1,0 +1,58 @@
+# SonicOS Enhanced 7.3.0-7012 CLI settings export
+config sonicos
+  config administration
+    set firewall-name NSA3700-EDGE
+    set firmware-version 7.3.0-7012
+    set http-management enable
+    set https-management enable
+    set ssh-management enable
+    set http-port 80
+    set https-port 443
+    set ssh-port 22
+    set inactivity-timeout 60
+    set password-min-length 8
+    set password-complexity disable
+    set login-lockout disable
+    set login-banner ""
+    set ssh-version 2
+    set ssh-max-auth-tries 6
+    set telnet-management disable
+    set management-transport ssh
+    set management-acl ""
+    set rbac enable
+    set tls-min-version 1.0
+    set weak-ciphers 3des,rc4
+  end
+  config authentication
+    set method local
+    set aaa-radius disable
+    set local-user admin
+    set local-user backup-admin
+    set password-complexity disable
+  end
+  config log
+    set logging enable
+  end
+  config time
+    set ntp-enable enable
+    set ntp-server 1 pool.ntp.org
+    set ntp-authenticate disable
+  end
+  config firewall
+    set default-action deny
+  end
+  config snmp
+    set version v2c
+    set get-community public
+  end
+  config log syslog
+    edit 1
+      set server 10.30.0.50
+    next
+  end
+  config security-services
+    set ips enable
+    set gateway-av enable
+    set dpi-ssl disable
+  end
+end

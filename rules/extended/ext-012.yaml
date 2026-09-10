@@ -1,0 +1,21 @@
+id: NCSA-EXT-012
+title: A privileged-mode secret must be set, not a reversible password
+# `authentication.enable_secret` is a BOOL -- true when the enable
+# credential is stored hashed. It was compared against the STRING
+# "password", which a bool can never equal, so the control passed on
+# every device ever assessed -- including a real ASA whose config reads
+# `enable password Marcraft1` in cleartext. A high-severity control that
+# cannot fail is worse than no control: it reports safety it never checked.
+field: authentication.enable_secret
+operator: equals
+expected: true
+severity: high
+tier: extended
+rationale: >-
+  `enable password` is reversible; only `enable secret` stores a hash.
+frameworks:
+  nist_800_53: ["IA-5.1"]
+  iso_27001_2022: ["A.5.16", "A.5.17"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

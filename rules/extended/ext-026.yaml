@@ -1,0 +1,14 @@
+id: NCSA-EXT-026
+title: SNMP views should restrict the exposed MIB
+field: snmp.views
+operator: is_set
+severity: low
+tier: extended
+rationale: >-
+  A restricted view limits what a compromised community string can read.
+frameworks:
+  nist_800_53: ["AC-6"]
+  iso_27001_2022: ["A.5.15", "A.8.18", "A.8.2"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

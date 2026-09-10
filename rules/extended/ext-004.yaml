@@ -1,0 +1,15 @@
+id: NCSA-EXT-004
+title: Public-key authentication should be available for SSH
+field: management.ssh.pubkey_auth
+operator: equals
+expected: true
+severity: low
+tier: extended
+rationale: >-
+  Key-based administrator authentication removes the reusable shared secret.
+frameworks:
+  nist_800_53: ["IA-2.1"]
+  iso_27001_2022: ["A.5.16"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

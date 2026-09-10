@@ -1,0 +1,15 @@
+id: NCSA-EXT-027
+title: At least two time sources should be configured
+field: time.servers
+operator: min_count
+expected: 2
+severity: low
+tier: extended
+rationale: >-
+  A single time source is a single point of failure for every timestamp.
+frameworks:
+  nist_800_53: ["AU-8"]
+  iso_27001_2022: ["A.8.17"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

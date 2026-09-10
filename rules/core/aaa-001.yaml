@@ -1,0 +1,30 @@
+id: NCSA-AAA-001
+title: Centralised AAA must be configured
+field: authentication.aaa_enabled
+operator: equals
+expected: true
+severity: high
+tier: core
+rationale: >-
+  Centralised authentication gives per-administrator accountability and immediate revocation; local accounts give neither.
+frameworks:
+  nist_800_53: [AC-2, IA-2]
+  iso_27001_2022: [A.5.16, A.5.18, A.8.2]
+  # STIG Vuln IDs are per-platform. Derived from the downloaded
+  # XCCDF files, not recalled -- a control may map to several.
+  stig_by_platform:
+    cisco_iosxe_router: [V-215854]
+    cisco_iosxe_switch: [V-220565]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).
+
+remediation:
+  cisco_iosxe_router:
+    commands:
+    - aaa new-model
+    phase: 20
+    verify: show running-config | include aaa new-model
+  juniper_srx:
+    commands:
+    - set system authentication-order [ radius password ]
+    phase: 20
+    verify: show configuration system authentication-order

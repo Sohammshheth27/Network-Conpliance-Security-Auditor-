@@ -1,0 +1,30 @@
+id: NCSA-VTY-002
+title: Management access must be restricted by ACL
+field: management.vty.access_class
+operator: is_set
+severity: high
+tier: core
+rationale: >-
+  Restricting the management plane to known source networks removes the device from opportunistic internet-wide scanning.
+frameworks:
+  nist_800_53: [AC-3, AC-4, SC-7]
+  iso_27001_2022: [A.5.14, A.5.15, A.5.33, A.8.16, A.8.18, A.8.20, A.8.22, A.8.23, A.8.26, A.8.3, A.8.4]
+  # STIG Vuln IDs are per-platform. Derived from the downloaded
+  # XCCDF files, not recalled -- a control may map to several.
+  stig_by_platform:
+    cisco_iosxe_router: [V-215812]
+    cisco_iosxe_switch: [V-220523]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).
+
+remediation:
+  cisco_iosxe_router:
+    commands:
+    - ip access-list standard NCSA-MGMT
+    - ' permit 10.0.0.0 0.0.0.255'
+    - ' exit'
+    - line vty 0 15
+    - ' access-class NCSA-MGMT in'
+    - ' exit'
+    phase: 30
+    management_impact: restricts_source
+    verify: show running-config | section line vty

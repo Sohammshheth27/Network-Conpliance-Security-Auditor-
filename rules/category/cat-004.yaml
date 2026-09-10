@@ -1,0 +1,15 @@
+id: NCSA-CAT-004
+title: All policy references must resolve
+field: firewall.rules_unevaluable
+operator: max_count
+expected: 0
+severity: high
+tier: category
+rationale: >-
+  A dangling group or service reference means part of the policy could not be evaluated; the assessment is incomplete until it is fixed.
+frameworks:
+  nist_800_53: ["CM-6", "AC-4"]
+  iso_27001_2022: ["A.5.14", "A.8.22", "A.8.23", "A.8.9"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

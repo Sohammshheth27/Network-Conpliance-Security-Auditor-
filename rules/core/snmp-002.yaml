@@ -1,0 +1,27 @@
+id: NCSA-SNMP-002
+title: Default SNMP community strings must not be used
+field: snmp.communities
+operator: contains_none
+expected: ["public", "private", "cisco", "admin", "default"]
+severity: critical
+tier: core
+rationale: >-
+  Default community strings are the first thing an attacker tries and grant device-wide read or write access.
+frameworks:
+  nist_800_53: [IA-5, AC-17(2)]
+  iso_27001_2022: [A.5.14, A.5.16, A.5.17, A.6.7]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).
+
+remediation:
+  cisco_iosxe_router:
+    commands:
+    - no snmp-server community public
+    - no snmp-server community private
+    phase: 40
+    verify: show running-config | include snmp-server community
+  juniper_srx:
+    commands:
+    - delete snmp community public
+    - delete snmp community private
+    phase: 40
+    verify: show configuration snmp community

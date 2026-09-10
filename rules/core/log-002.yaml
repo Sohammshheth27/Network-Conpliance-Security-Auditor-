@@ -1,0 +1,32 @@
+id: NCSA-LOG-002
+title: At least two remote syslog servers must be configured
+field: logging.servers
+operator: min_count
+expected: 2
+severity: medium
+tier: core
+rationale: >-
+  Logs held only on the device are lost precisely when they matter -- on compromise. Two collectors survive one failing.
+frameworks:
+  nist_800_53: [AU-4, AU-9, AU-6]
+  iso_27001_2022: [A.5.25, A.5.33, A.6.8, A.8.15, A.8.6]
+  # STIG Vuln IDs are per-platform. Derived from the downloaded
+  # XCCDF files, not recalled -- a control may map to several.
+  stig_by_platform:
+    cisco_iosxe_router: [V-220139]
+    cisco_iosxe_switch: [V-220568]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).
+
+remediation:
+  cisco_iosxe_router:
+    commands:
+    - logging host 10.0.0.10
+    - logging host 10.0.0.11
+    phase: 10
+    verify: show running-config | include logging host
+  juniper_srx:
+    commands:
+    - set system syslog host 10.0.0.10 any notice
+    - set system syslog host 10.0.0.11 any notice
+    phase: 10
+    verify: show configuration system syslog host

@@ -1,0 +1,542 @@
+/**
+ * The one place the UI talks to the NCSA engine.
+ *
+ * Every type here mirrors what `ncsa/api/app.py` actually returns. They were
+ * written by reading real responses from the running engine against a real
+ * SonicWall NSA 3700 export, not from the endpoint signatures -- so the shapes
+ * are what the UI will genuinely receive.
+ *
+ * ONE RULE ABOVE ALL OTHERS
+ * -------------------------
+ * The engine reports seven result states. The UI must carry all seven.
+ *
+ * The temptation is to collapse them to pass/fail for a tidier chart. Doing so
+ * would destroy the product's central claim: NOT_APPLICABLE folded into PASS
+ * inflates the score, and UNKNOWN folded into either turns "we could not check
+ * this" into "we checked". The engine works hard to never present absence as a
+ * positive result; the UI must not undo that at the last layer.
+ */
+
+/** Requests go to /api/*, which Vite proxies to the engine. See vite.config.ts. */
+const BASE = "/api";
+
+// ---------------------------------------------------------------- result states
+
+/** All seven. Never narrow this union. */
+export type ResultState =
+  | "PASS"
+  | "FAIL"
+  | "PARTIAL"
+  | "NOT_APPLICABLE"
+  | "UNKNOWN"
+  | "MANUAL_REVIEW"
+  | "ERROR";
+
+export type Severity = "critical" | "high" | "medium" | "low";
+
+export const RESULT_STATES: ResultState[] = [
+  "PASS", "FAIL", "PARTIAL", "NOT_APPLICABLE", "UNKNOWN", "MANUAL_REVIEW", "ERROR",
+];
+
+/**
+ * What each state means, in the words a reviewer needs.
+ *
+ * These are shown in the UI on hover. A state whose meaning is not obvious is
+ * a state that will be misread, and UNKNOWN vs NOT_APPLICABLE is exactly the
+ * pair people misread.
+ */
+export const STATE_MEANING: Record<ResultState, string> = {
+  PASS: "Checked, and the device is configured correctly.",
+  FAIL: "Checked, and the device is not configured correctly.",
+  PARTIAL: "Checked; some scoped instances comply and others do not.",
+  NOT_APPLICABLE: "This control does not apply to this platform. Not a gap.",
+  UNKNOWN: "We could NOT check this. Not a pass, and not a failure.",
+  MANUAL_REVIEW: "Needs a human decision; no automated verdict is honest here.",
+  ERROR: "The check itself failed. Our fault, not the device's.",
+};
+
+/**
+ * Colours per state, in the project palette.
+ *
+ * UNKNOWN and NOT_APPLICABLE use the MUTED colour and must never use the pass
+ * green. A grey pill reads as "no verdict"; a green one reads as "fine", and
+ * the whole point of these two states is that we did not establish "fine".
+ */
+export const STATE_STYLE: Record<ResultState, string> = {
+  PASS: "bg-[rgba(50,214,168,0.12)] border-[rgba(50,214,168,0.28)] text-[#32D6A8]",
+  FAIL: "bg-[rgba(229,72,77,0.12)] border-[rgba(229,72,77,0.28)] text-[#E5484D]",
+  PARTIAL: "bg-[rgba(245,184,46,0.12)] border-[rgba(245,184,46,0.28)] text-[#F5B82E]",
+  NOT_APPLICABLE: "bg-[rgba(140,160,190,0.10)] border-[rgba(140,160,190,0.22)] text-[#8FA0BC]",
+  UNKNOWN: "bg-[rgba(140,160,190,0.10)] border-[rgba(140,160,190,0.22)] text-[#AAB8D0]",
+  MANUAL_REVIEW: "bg-[rgba(155,120,255,0.12)] border-[rgba(155,120,255,0.28)] text-[#9B78FF]",
+  ERROR: "bg-[rgba(255,138,60,0.12)] border-[rgba(255,138,60,0.28)] text-[#FF8A3C]",
+};
+
+export const SEVERITY_STYLE: Record<Severity, string> = {
+  critical: "bg-[rgba(229,72,77,0.14)] border-[rgba(229,72,77,0.30)] text-[#E5484D]",
+  high: "bg-[rgba(255,138,60,0.14)] border-[rgba(255,138,60,0.30)] text-[#FF8A3C]",
+  medium: "bg-[rgba(245,184,46,0.14)] border-[rgba(245,184,46,0.30)] text-[#F5B82E]",
+  low: "bg-[rgba(45,140,255,0.14)] border-[rgba(45,140,255,0.30)] text-[#2D8CFF]",
+};
+
+// ---------------------------------------------------------------------- types
+
+export interface Identity {
+  vendor: string;
+  platform: string;
+  os: string;
+  version: string;
+  hostname: string;
+  serial: string;
+  model: string;
+  source_file: string;
+  sha256: string;
+}
+
+/**
+ * Coverage, as the engine computes it.
+ *
+ * `score_pct` is over DECIDED controls only. It must never be rendered without
+ * `assessed_pct` beside it: a device where we could read 40% of the settings
+ * and all of them passed scores 100% on 40% coverage, and showing only the
+ * first number is a lie of omission.
+ */
+export interface Coverage {
+  controls_total: number;
+  controls_decided: number;
+  controls_undecided: number;
+  not_applicable: number;
+  assessed_pct: number;
+  score_pct: number;
+}
+
+export interface RecordAccounting {
+  source_records: number;
+  parsed_records: number;
+  unreadable_records: number;
+  mapped_to_schema: number;
+  parsed_not_mapped: number;
+  security_relevant_unmapped: number;
+}
+
+export interface EvidenceRef {
+  file: string;
+  /** null where the source format has no meaningful line -- a key-value export. */
+  line: number | null;
+  raw: string;
+  record_id: string | null;
+}
+
+export interface FrameworkRefs {
+  nist_800_53: string[];
+  iso_27001: string[];
+  stig_ids: string[];
+  cis_ids: string[];
+}
+
+export interface Finding {
+  control_id: string;
+  title: string;
+  state: ResultState;
+  severity: Severity;
+  field: string;
+  observed: unknown;
+  expected: unknown;
+  reason: string;
+  confidence: number;
+  evidence: EvidenceRef[];
+  frameworks: FrameworkRefs;
+  risk: number | null;
+}
+
+export interface ConsensusSummary {
+  total: number;
+  confirmed: number;
+  disputed: number;
+  uncorroborated: number;
+  dispute_rate_pct: number;
+  pack_coverage_gaps: number;
+}
+
+export interface Assessment {
+  assessment_id: string;
+  supported: boolean;
+  identity: Identity;
+  coverage: Coverage;
+  records: RecordAccounting;
+  counts: Record<ResultState, number>;
+  findings: Finding[];
+  risk_total: number;
+  risk_worst: string;
+  consensus: ConsensusSummary;
+  objects: number;
+  relationships: number;
+  notes: string[];
+}
+
+export interface AssessmentSummary {
+  assessment_id: string;
+  device: string;
+  vendor: string;
+  score_pct: number;
+  assessed_pct: number;
+}
+
+export interface PlatformInfo {
+  vendor: string;
+  platform: string;
+  reader: string;
+  mappings: number;
+}
+
+export interface FrameworksResponse {
+  catalogs: Record<string, number>;
+  note: string;
+}
+
+export interface HealthResponse {
+  ok: boolean;
+  assessments: number;
+  platforms_parsed: string[];
+  graph_analyses: {
+    capabilities: string[];
+    platforms: string[];
+    note: string;
+  };
+}
+
+// ------------------------------------------------------------- rule hygiene
+
+export interface HygieneFinding {
+  kind: string;
+  rule: string;
+  detail: string;
+  severity: string;
+  related: string;
+  hit_count: number | null;
+}
+
+/**
+ * `analysis_ran: false` is the important case.
+ *
+ * It means no rule-graph builder exists for this platform, so hygiene was
+ * never attempted. `summary` is null rather than zeroed, precisely so a chart
+ * cannot render "0 findings" and read as a clean policy.
+ */
+export interface HygieneResponse {
+  analysis_ran: boolean;
+  summary: {
+    rules_examined: number;
+    rules_fully_resolved: number;
+    unevaluable: number;
+    findings: number;
+    by_kind: Record<string, number>;
+  } | null;
+  findings: HygieneFinding[];
+  unevaluable?: string[];
+  reason?: string;
+  supported_platforms?: string[];
+  not_a_finding?: boolean;
+}
+
+// ------------------------------------------------------------- reachability
+
+export interface ReachQuery {
+  source?: string;
+  destination?: string;
+  port?: number;
+  protocol?: string;
+  source_zone?: string;
+  destination_zone?: string;
+}
+
+export interface ReachAnswer {
+  query: string;
+  /** Tri-state. null means undecidable, which is NOT the same as denied. */
+  permitted: boolean | null;
+  decided_by: string;
+  action: string;
+  reason: string;
+  rules_evaluated: number;
+  rules_unevaluable: number;
+  /** The deciding rule was zone-scoped but the query named no zone. */
+  zone_assumed: boolean;
+}
+
+export interface ReachResponse {
+  answer: ReachAnswer;
+  explain: string;
+}
+
+// ------------------------------------------------------- the other analyses
+
+export interface RemediationResponse {
+  platform: string;
+  rollback_command: string;
+  rollback_note: string;
+  steps: { control_id?: string; commands?: string[]; note?: string }[];
+  deferred: unknown[];
+  unavailable: string[];
+  script: string;
+}
+
+export interface TrainingCandidate {
+  name: string;
+  occurrences: number;
+  sample_values: string[];
+  evidence: EvidenceRef;
+  vendor: string;
+  platform: string;
+  suggested_field: string | null;
+  suggestion_score: number;
+  suggested_from: string;
+  status: string;
+}
+
+export interface RecertResponse {
+  due: {
+    device: string;
+    rule_id: string;
+    kind: string;
+    severity: string;
+    detail: string;
+    owner: string;
+    days_remaining: number | null;
+    hit_count: number | null;
+  }[];
+  deletion_candidates: {
+    rule: string;
+    rule_id: string;
+    signals: string[];
+    confidence: number;
+    hit_count: number | null;
+    note: string;
+  }[];
+}
+
+export interface ConsensusResponse {
+  consensus: {
+    items: {
+      verdict: string;
+      detector: string;
+      field: string;
+      line: number | null;
+      evidence: string;
+      universal_says: string;
+      pack_says: string;
+      pack_state: string;
+      confidence: number;
+      note: string;
+    }[];
+    pack_only: number;
+    coverage_gaps: string[];
+  };
+  parser_agreement: unknown;
+}
+
+export interface InterfacesResponse {
+  interfaces: {
+    name: string;
+    address: string | null;
+    netmask: string | null;
+    network: string | null;
+    zone: string | null;
+    enabled: boolean;
+    description: string;
+    evidence: string;
+  }[];
+  note?: string;
+}
+
+export interface TopologyResponse {
+  devices: { assessment_id: string; device: string }[];
+  skipped: { assessment_id: string; reason: string }[];
+  summary: {
+    devices: number;
+    interfaces: number;
+    links: number;
+    platforms: string[];
+  };
+  adjacency: unknown[];
+  path?: ReachAnswer;
+  explain?: string;
+}
+
+export interface DiffResponse {
+  device_key?: string;
+  same_device?: boolean;
+  device_changed?: boolean;
+  analysis_changed?: boolean;
+  before_at?: string;
+  after_at?: string;
+  score_before?: number | null;
+  score_after?: number | null;
+  control_changes?: {
+    control_id: string;
+    before: string;
+    after: string;
+    direction: string;
+    attributable_to: string;
+  }[];
+  rules_added?: string[];
+  rules_removed?: string[];
+  rules_modified?: string[];
+  summary?: {
+    device_changed: boolean;
+    analysis_changed: boolean;
+    score: [number | null, number | null];
+    improved: number;
+    regressed: number;
+    coverage_changes: number;
+    rules: { added: number; removed: number; modified: number };
+  };
+  explain?: string;
+  note?: string;
+}
+
+// --------------------------------------------------------------- the client
+
+/**
+ * An engine refusal is not a crash.
+ *
+ * The API answers "this platform has no object graph" with a 422 carrying a
+ * reason and the platforms that CAN answer. That is information the user needs
+ * to see, so it is carried on the error rather than flattened to "request
+ * failed".
+ */
+export class ApiError extends Error {
+  status: number;
+  reason?: string;
+  supportedPlatforms?: string[];
+  notAFinding?: boolean;
+
+  constructor(status: number, message: string, detail?: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    if (detail && typeof detail === "object") {
+      const d = detail as Record<string, unknown>;
+      this.reason = typeof d.reason === "string" ? d.reason : undefined;
+      this.supportedPlatforms = Array.isArray(d.supported_platforms)
+        ? (d.supported_platforms as string[])
+        : undefined;
+      this.notAFinding = d.not_a_finding === true;
+    }
+  }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, init);
+  } catch {
+    throw new ApiError(
+      0,
+      "Cannot reach the NCSA engine. Start it with: uvicorn ncsa.api.app:app --port 8000",
+    );
+  }
+
+  if (!res.ok) {
+    let detail: unknown;
+    let message = `${res.status} ${res.statusText}`;
+    try {
+      const body = await res.json();
+      detail = body?.detail ?? body;
+      if (typeof detail === "string") message = detail;
+      else if (detail && typeof detail === "object") {
+        const d = detail as Record<string, unknown>;
+        if (typeof d.error === "string") message = d.error;
+      }
+    } catch {
+      /* a non-JSON error body is still an error; keep the status line */
+    }
+    throw new ApiError(res.status, message, detail);
+  }
+  return (await res.json()) as T;
+}
+
+export const api = {
+  health: () => request<HealthResponse>("/health"),
+  platforms: () => request<PlatformInfo[]>("/platforms"),
+  frameworks: () => request<FrameworksResponse>("/frameworks"),
+
+  assessments: () => request<AssessmentSummary[]>("/assessments"),
+  assessment: (id: string) => request<Assessment>(`/assessment/${id}`),
+
+  /** Bulk ingestion is a deliverable, so this takes many files by design. */
+  assess: (files: File[], redact: boolean) => {
+    const form = new FormData();
+    for (const f of files) form.append("files", f);
+    return request<Assessment[]>(`/assess?redact=${redact}`, {
+      method: "POST",
+      body: form,
+    });
+  },
+
+  hygiene: (id: string) => request<HygieneResponse>(`/assessment/${id}/hygiene`),
+  remediation: (id: string) =>
+    request<RemediationResponse>(`/assessment/${id}/remediation`),
+  training: (id: string) =>
+    request<TrainingCandidate[]>(`/assessment/${id}/training`),
+  recertification: (id: string) =>
+    request<RecertResponse>(`/assessment/${id}/recertification`),
+  consensus: (id: string) =>
+    request<ConsensusResponse>(`/assessment/${id}/consensus`),
+  interfaces: (id: string) =>
+    request<InterfacesResponse>(`/assessment/${id}/interfaces`),
+
+  reach: (id: string, q: ReachQuery) =>
+    request<ReachResponse>(`/assessment/${id}/reach`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(q),
+    }),
+
+  snapshot: (id: string) =>
+    request<{ device_key: string; saved_to: string; taken_at: string }>(
+      `/assessment/${id}/snapshot`,
+      { method: "POST" },
+    ),
+  diff: (id: string) => request<DiffResponse>(`/assessment/${id}/diff`),
+
+  topology: (assessment_ids: string[]) =>
+    request<TopologyResponse>("/topology", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assessment_ids }),
+    }),
+};
+
+// ----------------------------------------------------------------- helpers
+
+/** Counts by severity, over FAILING controls only. */
+export function failuresBySeverity(findings: Finding[]): Record<Severity, number> {
+  const out: Record<Severity, number> = { critical: 0, high: 0, medium: 0, low: 0 };
+  for (const f of findings) {
+    if (f.state === "FAIL" || f.state === "PARTIAL") out[f.severity] += 1;
+  }
+  return out;
+}
+
+/**
+ * The caption that must accompany every score.
+ *
+ * Written once, here, so no page can render the score alone by forgetting.
+ */
+export function coverageCaption(c: Coverage): string {
+  return `${c.score_pct}% of ${c.controls_decided} decided controls · ${c.assessed_pct}% of the device assessed`;
+}
+
+export function vendorLabel(v: string): string {
+  const map: Record<string, string> = {
+    sonicwall: "SonicWall",
+    fortinet: "Fortinet",
+    paloalto: "Palo Alto",
+    cisco: "Cisco",
+    juniper: "Juniper",
+    arista: "Arista",
+    hpe_aruba: "HPE Aruba",
+    aws: "AWS",
+  };
+  return map[v] ?? v.charAt(0).toUpperCase() + v.slice(1);
+}

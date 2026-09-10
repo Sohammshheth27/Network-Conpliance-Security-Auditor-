@@ -1,0 +1,23 @@
+id: NCSA-VTY-001
+title: Management lines must accept SSH only
+field: management.vty.transport_input
+operator: contains_none
+expected: ["telnet", "all", "lat", "rlogin"]
+severity: critical
+tier: core
+rationale: >-
+  Disabling the telnet daemon is insufficient if a VTY line still accepts telnet transport.
+frameworks:
+  nist_800_53: [AC-17(2), SC-8(1)]
+  iso_27001_2022: [A.5.10, A.5.14, A.5.33, A.6.7, A.8.20, A.8.26]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).
+
+remediation:
+  cisco_iosxe_router:
+    commands:
+    - line vty 0 15
+    - ' transport input ssh'
+    - ' exit'
+    phase: 40
+    management_impact: disables_telnet
+    verify: show running-config | section line vty

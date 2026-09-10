@@ -1,0 +1,20 @@
+id: NCSA-EXT-024
+title: SNMPv3 privacy (encryption) must be enabled
+field: snmp.v3_priv
+operator: equals
+expected: true
+severity: high
+tier: extended
+rationale: >-
+  Authenticated but unencrypted SNMP still discloses topology and configuration.
+frameworks:
+  nist_800_53: ["SC-8.1"]
+  iso_27001_2022: ["A.5.10", "A.5.14", "A.5.33", "A.8.20", "A.8.26"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.
+
+requires:
+  - field: snmp.version
+    not_in: [disabled, off, "none", ""]
+    because: "SNMP is disabled on this device, so SNMPv3 settings are moot"

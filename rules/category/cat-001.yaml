@@ -1,0 +1,15 @@
+id: NCSA-CAT-001
+title: Firewall rules must be logged
+field: firewall.rules.log
+operator: equals
+expected: true
+severity: medium
+tier: category
+rationale: >-
+  An unlogged permit rule leaves no evidence that traffic was allowed.
+frameworks:
+  nist_800_53: ["AU-2", "AC-4"]
+  iso_27001_2022: ["A.5.14", "A.8.15", "A.8.22", "A.8.23"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

@@ -1,0 +1,15 @@
+id: NCSA-EXT-002
+title: SSH strict host key checking should be enabled
+field: management.ssh.strict_host_key
+operator: equals
+expected: true
+severity: medium
+tier: extended
+rationale: >-
+  Without host key verification an administrator cannot detect an interposed device on the management path.
+frameworks:
+  nist_800_53: ["SC-23"]
+  iso_27001_2022: []
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

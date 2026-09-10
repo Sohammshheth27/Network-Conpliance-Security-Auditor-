@@ -1,0 +1,21 @@
+id: NCSA-HTTPS-001
+title: HTTPS management must use TLS 1.2 or higher
+field: crypto.tls.minimum_version
+operator: in
+expected: ["1.2", "1.3"]
+severity: high
+tier: core
+rationale: >-
+  TLS below 1.2 has known weaknesses and is no longer considered adequate for administrative sessions.
+frameworks:
+  nist_800_53: [SC-8(1), SC-13]
+  iso_27001_2022: [A.5.10, A.5.14, A.5.33, A.8.20, A.8.24, A.8.26]
+  # CIS recommendation numbers live in the vendor pack (plan 6.1).
+
+# The TLS version of a management interface that is switched off is not a
+# finding. Same shape as the SNMPv3 case, and as the unconfigured M0
+# interface: a setting that is moot is not a setting that is wrong.
+requires:
+  - field: management.https.enabled
+    equals: true
+    because: "HTTPS management is disabled, so its TLS version is moot"

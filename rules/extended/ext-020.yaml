@@ -1,0 +1,15 @@
+id: NCSA-EXT-020
+title: Persistent logging should survive a reboot
+field: logging.persistent
+operator: equals
+expected: true
+severity: medium
+tier: extended
+rationale: >-
+  Buffer-only logging is erased by the reboot an attacker causes.
+frameworks:
+  nist_800_53: ["AU-9"]
+  iso_27001_2022: ["A.5.33", "A.8.15"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

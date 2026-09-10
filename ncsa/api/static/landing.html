@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NCSA — Network Compliance &amp; Security Auditor</title>
+<meta name="description" content="Vendor-agnostic network configuration compliance.
+  Every finding carries the file and the line it came from.">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/landing.css">
+</head>
+<body>
+
+<!-- The blueprint rails. Bifrost builds its whole page on a visible column
+     grid with hatched gutters; that is the single strongest thing about the
+     design, because it makes a marketing page read as an instrument panel. -->
+<!-- The optical layer. Grain, vignette, colour grade and two light leaks sit
+     over the whole page; the SVG filter below splits the red and blue channels
+     for real chromatic aberration on the headline. These are the qualities
+     that make an image read as photographed rather than drawn. -->
+<div class="optics" aria-hidden="true">
+  <div class="vig"></div><div class="grain"></div>
+</div>
+<svg width="0" height="0" aria-hidden="true" style="position:absolute">
+  <filter id="ca" x="-6%" y="-6%" width="112%" height="112%">
+    <feOffset in="SourceGraphic" dx="-0.5" dy="0" result="r"/>
+    <feOffset in="SourceGraphic" dx="0.5"  dy="0" result="b"/>
+    <feComponentTransfer in="r" result="rc">
+      <feFuncG type="discrete" tableValues="0"/><feFuncB type="discrete" tableValues="0"/>
+    </feComponentTransfer>
+    <feComponentTransfer in="b" result="bc">
+      <feFuncR type="discrete" tableValues="0"/><feFuncG type="discrete" tableValues="0"/>
+    </feComponentTransfer>
+    <feBlend in="rc" in2="bc" mode="screen" result="fringe"/>
+    <feBlend in="SourceGraphic" in2="fringe" mode="screen"/>
+  </filter>
+</svg>
+<div class="bgfield" aria-hidden="true"></div>
+<div class="rails" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+
+<!-- ────────────────────────── ANNOUNCEMENT BAR ────────────────────────── -->
+<div class="ann">
+  RUN IT AGAINST A REAL CONFIG. NOTHING LEAVES THIS MACHINE.
+  <a href="/app">OPEN THE CONSOLE</a>
+</div>
+
+<!-- ─────────────────────────────── NAV ────────────────────────────────── -->
+<header class="nav" id="nav">
+  <a class="logo" href="/"><span class="logo-mk"></span>NCSA</a>
+  <nav class="nav-mid">
+    <a href="#scale">CAPABILITIES</a>
+    <a href="#frameworks">EVIDENCE</a>
+    <a href="#frameworks">FRAMEWORKS</a>
+    <a href="#honesty">HONESTY</a>
+  </nav>
+  <div class="nav-right">
+    <a class="btn-out" href="#scale">HOW IT WORKS</a>
+    <a class="btn-fill" href="/app">OPEN CONSOLE</a>
+  </div>
+</header>
+
+<!-- ─────────────────────────────── HERO ───────────────────────────────── -->
+<section class="hero">
+  <div class="hero-in">
+    <h1>Know what your <span class="hl">firewall</span><br>
+      <em>actually says.</em></h1>
+    <p class="lede">Vendor-agnostic configuration compliance. Every finding is
+      traced to the file and the line it came from &mdash; and where the device
+      could not be read, we say so instead of scoring it.</p>
+
+    <div class="acts">
+      <a class="btn-fill lg" href="/app">OPEN THE CONSOLE</a>
+      <a class="btn-plain" href="#scale">See how it works</a>
+    </div>
+  </div>
+
+  <!-- The hero object: the device being audited, rendered. The console
+       screenshot that briefly lived here is the SAME image already used in
+       the capabilities section below -- showing it twice made the page look
+       padded, and it belongs next to the copy that explains it. -->
+  <div class="rig"><canvas id="appliance" aria-hidden="true"></canvas></div>
+
+  <!-- The result, stated plainly under the image. -->
+  <p class="hero-note">
+    <b>88 controls</b> &middot; <b>25 decided</b> &middot;
+    <b>44.0% of what we could read</b><br>
+    <span>52 undecided. Not passing. Reported as unknown.</span>
+  </p>
+
+  <a class="scrollcue" href="#scale">SCROLL TO DISCOVER<i></i></a>
+</section>
+
+<!-- ──────────────────────── NUMBERS AT A GLANCE ───────────────────────── -->
+<section class="glance">
+  <div class="glance-lab">OUR NUMBERS AT A GLANCE</div>
+  <div class="glance-row" id="glance"></div>
+</section>
+
+<!-- ───────────────────────── PLATFORM WALL ────────────────────────────── -->
+<section class="wall">
+  <div class="wall-lab">AND AN UNKNOWN VENDOR IS NOT AN ERROR</div>
+  <div class="wall-grid" id="wall"></div>
+</section>
+
+<!-- ───────────────────────────── CAPABILITIES ─────────────────────────── -->
+<section class="sec" id="scale">
+  <div class="sec-head">
+    <div class="lab">WHAT MAKES IT DIFFERENT</div>
+    <h2>Built to be checked,<br>not just believed</h2>
+    <p>One file, six stages, nothing executed. Vendor settings land on a
+      126-field vendor-neutral schema, and what comes out the other end can be
+      traced back to the line that produced it.</p>
+  </div>
+
+  <figure class="fig gates">
+    <svg viewBox="0 0 1180 240" class="gatesvg" aria-hidden="true">
+      <g id="gates" fill="none" stroke="currentColor" stroke-width="1"></g>
+    </svg>
+    <figcaption>ONE FILE &middot; SIX GATES &middot; NOTHING EXECUTED</figcaption>
+  </figure>
+
+  <!-- The console itself. Real product imagery is what those reference
+       templates lead with, and it is the one picture nobody else can show. -->
+  <figure class="shot" style="--shot-src:url('/static/img/console-results.webp')">
+    <div class="shot-in">
+      <img src="/static/img/console-results.webp" width="1400" height="627"
+           loading="lazy" decoding="async"
+           alt="The NCSA console showing a Cisco ASA assessment: a compliance
+                ring reading 45.5% of 22 decided controls, nested inside a
+                coverage arc, beside failure, risk and corroboration counts.">
+    </div>
+      <!-- A real figure lifted out of the screenshot and floated beside it,
+           the way the reference floats a score card over its product photo. -->
+      <div class="float-card" id="floatCard" hidden>
+        <div class="fc-lab">COVERAGE</div>
+        <div class="fc-num" id="fcNum"></div>
+        <div class="fc-note" id="fcNote"></div>
+      </div>
+    <figcaption class="shot-cap">THE CONSOLE &middot; A REAL CISCO ASA
+      &middot; SCORE NESTED INSIDE COVERAGE</figcaption>
+  </figure>
+
+  <div class="cells">
+    <article><div class="lab sm">HONEST UNKNOWN</div>
+      <p>A result state for &ldquo;the configuration does not say&rdquo;. It carries no
+         risk score, is never coloured as a pass, and coverage travels beside
+         every compliance figure so a device we could barely read cannot look
+         like one that mostly passed.</p></article>
+    <article><div class="lab sm">EVIDENCE ON EVERY ROW</div>
+      <p>Each finding cites the file and the line it came from. Absence is
+         reported as absence &mdash; a setting that simply is not present is
+         never scored as a passing one.</p></article>
+    <article><div class="lab sm">UNKNOWN VENDORS</div>
+      <p>An unrecognised platform is not an error. It routes to vendor-agnostic
+         detectors, and whatever could not be mapped is deduplicated by setting
+         name into one reviewable queue &mdash; one approval covers every
+         instance of that name on every device of the platform.</p></article>
+    <article><div class="lab sm">REGRESSION-GATED LEARNING</div>
+      <p>Teaching it a new setting re-runs a verified corpus first. A change
+         that would break a known-good result is refused outright and leaves
+         nothing behind.</p></article>
+    <article><div class="lab sm">A SECOND OPINION</div>
+      <p>Findings are re-derived by an independent method. Where the two
+         disagree the dispute is surfaced rather than quietly resolved in
+         favour of whichever ran last.</p></article>
+    <article><div class="lab sm">REMEDIATION THAT CANNOT LOCK YOU OUT</div>
+      <p>Ordered, rollback-wrapped CLI. Any step that would sever the only live
+         management path is deferred and flagged, never shipped silently inside
+         the script.</p></article>
+  </div>
+</section>
+
+<!-- ───────────────────────────── FRAMEWORKS ───────────────────────────── -->
+<section class="sec" id="frameworks">
+  <div class="sec-head">
+    <div class="lab">REAL PROVENANCE, NOT SIMILARITY</div>
+    <h2>Four frameworks, one chain of custody</h2>
+    <p>A control maps through published crosswalks &mdash; STIG to CCI to NIST to
+      ISO &mdash; so every citation can be followed back to its source.</p>
+  </div>
+  <!-- The crosswalk, animated. A signal leaves a STIG rule and arrives at an
+       ISO clause through CCI and NIST -- the actual path a citation takes. -->
+  <figure class="fig chain">
+    <svg viewBox="0 0 1180 210" class="chainsvg" aria-hidden="true">
+      <g id="chain" fill="none" stroke="currentColor" stroke-width="1"></g>
+    </svg>
+    <figcaption>STIG &rarr; CCI &rarr; NIST &rarr; ISO &middot; PUBLISHED CROSSWALKS ONLY</figcaption>
+  </figure>
+
+  <div class="fw-grid" id="fwGrid"></div>
+  <p class="fine">CIS Benchmarks and ISO/IEC 27001 are cited by identifier and
+    title only. Their text is copyrighted and never leaves the machine it was
+    licensed to.</p>
+</section>
+
+<!-- ────────────────────────────── HONESTY ─────────────────────────────── -->
+<section class="sec" id="honesty">
+  <div class="sec-head">
+    <div class="lab">THE POSITION</div>
+    <h2>A tool that cannot say &ldquo;I don&rsquo;t know&rdquo;<br>
+      will eventually say something false</h2>
+  </div>
+  <figure class="shot" style="--shot-src:url('/static/img/console-findings.webp')">
+    <div class="shot-in">
+      <img src="/static/img/console-findings.webp" width="1400" height="611"
+           loading="lazy" decoding="async"
+           alt="The findings table, filtered to failures, each row carrying the
+                control, its state, its risk, the observed value and the file
+                and line the evidence came from.">
+    </div>
+    <figcaption class="shot-cap">EVERY ROW CARRIES THE FILE AND LINE IT CAME FROM</figcaption>
+  </figure>
+
+  <div class="two">
+    <div>
+      <p>Most tools report a single percentage. That number only means something
+        beside how much of the device was actually assessed &mdash; a config we
+        could barely read otherwise looks like a config that mostly passed.</p>
+      <p><b>So UNKNOWN is a first-class result.</b> It carries no risk score, it
+        is never coloured as a pass, and coverage travels beside compliance
+        everywhere the two appear.</p>
+    </div>
+    <div class="quote">
+      <!-- The console's own figure. The blue arc is passed/total and is nested
+           inside the grey coverage arc, so it can never draw longer than the
+           part of the device we could actually read. -->
+      <svg class="ringfig" viewBox="0 0 200 200" aria-hidden="true">
+        <circle class="r-bg"  cx="100" cy="100" r="78"/>
+        <circle class="r-cov" cx="100" cy="100" r="78"/>
+        <circle class="r-val" cx="100" cy="100" r="78"/>
+      </svg>
+      <div class="lab sm">WHAT THIS RULES OUT</div>
+      <ul>
+        <li>A percentage quoted without its coverage</li>
+        <li>An absent setting scored as a passing one</li>
+        <li>A rule we could not resolve counted as clean</li>
+        <li>A framework citation nobody can follow back</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────────────────── CTA ───────────────────────────────── -->
+<section class="end">
+  <canvas class="ruleflow" id="ruleflow" aria-hidden="true"></canvas>
+  <div class="lab">NO SIGN-UP. NO UPLOAD.</div>
+  <h2>Point it at a real config</h2>
+  <div class="acts">
+    <a class="btn-fill lg" href="/app">OPEN THE CONSOLE</a>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="foot-brand">
+    <div class="logo"><span class="logo-mk"></span>NCSA</div>
+    <p>Vendor-agnostic network configuration compliance. Every finding carries
+      the file and the line it came from, and coverage travels beside every
+      score.</p>
+    <div class="foot-note">EVERY FINDING CARRIES ITS EVIDENCE</div>
+  </div>
+  <div class="foot-cols">
+    <div><h4>ENGINE</h4>
+      <a href="#scale">Seven readers</a><a href="#scale">Vendor-neutral schema</a>
+      <a href="#pipeline">Object graph</a><a href="#scale">Rule hygiene</a></div>
+    <div><h4>FRAMEWORKS</h4>
+      <a href="#frameworks">NIST SP 800-53</a><a href="#frameworks">DISA STIG</a>
+      <a href="#frameworks">CIS Benchmarks</a><a href="#frameworks">ISO/IEC 27001</a></div>
+    <div><h4>CONSOLE</h4>
+      <a href="/app">Ingest a config</a><a href="/app">Results</a>
+      <a href="/app">Rule hygiene</a><a href="/app">Remediation</a></div>
+  </div>
+</footer>
+
+<script src="/static/appliance.js"></script>
+<script src="/static/graphics.js"></script>
+<script src="/static/landing.js"></script>
+</body>
+</html>

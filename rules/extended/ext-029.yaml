@@ -1,0 +1,15 @@
+id: NCSA-EXT-029
+title: Configuration change archiving should be enabled
+field: platform.config_archive
+operator: equals
+expected: true
+severity: medium
+tier: extended
+rationale: >-
+  Without archiving there is no record of what changed or the ability to roll back.
+frameworks:
+  nist_800_53: ["CM-3", "CM-6"]
+  iso_27001_2022: ["8.1", "9.3.3", "A.8.32", "A.8.9"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

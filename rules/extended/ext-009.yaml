@@ -1,0 +1,15 @@
+id: NCSA-EXT-009
+title: The auxiliary port must not offer an EXEC session
+field: management.aux.exec_disabled
+operator: equals
+expected: true
+severity: medium
+tier: extended
+rationale: >-
+  The aux port is a documented back door that survives most hardening reviews.
+frameworks:
+  nist_800_53: ["AC-17"]
+  iso_27001_2022: ["A.5.14", "A.6.7"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.

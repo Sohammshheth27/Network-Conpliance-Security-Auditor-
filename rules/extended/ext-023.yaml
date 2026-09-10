@@ -1,0 +1,23 @@
+id: NCSA-EXT-023
+title: SNMPv3 authentication must be enabled
+field: snmp.v3_auth
+operator: equals
+expected: true
+severity: high
+tier: extended
+rationale: >-
+  SNMP without authentication exposes device state to anyone who can reach it.
+frameworks:
+  nist_800_53: ["IA-3", "SC-8"]
+  iso_27001_2022: ["A.5.10", "A.5.14", "A.5.33", "A.8.20", "A.8.26"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.
+
+# A device with SNMP switched off cannot fail an SNMPv3 authentication check.
+# Verified on a real hardened NSA 3700: `snmp_Enable = off` and all eight
+# `snmpStateEnable_N = off`, and this control still reported FAIL.
+requires:
+  - field: snmp.version
+    not_in: [disabled, off, "none", ""]
+    because: "SNMP is disabled on this device, so SNMPv3 settings are moot"

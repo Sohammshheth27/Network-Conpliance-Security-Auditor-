@@ -1,0 +1,15 @@
+id: NCSA-EXT-013
+title: Account lockout must be enabled
+field: authentication.lockout.enabled
+operator: equals
+expected: true
+severity: high
+tier: extended
+rationale: >-
+  Without lockout, credential guessing is limited only by network bandwidth.
+frameworks:
+  nist_800_53: ["AC-7"]
+  iso_27001_2022: ["A.8.5"]
+  # STIG/CIS ids intentionally omitted: they are per-platform and
+  # belong in the vendor pack (plan 6.1). An invented id is worse
+  # than none -- see the v1.4 6.4 caveat.
