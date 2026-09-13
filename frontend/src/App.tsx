@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import AppShell from './components/layout/AppShell';
 import Home from './pages/Home';
 import Assessments from './pages/Assessments';
@@ -9,20 +8,9 @@ import Analysis from './pages/Analysis';
 import Frameworks from './pages/Frameworks';
 import Settings from './pages/Settings';
 
-function ScrollToTop() {
-  const { pathname } = useLocation();
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "instant" });
-  }, [pathname]);
-
-  return null;
-}
-
 function App() {
   return (
     <BrowserRouter>
-      <ScrollToTop />
       <Routes>
         <Route path="/" element={<AppShell />}>
           <Route index element={<Home />} />

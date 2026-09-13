@@ -63,20 +63,20 @@ export const STATE_MEANING: Record<ResultState, string> = {
  * the whole point of these two states is that we did not establish "fine".
  */
 export const STATE_STYLE: Record<ResultState, string> = {
-  PASS: "bg-[rgba(50,214,168,0.12)] border-[rgba(50,214,168,0.28)] text-[#32D6A8]",
-  FAIL: "bg-[rgba(229,72,77,0.12)] border-[rgba(229,72,77,0.28)] text-[#E5484D]",
-  PARTIAL: "bg-[rgba(245,184,46,0.12)] border-[rgba(245,184,46,0.28)] text-[#F5B82E]",
-  NOT_APPLICABLE: "bg-[rgba(140,160,190,0.10)] border-[rgba(140,160,190,0.22)] text-[#8FA0BC]",
-  UNKNOWN: "bg-[rgba(140,160,190,0.10)] border-[rgba(140,160,190,0.22)] text-[#AAB8D0]",
-  MANUAL_REVIEW: "bg-[rgba(155,120,255,0.12)] border-[rgba(155,120,255,0.28)] text-[#9B78FF]",
-  ERROR: "bg-[rgba(255,138,60,0.12)] border-[rgba(255,138,60,0.28)] text-[#FF8A3C]",
+  PASS: "bg-emerald-50 border-emerald-200 text-emerald-700",
+  FAIL: "bg-rose-50 border-rose-200 text-rose-700",
+  PARTIAL: "bg-amber-50 border-amber-200 text-amber-700",
+  NOT_APPLICABLE: "bg-slate-50 border-slate-200 text-slate-600",
+  UNKNOWN: "bg-slate-50 border-slate-200 text-slate-600",
+  MANUAL_REVIEW: "bg-purple-50 border-purple-200 text-purple-700",
+  ERROR: "bg-orange-50 border-orange-200 text-orange-700",
 };
 
 export const SEVERITY_STYLE: Record<Severity, string> = {
-  critical: "bg-[rgba(229,72,77,0.14)] border-[rgba(229,72,77,0.30)] text-[#E5484D]",
-  high: "bg-[rgba(255,138,60,0.14)] border-[rgba(255,138,60,0.30)] text-[#FF8A3C]",
-  medium: "bg-[rgba(245,184,46,0.14)] border-[rgba(245,184,46,0.30)] text-[#F5B82E]",
-  low: "bg-[rgba(45,140,255,0.14)] border-[rgba(45,140,255,0.30)] text-[#2D8CFF]",
+  critical: "bg-rose-50 border-rose-200 text-rose-700",
+  high: "bg-orange-50 border-orange-200 text-orange-700",
+  medium: "bg-amber-50 border-amber-200 text-amber-700",
+  low: "bg-sky-50 border-sky-200 text-sky-700",
 };
 
 // ---------------------------------------------------------------------- types

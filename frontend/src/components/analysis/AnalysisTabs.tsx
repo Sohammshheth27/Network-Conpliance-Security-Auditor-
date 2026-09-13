@@ -82,7 +82,7 @@ export const AnalysisTabs: FC<{ assessmentId: string }> = ({ assessmentId }) => 
 // ------------------------------------------------------------- rule hygiene
 
 const HygienePanel: FC<{ id: string }> = ({ id }) => {
-  const { data, loading, error, reload } = useApi(() => api.hygiene(id), [id]);
+  const { data, loading, error, reload } = useApi(() => api.hygiene(id), [id], { cacheKey: `hygiene-${id}` });
 
   if (loading) return <Loading label="Analysing rule hygiene" />;
   if (error) return <ErrorPanel error={error} onRetry={reload} />;
@@ -363,6 +363,7 @@ const RecertPanel: FC<{ id: string }> = ({ id }) => {
   const { data, loading, error, reload } = useApi(
     () => api.recertification(id),
     [id],
+    { cacheKey: `recertification-${id}` }
   );
 
   if (loading) return <Loading label="Reviewing certifications" />;
@@ -455,7 +456,7 @@ const RecertPanel: FC<{ id: string }> = ({ id }) => {
 const ChangePanel: FC<{ id: string }> = ({ id }) => {
   const [busy, setBusy] = useState(false);
   const [snapMsg, setSnapMsg] = useState<string | null>(null);
-  const { data, loading, error, reload } = useApi(() => api.diff(id), [id]);
+  const { data, loading, error, reload } = useApi(() => api.diff(id), [id], { cacheKey: `diff-${id}` });
 
   const takeSnapshot = async () => {
     setBusy(true);
@@ -554,7 +555,7 @@ const ChangePanel: FC<{ id: string }> = ({ id }) => {
 // --------------------------------------------------------------- interfaces
 
 const InterfacesPanel: FC<{ id: string }> = ({ id }) => {
-  const { data, loading, error, reload } = useApi(() => api.interfaces(id), [id]);
+  const { data, loading, error, reload } = useApi(() => api.interfaces(id), [id], { cacheKey: `interfaces-${id}` });
 
   if (loading) return <Loading label="Reading interfaces" />;
   if (error) return <ErrorPanel error={error} onRetry={reload} />;
@@ -619,7 +620,7 @@ const InterfacesPanel: FC<{ id: string }> = ({ id }) => {
 // ---------------------------------------------------------------- consensus
 
 const ConsensusPanel: FC<{ id: string }> = ({ id }) => {
-  const { data, loading, error, reload } = useApi(() => api.consensus(id), [id]);
+  const { data, loading, error, reload } = useApi(() => api.consensus(id), [id], { cacheKey: `consensus-${id}` });
 
   if (loading) return <Loading label="Cross-checking parsers" />;
   if (error) return <ErrorPanel error={error} onRetry={reload} />;
@@ -702,7 +703,7 @@ const ConsensusPanel: FC<{ id: string }> = ({ id }) => {
 // ----------------------------------------------------------- training queue
 
 const TrainingPanel: FC<{ id: string }> = ({ id }) => {
-  const { data, loading, error, reload } = useApi(() => api.training(id), [id]);
+  const { data, loading, error, reload } = useApi(() => api.training(id), [id], { cacheKey: `training-${id}` });
 
   if (loading) return <Loading label="Reading the training queue" />;
   if (error) return <ErrorPanel error={error} onRetry={reload} />;

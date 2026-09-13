@@ -12,7 +12,7 @@ from . import ai_security, cis, derived, iso, nist, nist_171, pci, stig
 from .ai_security import AiSecurityKB
 from .models import Automatability, Catalog, Framework
 
-DEFAULT_ROOT = Path(r"E:\NCSA\reference")
+DEFAULT_ROOT = Path(__file__).resolve().parents[2] / "reference"
 
 PATHS = {
     "nist": "nist/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_catalog.json",
@@ -131,7 +131,7 @@ class FrameworkRegistry(BaseModel):
         return "\n".join(lines)
 
 
-CACHE_PATH = Path(r"E:\NCSA\reference\.framework_cache.json")
+CACHE_PATH = DEFAULT_ROOT / ".framework_cache.json"
 
 
 def load_all(
@@ -158,7 +158,10 @@ def load_all(
 
     reg = _load_fresh(root, cis_latest_only)
     if use_cache:
-        _write_cache(root, reg)
+        try:
+            _write_cache(root, reg)
+        except Exception:
+            pass
     return reg
 
 

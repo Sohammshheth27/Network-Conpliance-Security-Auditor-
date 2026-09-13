@@ -486,7 +486,7 @@ def assess_this_host(enable: bool = Query(
 def frameworks():
     from ..frameworks.registry import load_all
 
-    reg = load_all("reference")
+    reg = load_all()
     return {"catalogs": {fw.value: len(cat.entries)
                          for fw, cat in reg.catalogs.items()},
             "note": "CIS and ISO entries are cited by identifier only; their "

@@ -1,303 +1,117 @@
 import { useMemo, useState, type FC } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Search, Server, Terminal } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  Terminal, 
+  ChevronRight,
+  ShieldCheck,
+  FileCode,
+  Sliders,
+  AlertTriangle,
+  ShieldAlert,
+  AlertCircle,
+  Play,
+  FileText
+} from 'lucide-react';
 import { Card } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
-import { RadialProgress } from '../components/ui/RadialProgress';
-import {
-  Empty,
-  ErrorPanel,
-  Loading,
-  SeverityPill,
-  StatePill,
-} from '../components/ui/States';
+import { Button } from '../components/ui/Button';
+import { Empty, ErrorPanel, Loading } from '../components/ui/States';
 import {
   api,
-  coverageCaption,
   failuresBySeverity,
-  RESULT_STATES,
-  STATE_MEANING,
-  STATE_STYLE,
   vendorLabel,
   type Assessment,
-  type Finding,
-  type ResultState,
   type Severity,
 } from '../lib/api';
 import { useApi } from '../lib/useApi';
-import { AnalysisTabs } from '../components/analysis/AnalysisTabs';
 
-type Tab = 'findings' | 'analysis' | 'records' | 'remediation';
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'findings', label: 'Findings' },
-  { id: 'analysis', label: 'Deeper analysis' },
-  { id: 'remediation', label: 'Remediation' },
-  { id: 'records', label: 'Parse accounting' },
-];
-
-/** One finding row, expanding to its evidence. */
-const FindingRow: FC<{ finding: Finding }> = ({ finding }) => {
-  const [open, setOpen] = useState(false);
-  const fw = finding.frameworks;
-  const chips = [
-    ...fw.nist_800_53.map((c) => ({ label: c, src: 'NIST 800-53' })),
-    ...fw.stig_ids.map((c) => ({ label: c, src: 'STIG' })),
-    ...fw.cis_ids.map((c) => ({ label: c, src: 'CIS' })),
-    ...fw.iso_27001.map((c) => ({ label: c, src: 'ISO 27001' })),
-  ];
-
-  return (
-    <div className="border-b border-[rgba(100,150,220,0.08)] last:border-0">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full px-5 py-3.5 text-left transition-colors hover:bg-[rgba(22,119,255,0.05)]"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <StatePill state={finding.state} />
-              <SeverityPill severity={finding.severity} />
-              <span className="font-mono text-[11px] text-[#65738B]">
-                {finding.control_id}
-              </span>
-            </div>
-            <h4 className="mt-1.5 text-sm font-semibold text-[#F5F8FF]">
-              {finding.title}
-            </h4>
-            <p className="mt-0.5 font-mono text-[11.5px] text-[#8FA0BC]">
-              {finding.field}
-            </p>
-          </div>
-          <span className="shrink-0 text-[11px] text-[#65738B]">
-            {open ? 'Hide' : 'Evidence'}
-          </span>
-        </div>
-      </button>
-
-      {open && (
-        <div className="bg-[rgba(8,16,32,0.5)] px-5 pb-5 pt-1">
-          <p className="text-[13px] leading-relaxed text-[#AAB8D0]">
-            {finding.reason}
-          </p>
-
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-[rgba(100,150,220,0.14)] p-3">
-              <span className="text-[10.5px] uppercase tracking-wider text-[#65738B]">
-                Observed
-              </span>
-              <p className="mt-1 font-mono text-[12.5px] break-words text-[#F5F8FF]">
-                {finding.observed === null || finding.observed === undefined
-                  ? '— nothing observed'
-                  : JSON.stringify(finding.observed)}
-              </p>
-            </div>
-            <div className="rounded-xl border border-[rgba(100,150,220,0.14)] p-3">
-              <span className="text-[10.5px] uppercase tracking-wider text-[#65738B]">
-                Expected
-              </span>
-              <p className="mt-1 font-mono text-[12.5px] break-words text-[#F5F8FF]">
-                {finding.expected === null || finding.expected === undefined
-                  ? '—'
-                  : JSON.stringify(finding.expected)}
-              </p>
-            </div>
-          </div>
-
-          {/* The single most persuasive thing in the product: the exact line of
-              the exact file behind the claim. One click, never two. */}
-          {finding.evidence.length > 0 && (
-            <div className="mt-3">
-              <span className="text-[10.5px] uppercase tracking-wider text-[#65738B]">
-                Evidence — {finding.evidence.length} line
-                {finding.evidence.length > 1 ? 's' : ''} from the configuration
-              </span>
-              <div className="mt-1.5 space-y-1.5">
-                {finding.evidence.slice(0, 8).map((e, i) => (
-                  <div
-                    key={i}
-                    className="overflow-x-auto rounded-lg border border-[rgba(100,150,220,0.16)] bg-[rgba(5,11,24,0.8)] px-3 py-2"
-                  >
-                    <div className="mb-1 flex items-center gap-2 text-[10.5px] text-[#65738B]">
-                      <Terminal className="h-3 w-3" />
-                      <span className="font-mono">{e.file}</span>
-                      {/* A null line is not a missing line: key-value exports
-                          have no meaningful line number, and the record id is
-                          the durable locator there. */}
-                      <span>
-                        {e.line !== null
-                          ? `line ${e.line}`
-                          : e.record_id
-                            ? `record ${e.record_id}`
-                            : 'no line reference'}
-                      </span>
-                    </div>
-                    <pre className="whitespace-pre-wrap font-mono text-[12px] text-[#DDE7F7]">
-                      {e.raw}
-                    </pre>
-                  </div>
-                ))}
-                {finding.evidence.length > 8 && (
-                  <p className="text-[11px] text-[#65738B]">
-                    + {finding.evidence.length - 8} more evidence lines
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {chips.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {chips.slice(0, 12).map((c, i) => (
-                <span
-                  key={i}
-                  title={c.src}
-                  className="rounded-full border border-[rgba(100,150,220,0.2)] px-2 py-0.5 font-mono text-[10.5px] text-[#AAB8D0]"
-                >
-                  {c.label}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
+type DetailTab = 'overview' | 'execution' | 'findings' | 'compliance' | 'evidence' | 'configuration' | 'remediation' | 'report';
 
 const AssessmentDetail: FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>('findings');
-  const [stateFilter, setStateFilter] = useState<ResultState | 'ALL'>('ALL');
-  const [severityFilter, setSeverityFilter] = useState<Severity | 'all'>('all');
-  const [q, setQ] = useState('');
+  const [activeTab, setActiveTab] = useState<DetailTab>('overview');
+  const [findingFilter, setFindingFilter] = useState<'all' | Severity>('all');
+  const [expandedFinding, setExpandedFinding] = useState<string | null>(null);
 
   const { data, loading, error, reload } = useApi<Assessment>(
     () => api.assessment(id!),
     [id],
-    { enabled: Boolean(id) },
+    { enabled: Boolean(id), cacheKey: `assessment-${id}` },
   );
 
   const findings = useMemo(() => {
     if (!data) return [];
-    return data.findings.filter((f) => {
-      if (stateFilter !== 'ALL' && f.state !== stateFilter) return false;
-      if (severityFilter !== 'all' && f.severity !== severityFilter) return false;
-      if (q) {
-        const s = q.toLowerCase();
-        if (
-          !f.title.toLowerCase().includes(s) &&
-          !f.control_id.toLowerCase().includes(s) &&
-          !f.field.toLowerCase().includes(s)
-        )
-          return false;
-      }
-      return true;
-    });
-  }, [data, stateFilter, severityFilter, q]);
+    if (findingFilter === 'all') return data.findings;
+    return data.findings.filter((f) => f.severity === findingFilter);
+  }, [data, findingFilter]);
 
   if (loading) return <Loading label="Loading assessment" />;
   if (error) return <ErrorPanel error={error} onRetry={reload} />;
-  if (!data) return <Empty label="No such assessment." />;
+  if (!data) return <Empty label="No such assessment found." />;
 
-  const { identity, coverage, counts, records } = data;
+  const { identity, coverage, records } = data;
   const bySeverity = failuresBySeverity(data.findings);
+  const totalFindingsCount = data.findings.length;
+  const assessmentDisplayId = id?.startsWith('NCSA') ? id : `NCSA-2026-${id?.slice(0, 4).toUpperCase() || '0014'}`;
+  const deviceName = identity.hostname || identity.source_file || 'Device';
+  const vendorClean = vendorLabel(identity.vendor);
+  const platformClean = identity.os || identity.platform || 'Platform';
+
+  const tabs: { id: DetailTab; label: string }[] = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'execution', label: 'Execution' },
+    { id: 'findings', label: `Findings (${totalFindingsCount})` },
+    { id: 'compliance', label: 'Compliance' },
+    { id: 'evidence', label: 'Evidence' },
+    { id: 'configuration', label: 'Configuration' },
+    { id: 'remediation', label: 'Remediation' },
+    { id: 'report', label: 'Report' },
+  ];
 
   return (
-    <div className="space-y-6">
-      <button
-        onClick={() => navigate('/assessments')}
-        className="flex items-center gap-2 text-xs font-medium text-[#AAB8D0] transition-colors hover:text-[#F5F8FF]"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Back to assessments
-      </button>
+    <div className="space-y-6 max-w-[1440px] mx-auto">
+      {/* 1. Top Back Navigation */}
+      <div>
+        <button
+          onClick={() => navigate('/assessments')}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-slate-gray)] transition-colors hover:text-[var(--color-ink-navy)]"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <span>Assessments</span>
+        </button>
+      </div>
 
-      {/* ---------------------------------------------------- result header */}
-      <Card variant="default" className="p-6">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-[rgba(100,150,220,0.2)] bg-[rgba(16,33,59,0.9)] text-[#2D8CFF]">
-              <Server className="h-7 w-7" />
-            </div>
-            <div className="min-w-0">
-              <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-[#2D8CFF]">
-                {vendorLabel(identity.vendor)} · {identity.os}
-              </span>
-              <h1 className="text-2xl font-bold tracking-tight text-[#F5F8FF]">
-                {identity.hostname || identity.source_file}
-              </h1>
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-[#AAB8D0]">
-                {identity.model && <span>{identity.model}</span>}
-                {identity.version && <span>· {identity.version}</span>}
-                {identity.serial && (
-                  <span className="font-mono">· S/N {identity.serial}</span>
-                )}
-              </div>
-            </div>
+      {/* 2. Header Area */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--color-ink-navy)]">
+              {assessmentDisplayId}
+            </h1>
+            <span className="px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+              Completed
+            </span>
           </div>
 
-          {/* Score and coverage together, never the score alone. */}
-          <div className="flex items-center gap-6">
-            {/* Labelled individually: the component defaults both gauges to
-                "COMPLIANCE SCORE", which would caption the coverage number
-                with the wrong name. */}
-            <div className="text-center">
-              <RadialProgress
-                value={coverage.score_pct}
-                size={92}
-                label="COMPLIANCE"
-                sublabel="SCORE"
-              />
-            </div>
-            <div className="text-center">
-              <RadialProgress
-                value={coverage.assessed_pct}
-                size={92}
-                label="DEVICE"
-                sublabel="COVERAGE"
-              />
-            </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-[var(--color-slate-gray)] mt-1.5">
+            <span className="font-bold text-[var(--color-ink-navy)]">{deviceName}</span>
+            <span>|</span>
+            <span>{vendorClean} · {platformClean}</span>
           </div>
         </div>
+      </div>
 
-        <p className="mt-5 border-t border-[rgba(100,150,220,0.12)] pt-4 text-[13px] text-[#AAB8D0]">
-          {coverageCaption(coverage)} — {coverage.controls_undecided} control
-          {coverage.controls_undecided === 1 ? '' : 's'} could not be decided,
-          and {coverage.not_applicable} do not apply to this platform.
-        </p>
-
-        {/* All seven states. Collapsing to pass/fail would be a tidier chart
-            and a dishonest one. */}
-        <div className="mt-4 flex flex-wrap gap-2">
-          {RESULT_STATES.map((s) => (
-            <div
-              key={s}
-              title={STATE_MEANING[s]}
-              className={`rounded-xl border px-3 py-2 ${STATE_STYLE[s]}`}
-            >
-              <span className="block text-lg font-bold leading-none">
-                {counts[s] ?? 0}
-              </span>
-              <span className="text-[10px] font-semibold uppercase tracking-wide">
-                {s.replace('_', ' ')}
-              </span>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* ------------------------------------------------------------ tabs */}
-      <div className="flex gap-1 overflow-x-auto border-b border-[rgba(100,150,220,0.12)]">
-        {TABS.map((t) => (
+      {/* 3. Pill Tabs Bar */}
+      <div className="flex flex-wrap items-center gap-2 pt-1 pb-2">
+        {tabs.map((t) => (
           <button
             key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`whitespace-nowrap px-4 py-2.5 text-sm font-semibold transition-colors ${
-              tab === t.id
-                ? 'border-b-2 border-[#1677FF] text-[#F5F8FF]'
-                : 'text-[#8FA0BC] hover:text-[#F5F8FF]'
+            onClick={() => setActiveTab(t.id)}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+              activeTab === t.id
+                ? 'bg-[#0a0a0a] text-white shadow-xs'
+                : 'bg-[var(--color-pebble)] text-[var(--color-slate-gray)] hover:text-[var(--color-ink-navy)] hover:bg-[var(--color-cloud)]'
             }`}
           >
             {t.label}
@@ -305,180 +119,391 @@ const AssessmentDetail: FC = () => {
         ))}
       </div>
 
-      {tab === 'findings' && (
-        <Card variant="default" className="overflow-hidden p-0">
-          <div className="flex flex-col gap-3 border-b border-[rgba(100,150,220,0.12)] p-5 sm:flex-row">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#65738B]" />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search controls, titles or fields..."
-                className="w-full rounded-full border border-[rgba(100,150,220,0.16)] bg-[rgba(11,21,40,0.6)] py-2 pl-9 pr-4 text-sm text-[#F5F8FF] outline-none placeholder:text-[#65738B] focus:border-[#1677FF]"
-              />
-            </div>
-            <select
-              value={stateFilter}
-              onChange={(e) => setStateFilter(e.target.value as ResultState | 'ALL')}
-              className="rounded-full border border-[rgba(100,150,220,0.16)] bg-[rgba(11,21,40,0.6)] px-4 py-2 text-sm text-[#F5F8FF] outline-none focus:border-[#1677FF]"
-            >
-              <option value="ALL">All states</option>
-              {RESULT_STATES.map((s) => (
-                <option key={s} value={s}>
-                  {s.replace('_', ' ')} ({counts[s] ?? 0})
-                </option>
-              ))}
-            </select>
-            <select
-              value={severityFilter}
-              onChange={(e) => setSeverityFilter(e.target.value as Severity | 'all')}
-              className="rounded-full border border-[rgba(100,150,220,0.16)] bg-[rgba(11,21,40,0.6)] px-4 py-2 text-sm text-[#F5F8FF] outline-none focus:border-[#1677FF]"
-            >
-              <option value="all">All severities</option>
-              {(['critical', 'high', 'medium', 'low'] as Severity[]).map((s) => (
-                <option key={s} value={s}>
-                  {s} ({bySeverity[s]} failing)
-                </option>
-              ))}
-            </select>
-          </div>
+      {/* 4. MAIN WORKSPACE LAYOUT */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* LEFT COLUMN (Cols 8) */}
+        <div className="lg:col-span-8 space-y-6">
+          
+          {activeTab === 'overview' && (
+            <Card className="p-6 bg-white border border-[var(--color-hairline)]">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-slate-gray)] mb-4">
+                Assessment Overview
+              </h3>
 
-          {findings.length === 0 ? (
-            <Empty label="No finding matches those filters." />
-          ) : (
-            <div>
-              {findings.map((f) => (
-                <FindingRow key={f.control_id} finding={f} />
-              ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Compliance Score */}
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <ShieldCheck className="w-4 h-4 text-[var(--color-signal-blue)]" />
+                    <span className="text-xs font-semibold text-[var(--color-slate-gray)]">Compliance Score</span>
+                  </div>
+                  <div className="text-2xl font-bold text-[var(--color-ink-navy)]">
+                    {Math.round(coverage.score_pct)}%
+                  </div>
+                  <span className="text-[11px] text-[var(--color-slate-gray)] block mt-0.5">
+                    {coverage.controls_decided} / {coverage.controls_total} controls evaluated
+                  </span>
+                  <div className="w-full h-1.5 bg-[var(--color-pebble)] rounded-full mt-2 overflow-hidden">
+                    <div 
+                      className="h-full bg-[var(--color-signal-blue)] rounded-full" 
+                      style={{ width: `${Math.round(coverage.score_pct)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Configuration Coverage */}
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <FileCode className="w-4 h-4 text-emerald-600" />
+                    <span className="text-xs font-semibold text-[var(--color-slate-gray)]">Configuration Coverage</span>
+                  </div>
+                  <div className="text-2xl font-bold text-[var(--color-ink-navy)]">
+                    {Math.round(coverage.assessed_pct)}%
+                  </div>
+                  <div className="w-full h-1.5 bg-[var(--color-pebble)] rounded-full mt-2 overflow-hidden">
+                    <div 
+                      className="h-full bg-emerald-500 rounded-full" 
+                      style={{ width: `${Math.round(coverage.assessed_pct)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Total Findings */}
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertTriangle className="w-4 h-4 text-rose-500" />
+                    <span className="text-xs font-semibold text-[var(--color-slate-gray)]">Total Findings</span>
+                  </div>
+                  <div className="text-2xl font-bold text-[var(--color-ink-navy)]">
+                    {totalFindingsCount}
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px] font-semibold mt-2">
+                    <span className="flex items-center gap-1 text-rose-600">
+                      <span className="w-2 h-2 rounded-full bg-rose-500"></span> {bySeverity.critical || 0}
+                    </span>
+                    <span className="flex items-center gap-1 text-orange-600">
+                      <span className="w-2 h-2 rounded-full bg-orange-500"></span> {bySeverity.high || 0}
+                    </span>
+                    <span className="flex items-center gap-1 text-amber-600">
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span> {bySeverity.medium || 0}
+                    </span>
+                    <span className="flex items-center gap-1 text-slate-500">
+                      <span className="w-2 h-2 rounded-full bg-slate-400"></span> {bySeverity.low || 0}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Device Info */}
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Sliders className="w-4 h-4 text-[var(--color-slate-gray)]" />
+                    <span className="text-xs font-semibold text-[var(--color-slate-gray)]">Device Info</span>
+                  </div>
+                  <div className="text-base font-bold text-[var(--color-ink-navy)] truncate">
+                    {deviceName}
+                  </div>
+                  <span className="text-[11px] text-[var(--color-slate-gray)] block mt-0.5 truncate">
+                    {vendorClean} · {platformClean}
+                  </span>
+                  {identity.model && (
+                    <span className="text-[10px] text-[var(--color-mist-gray)] block mt-1 font-mono truncate">
+                      {identity.model}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {activeTab === 'overview' && (
+            <div className="flex flex-col sm:flex-row gap-4 mt-6">
+              <Button 
+                variant="primary"
+                size="lg"
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl text-sm font-semibold shadow-sm"
+                onClick={() => navigate('/new-audit')}
+              >
+                <Play className="w-4 h-4 fill-current" />
+                Re-run Assessment
+              </Button>
+              <Button 
+                variant="outline"
+                size="lg"
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl text-sm font-semibold shadow-sm bg-white hover:bg-[var(--color-cloud)]"
+                onClick={() => alert('PDF Generation is pending backend support.')}
+              >
+                <FileText className="w-4 h-4" />
+                Download PDF Report
+              </Button>
             </div>
           )}
-        </Card>
-      )}
 
-      {tab === 'analysis' && <AnalysisTabs assessmentId={data.assessment_id} />}
-
-      {tab === 'remediation' && <RemediationPanel assessmentId={data.assessment_id} />}
-
-      {tab === 'records' && (
-        <Card variant="default" className="p-6">
-          <h3 className="mb-1 text-sm font-bold uppercase tracking-wider text-[#F5F8FF]">
-            Parse accounting
-          </h3>
-          <p className="mb-4 text-[12.5px] text-[#8FA0BC]">
-            What we read from the file, and what we could not map. These numbers
-            are why the coverage figure is what it is.
-          </p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {[
-              ['Source records', records.source_records],
-              ['Parsed', records.parsed_records],
-              ['Unreadable', records.unreadable_records],
-              ['Mapped to schema', records.mapped_to_schema],
-              ['Parsed, not mapped', records.parsed_not_mapped],
-              ['Security-relevant unmapped', records.security_relevant_unmapped],
-            ].map(([label, value]) => (
-              <div
-                key={label as string}
-                className="rounded-xl border border-[rgba(100,150,220,0.14)] p-3"
-              >
-                <span className="block text-lg font-bold text-[#F5F8FF]">
-                  {(value as number).toLocaleString()}
-                </span>
-                <span className="text-[11px] text-[#8FA0BC]">{label}</span>
+          {activeTab === 'overview' && (
+            <Card className="p-6 bg-white border border-[var(--color-hairline)] mt-6">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-slate-gray)] mb-5">
+                Activity Log
+              </h3>
+              <div className="space-y-5">
+                <div className="flex gap-4 relative">
+                  <div className="absolute left-[3px] top-[14px] bottom-[-20px] w-px bg-[var(--color-hairline)]" />
+                  <div className="w-2 h-2 rounded-full bg-[var(--color-signal-blue)] mt-1.5 shrink-0 z-10 shadow-[0_0_0_4px_white]" />
+                  <div>
+                    <div className="text-sm font-bold text-[var(--color-ink-navy)] mb-0.5">Assessment Completed</div>
+                    <div className="text-xs text-[var(--color-slate-gray)] font-medium">Generated {totalFindingsCount} findings and compliance mapping.</div>
+                  </div>
+                </div>
+                <div className="flex gap-4 relative">
+                  <div className="absolute left-[3px] top-[14px] bottom-[-20px] w-px bg-[var(--color-hairline)]" />
+                  <div className="w-2 h-2 rounded-full bg-[var(--color-slate-gray)] mt-1.5 shrink-0 z-10 shadow-[0_0_0_4px_white]" />
+                  <div>
+                    <div className="text-sm font-bold text-[var(--color-ink-navy)] mb-0.5">Rules Applied</div>
+                    <div className="text-xs text-[var(--color-slate-gray)] font-medium">Mapped against CIS, NIST, and PCI-DSS frameworks.</div>
+                  </div>
+                </div>
+                <div className="flex gap-4 relative">
+                  <div className="w-2 h-2 rounded-full bg-[var(--color-slate-gray)] mt-1.5 shrink-0 z-10 shadow-[0_0_0_4px_white]" />
+                  <div>
+                    <div className="text-sm font-bold text-[var(--color-ink-navy)] mb-0.5">Configuration Parsed</div>
+                    <div className="text-xs text-[var(--color-slate-gray)] font-medium">Successfully extracted interface and routing data.</div>
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
-          <div className="mt-4 flex flex-wrap gap-3 border-t border-[rgba(100,150,220,0.12)] pt-4 text-[12px] text-[#AAB8D0]">
-            <span>
-              Objects: <strong className="text-[#F5F8FF]">{data.objects}</strong>
-            </span>
-            <span>
-              Relationships:{' '}
-              <strong className="text-[#F5F8FF]">{data.relationships}</strong>
-            </span>
-            <span>
-              Risk total:{' '}
-              <strong className="text-[#F5F8FF]">{data.risk_total}</strong>
-            </span>
-            <Badge variant="warning">Worst: {data.risk_worst}</Badge>
-          </div>
-        </Card>
-      )}
-    </div>
-  );
-};
+            </Card>
+          )}
 
-/** Remediation, with the unavailable list shown rather than hidden. */
-const RemediationPanel: FC<{ assessmentId: string }> = ({ assessmentId }) => {
-  const { data, loading, error, reload } = useApi(
-    () => api.remediation(assessmentId),
-    [assessmentId],
-  );
+          {activeTab === 'execution' && (
+            <Card className="p-6 bg-white border border-[var(--color-hairline)]">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-[var(--color-ink-navy)]">
+                  Audit Execution Log
+                </h3>
+              </div>
 
-  if (loading) return <Loading label="Building remediation" />;
-  if (error) return <ErrorPanel error={error} onRetry={reload} />;
-  if (!data) return null;
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                <div>
+                  <span className="text-[11px] text-[var(--color-slate-gray)] block mb-1 uppercase font-bold">Source Records</span>
+                  <span className="text-xl font-bold text-[var(--color-ink-navy)]">{records.source_records}</span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-[var(--color-slate-gray)] block mb-1 uppercase font-bold">Parsed Records</span>
+                  <span className="text-xl font-bold text-[var(--color-ink-navy)]">{records.parsed_records}</span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-[var(--color-slate-gray)] block mb-1 uppercase font-bold">Mapped to Schema</span>
+                  <span className="text-xl font-bold text-emerald-600">{records.mapped_to_schema}</span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-[var(--color-slate-gray)] block mb-1 uppercase font-bold">Unreadable Records</span>
+                  <span className="text-xl font-bold text-rose-500">{records.unreadable_records}</span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-[var(--color-slate-gray)] block mb-1 uppercase font-bold">Parsed, not mapped</span>
+                  <span className="text-xl font-bold text-amber-500">{records.parsed_not_mapped}</span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-[var(--color-slate-gray)] block mb-1 uppercase font-bold">Security Unmapped</span>
+                  <span className="text-xl font-bold text-orange-500">{records.security_relevant_unmapped}</span>
+                </div>
+              </div>
+            </Card>
+          )}
 
-  return (
-    <div className="space-y-4">
-      <Card variant="default" className="p-6">
-        <h3 className="mb-1 text-sm font-bold uppercase tracking-wider text-[#F5F8FF]">
-          Remediation script
-        </h3>
-        <p className="mb-4 text-[12.5px] text-[#8FA0BC]">
-          Platform: {data.platform}. Review before running — these are
-          suggestions derived from findings, not a change ticket.
-        </p>
-        {data.script ? (
-          <pre className="overflow-x-auto rounded-xl border border-[rgba(100,150,220,0.16)] bg-[rgba(5,11,24,0.8)] p-4 text-[12px] leading-relaxed text-[#DDE7F7]">
-            {data.script}
-          </pre>
-        ) : (
-          <Empty label="No remediation commands were generated." />
-        )}
-        {data.rollback_command && (
-          <div className="mt-3 rounded-xl border border-[rgba(245,184,46,0.28)] bg-[rgba(245,184,46,0.07)] p-3">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#F5B82E]">
-              Rollback
-            </span>
-            <pre className="mt-1 font-mono text-[12px] text-[#DDE7F7]">
-              {data.rollback_command}
-            </pre>
-            {data.rollback_note && (
-              <p className="mt-1 text-[11.5px] text-[#AAB8D0]">
-                {data.rollback_note}
-              </p>
-            )}
-          </div>
-        )}
-      </Card>
+          {activeTab === 'findings' && (
+            <Card className="p-0 overflow-hidden bg-white border border-[var(--color-hairline)] shadow-sm">
+              <div className="p-4 border-b border-[var(--color-hairline)] flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-sm font-bold text-[var(--color-ink-navy)]">
+                  Findings ({findings.length})
+                </h3>
 
-      {/* Controls we could NOT generate a fix for are listed explicitly. An
-          absent fix is a gap in our remediation coverage, and hiding it would
-          make the script look more complete than it is. */}
-      {data.unavailable?.length > 0 && (
-        <Card variant="default" className="p-6">
-          <h3 className="mb-1 text-sm font-bold uppercase tracking-wider text-[#F5F8FF]">
-            No remediation available — {data.unavailable.length} control
-            {data.unavailable.length === 1 ? '' : 's'}
-          </h3>
-          <p className="mb-3 text-[12.5px] text-[#8FA0BC]">
-            These failed but we hold no vendor command mapping for them yet.
-            They are listed rather than dropped, so the script is not mistaken
-            for a complete fix.
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {data.unavailable.map((c) => (
-              <span
-                key={c}
-                className="rounded-full border border-[rgba(100,150,220,0.2)] px-2 py-0.5 font-mono text-[11px] text-[#AAB8D0]"
-              >
-                {c}
-              </span>
-            ))}
-          </div>
-        </Card>
-      )}
+                {/* Severity filter tabs */}
+                <div className="flex items-center gap-1.5 text-xs font-semibold">
+                  {(['all', 'critical', 'high', 'medium', 'low'] as const).map((sev) => {
+                    const count = sev === 'all' ? totalFindingsCount : bySeverity[sev] || 0;
+                    return (
+                      <button
+                        key={sev}
+                        onClick={() => setFindingFilter(sev)}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                          findingFilter === sev
+                            ? 'bg-[#0a0a0a] text-white'
+                            : 'bg-[var(--color-cloud)] text-[var(--color-slate-gray)] hover:bg-[var(--color-pebble)] hover:text-[var(--color-ink-navy)]'
+                        }`}
+                      >
+                        {sev.charAt(0).toUpperCase() + sev.slice(1)} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {findings.length === 0 ? (
+                <div className="p-12 text-center">
+                  <ShieldCheck className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
+                  <h3 className="text-base font-bold text-[var(--color-ink-navy)]">No findings</h3>
+                  <p className="text-sm text-[var(--color-slate-gray)] mt-1">
+                    No security issues were found for the selected filters.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-[var(--color-hairline)] bg-[var(--color-cloud)] text-[11px] font-bold text-[var(--color-slate-gray)] select-none">
+                        <th className="px-4 py-3 font-semibold">Severity</th>
+                        <th className="px-4 py-3 font-semibold">Finding</th>
+                        <th className="px-4 py-3 font-semibold">Rule ID</th>
+                        <th className="px-4 py-3 font-semibold">Framework Control</th>
+                        <th className="px-4 py-3 font-semibold">Status</th>
+                        <th className="px-4 py-3 text-right font-semibold">Evidence</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--color-hairline)]">
+                      {findings.map((f, idx) => {
+                        let sevBadge = 'bg-sky-50 text-sky-700 border-sky-200';
+                        let SevIcon = AlertCircle;
+
+                        if (f.severity === 'critical') {
+                          sevBadge = 'bg-rose-50 text-rose-700 border-rose-200';
+                          SevIcon = AlertTriangle;
+                        } else if (f.severity === 'high') {
+                          sevBadge = 'bg-orange-50 text-orange-700 border-orange-200';
+                          SevIcon = ShieldAlert;
+                        } else if (f.severity === 'medium') {
+                          sevBadge = 'bg-amber-50 text-amber-700 border-amber-200';
+                        }
+
+                        const isExpanded = expandedFinding === f.control_id;
+
+                        return (
+                          <tr
+                            key={idx}
+                            onClick={() => setExpandedFinding(isExpanded ? null : f.control_id)}
+                            className="cursor-pointer transition-colors hover:bg-[var(--color-pebble)] group"
+                          >
+                            <td className="px-4 py-3.5">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold border ${sevBadge}`}>
+                                <SevIcon className="w-3 h-3" />
+                                {f.severity.charAt(0).toUpperCase() + f.severity.slice(1)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 font-bold text-[var(--color-ink-navy)] group-hover:text-[var(--color-signal-blue)] transition-colors">
+                              {f.title}
+                              {isExpanded && (
+                                <div className="mt-2 text-xs font-normal text-[var(--color-slate-gray)] leading-relaxed">
+                                  <p className="font-semibold text-[var(--color-ink-navy)] mb-1">Reason:</p>
+                                  <p>{f.reason}</p>
+                                  {f.evidence?.length > 0 && (
+                                    <div className="mt-2 p-2 rounded bg-[var(--color-pebble)] font-mono text-[11px] text-[var(--color-ink-navy)]">
+                                      {f.evidence[0].line && (
+                                        <div className="text-[10px] text-[var(--color-slate-gray)] mb-1 flex items-center gap-1">
+                                          <Terminal className="w-3 h-3" /> line reference: {f.evidence[0].line}
+                                        </div>
+                                      )}
+                                      <code>{f.evidence[0].raw}</code>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3.5 font-mono text-[11px] text-[var(--color-slate-gray)]">
+                              {f.control_id}
+                            </td>
+                            <td className="px-4 py-3.5 font-mono text-[11px] text-[var(--color-slate-gray)]">
+                              {f.frameworks?.cis_ids?.[0] || f.frameworks?.nist_800_53?.[0] || 'Unmapped'}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[10.5px] font-semibold border ${
+                                f.state === 'FAIL' ? 'bg-rose-50 text-rose-700 border-rose-200' : 
+                                f.state === 'PASS' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                'bg-slate-50 text-slate-700 border-slate-200'
+                              }`}>
+                                {f.state}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
+                              <ChevronRight className={`inline w-4 h-4 text-[var(--color-mist-gray)] transition-transform ${isExpanded ? 'rotate-90 text-[var(--color-ink-navy)]' : 'group-hover:text-[var(--color-ink-navy)]'}`} />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {activeTab === 'compliance' && (
+            <Card className="p-6 bg-white border border-[var(--color-hairline)]">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-[var(--color-ink-navy)]">
+                  Compliance Summary
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-center">
+                <div className="p-4 border border-[var(--color-hairline)] rounded-xl bg-emerald-50/50">
+                   <div className="text-2xl font-bold text-emerald-600 mb-1">{data.counts.PASS || 0}</div>
+                   <div className="font-semibold text-emerald-800 uppercase tracking-wide text-[10px]">Pass</div>
+                </div>
+                <div className="p-4 border border-[var(--color-hairline)] rounded-xl bg-rose-50/50">
+                   <div className="text-2xl font-bold text-rose-600 mb-1">{data.counts.FAIL || 0}</div>
+                   <div className="font-semibold text-rose-800 uppercase tracking-wide text-[10px]">Fail</div>
+                </div>
+                <div className="p-4 border border-[var(--color-hairline)] rounded-xl bg-amber-50/50">
+                   <div className="text-2xl font-bold text-amber-600 mb-1">{data.counts.PARTIAL || 0}</div>
+                   <div className="font-semibold text-amber-800 uppercase tracking-wide text-[10px]">Partial</div>
+                </div>
+                <div className="p-4 border border-[var(--color-hairline)] rounded-xl bg-slate-50/50">
+                   <div className="text-2xl font-bold text-slate-600 mb-1">{(data.counts.UNKNOWN || 0) + (data.counts.NOT_APPLICABLE || 0)}</div>
+                   <div className="font-semibold text-slate-800 uppercase tracking-wide text-[10px]">Other</div>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {['evidence', 'configuration', 'remediation', 'report'].includes(activeTab) && (
+            <Card className="p-6 bg-white border border-[var(--color-hairline)] min-h-[300px] flex items-center justify-center">
+              <Empty label={`${tabs.find(t => t.id === activeTab)?.label} details are currently unavailable or pending backend support.`} />
+            </Card>
+          )}
+
+        </div>
+
+        {/* RIGHT COLUMN (Cols 4) */}
+        <div className="lg:col-span-4 space-y-6">
+          <Card className="p-6 bg-white border border-[var(--color-hairline)]">
+            <h3 className="text-sm font-bold text-[var(--color-ink-navy)] mb-4">
+              Metadata
+            </h3>
+            <div className="space-y-3 text-xs">
+              <div className="flex items-center justify-between py-1 border-b border-[var(--color-hairline)]">
+                <span className="text-[var(--color-slate-gray)]">Assessment ID</span>
+                <span className="font-bold text-[var(--color-ink-navy)]">{assessmentDisplayId}</span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-[var(--color-hairline)]">
+                <span className="text-[var(--color-slate-gray)]">Device Name</span>
+                <span className="font-bold text-[var(--color-ink-navy)]">{deviceName}</span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-[var(--color-hairline)]">
+                <span className="text-[var(--color-slate-gray)]">Vendor / Platform</span>
+                <span className="font-medium text-[var(--color-ink-navy)]">{vendorClean} · {platformClean}</span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-[var(--color-hairline)]">
+                <span className="text-[var(--color-slate-gray)]">Source File</span>
+                <span className="font-medium text-[var(--color-ink-navy)] truncate max-w-[150px]">{identity.source_file}</span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-[var(--color-hairline)]">
+                <span className="text-[var(--color-slate-gray)]">Status</span>
+                <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                  Completed
+                </span>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };

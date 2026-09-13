@@ -1,218 +1,170 @@
-import { type FC } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, type FC } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
+  Upload,
+  Plus,
+  Info,
   Activity,
-  ArrowRight,
-  GitCompare,
-  Network,
-  Route,
-  ScrollText,
-  Stamp,
-  Server,
+  Layers,
+  Database,
+  Search,
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
-import { Empty, ErrorPanel, Loading } from '../components/ui/States';
+import { Button } from '../components/ui/Button';
 import { api } from '../lib/api';
 import { useApi } from '../lib/useApi';
 
-/**
- * What this build can actually do, read from the engine rather than asserted.
- *
- * `/health` publishes which analyses need a policy object graph and which
- * platforms have one. Hard-coding that list here would let the page claim a
- * capability the build does not have the moment a builder is added or removed.
- */
-
-const GRAPH_ANALYSES = [
-  {
-    key: 'rule_hygiene',
-    icon: Activity,
-    title: 'Rule hygiene',
-    blurb:
-      'Dead, shadowed, redundant and over-broad policy. Unevaluable rules are reported beside the findings, because a rule we could not resolve is not a clean rule.',
-  },
-  {
-    key: 'reachability',
-    icon: Route,
-    title: 'Reachability',
-    blurb:
-      'Would this traffic be permitted? First-match-wins, naming the rule that decided it, with a caveat when an earlier rule could not be evaluated.',
-  },
-  {
-    key: 'recertification',
-    icon: Stamp,
-    title: 'Recertification',
-    blurb:
-      'Which rules need a human decision, and which are deletion candidates. Deletion requires three independent signals agreeing.',
-  },
-];
-
-const ALWAYS_ON = [
-  {
-    icon: GitCompare,
-    title: 'Change tracking',
-    blurb:
-      'Snapshot and diff. Device change and analysis change are reported separately — a pack update altering a verdict is not configuration drift.',
-  },
-  {
-    icon: Network,
-    title: 'Topology',
-    blurb:
-      'Interface addressing and multi-device fabric. Adjacency is inferred from shared subnets, and that caveat travels on every answer.',
-  },
-  {
-    icon: ScrollText,
-    title: 'Parser cross-check',
-    blurb:
-      'Two independent methods read the same device. Agreement promotes a caveat to a conclusion; disagreement is surfaced rather than resolved by preference.',
-  },
-];
-
 const Analysis: FC = () => {
-  const health = useApi(() => api.health(), []);
-  const assessments = useApi(() => api.assessments(), []);
-
-  const graphPlatforms = health.data?.graph_analyses.platforms ?? [];
-  const rows = assessments.data ?? [];
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'findings' | 'engine'>('findings');
+  
+  const health = useApi(() => api.health(), [], { cacheKey: 'health' });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-[#2D8CFF]">
-          NCSA ANALYSIS ENGINE
-        </span>
-        <h1 className="text-3xl font-semibold tracking-tight text-[#F5F8FF]">
-          Analysis
-        </h1>
-        <p className="mt-1 text-sm text-[#AAB8D0]">
-          Deeper analyses beyond control compliance. Open any assessment to run
-          them.
-        </p>
+    <div className="space-y-6 max-w-[1440px] mx-auto">
+      {/* 1. Header with Eyebrow, Title & Action Buttons matching image.png */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span className="mb-1 block text-xs font-bold tracking-[0.25em] text-[var(--color-slate-gray)] uppercase">
+            N C S A
+          </span>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[var(--color-ink-navy)]">
+            Findings
+          </h1>
+          <p className="mt-1 text-xs sm:text-sm text-[var(--color-slate-gray)] font-medium">
+            Review and analyse configuration issues identified across your network.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            className="flex items-center gap-2 text-xs font-semibold py-2.5 px-4 rounded-lg bg-white border border-[var(--color-hairline)] text-[var(--color-ink-navy)] hover:bg-[var(--color-pebble)] shadow-xs transition-all opacity-50 cursor-not-allowed"
+            disabled
+          >
+            <Upload className="w-3.5 h-3.5 rotate-180" />
+            <span>Export Report (Not Available)</span>
+          </Button>
+
+          <Button
+            className="flex items-center gap-2 text-xs font-semibold py-2.5 px-4 rounded-lg bg-[#0a0a0a] text-white hover:bg-[#222222] shadow-sm transition-all"
+            onClick={() => navigate('/new-audit')}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Audit</span>
+          </Button>
+        </div>
       </div>
 
-      {health.loading && <Loading label="Reading engine capabilities" />}
-      {health.error && (
-        <ErrorPanel error={health.error} onRetry={health.reload} />
-      )}
+      {/* 2. Top-Level Tabs (Findings vs. Engine Capabilities) */}
+      <div className="flex items-center gap-6 border-b border-[var(--color-hairline)] pt-2">
+        <button
+          onClick={() => setActiveTab('findings')}
+          className={`pb-4 text-xs font-bold flex items-center gap-2 transition-all relative ${
+            activeTab === 'findings'
+              ? 'text-[var(--color-ink-navy)]'
+              : 'text-[var(--color-slate-gray)] hover:text-[var(--color-ink-navy)]'
+          }`}
+        >
+          <Activity className="w-3.5 h-3.5" />
+          Global Findings
+          {activeTab === 'findings' && (
+            <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-[var(--color-ink-navy)] rounded-t-full"></div>
+          )}
+        </button>
 
-      {health.data && (
-        <>
-          <Card variant="default" className="p-5">
-            <h3 className="text-sm font-bold text-[#F5F8FF]">
-              Capability boundary
-            </h3>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-[#AAB8D0]">
-              {health.data.graph_analyses.note}
+        <button
+          onClick={() => setActiveTab('engine')}
+          className={`pb-4 text-xs font-bold flex items-center gap-2 transition-all relative ${
+            activeTab === 'engine'
+              ? 'text-[var(--color-ink-navy)]'
+              : 'text-[var(--color-slate-gray)] hover:text-[var(--color-ink-navy)]'
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          Engine Capabilities
+          {activeTab === 'engine' && (
+            <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-[var(--color-ink-navy)] rounded-t-full"></div>
+          )}
+        </button>
+      </div>
+
+      {/* 3. Main Content Area */}
+      {activeTab === 'findings' && (
+        <Card className="bg-white border border-[var(--color-hairline)] overflow-hidden min-h-[400px] flex flex-col">
+          {/* Findings Controls (Filters + Search) - Disabled visually for honest empty state */}
+          <div className="p-4 border-b border-[var(--color-hairline)] bg-[var(--color-cloud)]/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-[var(--color-slate-gray)] tracking-wide uppercase mr-2">Filters</span>
+              <div className="bg-white border border-[var(--color-hairline)] text-[var(--color-mist-gray)] text-xs font-semibold py-1.5 px-3 rounded-lg flex items-center gap-2 select-none opacity-60">
+                Severity: All
+              </div>
+              <div className="bg-white border border-[var(--color-hairline)] text-[var(--color-mist-gray)] text-xs font-semibold py-1.5 px-3 rounded-lg flex items-center gap-2 select-none opacity-60">
+                Device: All
+              </div>
+            </div>
+
+            <div className="relative w-full md:w-64 opacity-60">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-3.5 w-3.5 text-[var(--color-mist-gray)]" />
+              </div>
+              <input
+                type="text"
+                disabled
+                placeholder="Search disabled..."
+                className="block w-full pl-9 pr-3 py-1.5 bg-white border border-[var(--color-hairline)] rounded-lg text-xs placeholder-[var(--color-mist-gray)] text-[var(--color-ink-navy)] cursor-not-allowed"
+              />
+            </div>
+          </div>
+
+          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center h-[350px]">
+            <Database className="w-12 h-12 text-[var(--color-mist-gray)] mb-4" />
+            <h3 className="text-base font-bold text-[var(--color-ink-navy)]">Global findings are not available yet</h3>
+            <p className="text-sm text-[var(--color-slate-gray)] mt-2 max-w-md">
+              The backend API does not currently support aggregating findings globally across all assessments. Findings are currently only available within individual assessments.
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {graphPlatforms.map((p) => (
-                <Badge key={p} variant="success">
-                  {p}
-                </Badge>
-              ))}
-              <Badge variant="outline">
-                {health.data.platforms_parsed.length} platforms parsed
-              </Badge>
-            </div>
-          </Card>
-
-          <div>
-            <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-[#F5F8FF]">
-              Needs a policy object graph
-            </h2>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              {GRAPH_ANALYSES.map((a) => {
-                const Icon = a.icon;
-                const available = health.data!.graph_analyses.capabilities.includes(
-                  a.key,
-                );
-                return (
-                  <Card key={a.key} variant="default" className="p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[rgba(22,119,255,0.15)] text-[#2D8CFF]">
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <Badge variant={available ? 'success' : 'default'}>
-                        {available ? 'Operational' : 'Unavailable'}
-                      </Badge>
-                    </div>
-                    <h3 className="mt-3 text-base font-bold text-[#F5F8FF]">
-                      {a.title}
-                    </h3>
-                    <p className="mt-1 text-[12.5px] leading-relaxed text-[#AAB8D0]">
-                      {a.blurb}
-                    </p>
-                    <p className="mt-2 text-[11.5px] text-[#65738B]">
-                      Available on: {graphPlatforms.join(' · ')}
-                    </p>
-                  </Card>
-                );
-              })}
-            </div>
+            <Button 
+              onClick={() => navigate('/assessments')} 
+              variant="outline" 
+              className="mt-6 font-semibold"
+            >
+              View Assessments
+            </Button>
           </div>
-
-          <div>
-            <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-[#F5F8FF]">
-              Available on every parsed platform
-            </h2>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              {ALWAYS_ON.map((a) => {
-                const Icon = a.icon;
-                return (
-                  <Card key={a.title} variant="default" className="p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[rgba(50,214,168,0.15)] text-[#32D6A8]">
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <Badge variant="success">Operational</Badge>
-                    </div>
-                    <h3 className="mt-3 text-base font-bold text-[#F5F8FF]">
-                      {a.title}
-                    </h3>
-                    <p className="mt-1 text-[12.5px] leading-relaxed text-[#AAB8D0]">
-                      {a.blurb}
-                    </p>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        </>
+        </Card>
       )}
 
-      <Card variant="default" className="overflow-hidden p-0">
-        <div className="border-b border-[rgba(100,150,220,0.12)] p-4">
-          <h3 className="text-sm font-bold text-[#F5F8FF]">
-            Run an analysis on a device
-          </h3>
-        </div>
-        {assessments.loading && <Loading label="Loading devices" />}
-        {assessments.error && (
-          <div className="p-5">
-            <ErrorPanel error={assessments.error} onRetry={assessments.reload} />
-          </div>
-        )}
-        {assessments.data && rows.length === 0 && (
-          <Empty label="Nothing assessed yet. Upload a configuration first." />
-        )}
-        {rows.map((r) => (
-          <Link
-            key={r.assessment_id}
-            to={`/assessments/${r.assessment_id}`}
-            className="flex items-center justify-between gap-4 border-b border-[rgba(100,150,220,0.08)] px-4 py-3 transition-colors last:border-0 hover:bg-[rgba(22,119,255,0.06)]"
-          >
-            <div className="flex items-center gap-3">
-              <Server className="h-4 w-4 text-[#65738B]" />
-              <span className="font-mono text-[13px] text-[#F5F8FF]">
-                {r.device}
-              </span>
-              <Badge variant="info">{r.vendor}</Badge>
+      {activeTab === 'engine' && (
+        <Card className="bg-white border border-[var(--color-hairline)] p-6 min-h-[400px]">
+           <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-lg bg-[var(--color-cloud)] border border-[var(--color-hairline)] flex items-center justify-center">
+                <Info className="w-5 h-5 text-[var(--color-ink-navy)]" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-[var(--color-ink-navy)]">Capability Matrix</h3>
+                <p className="text-xs text-[var(--color-slate-gray)] font-medium mt-0.5">
+                  Platform support status.
+                </p>
+              </div>
             </div>
-            <ArrowRight className="h-4 w-4 text-[#65738B]" />
-          </Link>
-        ))}
-      </Card>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {health.loading && (
+                <div className="col-span-full py-8 text-center text-sm font-medium text-[var(--color-slate-gray)]">
+                  Loading engine capabilities...
+                </div>
+              )}
+              {!health.loading && health.data?.platforms_parsed.map((plat) => (
+                <div key={plat} className="p-4 rounded-xl border border-[var(--color-hairline)] bg-[var(--color-cloud)] flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                  <span className="text-xs font-bold text-[var(--color-ink-navy)]">
+                    {plat}
+                  </span>
+                </div>
+              ))}
+            </div>
+        </Card>
+      )}
     </div>
   );
 };
