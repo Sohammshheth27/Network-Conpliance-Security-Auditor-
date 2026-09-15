@@ -13,3 +13,13 @@ frameworks:
   # STIG/CIS ids intentionally omitted: they are per-platform and
   # belong in the vendor pack (plan 6.1). An invented id is worse
   # than none -- see the v1.4 6.4 caveat.
+
+remediation:
+  sonicwall_sonicos:
+    commands:
+    - configure
+    - security-services ips
+    - enable
+    - commit
+    phase: 50
+    verify: show security-services ips

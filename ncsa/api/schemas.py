@@ -71,6 +71,11 @@ class FindingOut(BaseModel):
         default=None,
         description="Present only for FAIL/PARTIAL. UNKNOWN carries no risk "
                     "score: a number there would imply we knew.")
+    attack: list[dict] = Field(
+        default_factory=list,
+        description="MITRE ATT&CK techniques this control stands in front of, "
+                    "resolved against the bundle on disk. Empty for controls "
+                    "that prevent no specific technique.")
 
 
 class IdentityOut(BaseModel):

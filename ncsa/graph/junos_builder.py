@@ -162,10 +162,18 @@ def build(cfg: BracesConfig) -> ObjectGraph:
         val, ln, raw = dp
         g.default_action = "allow" if "permit" in (val + raw).lower() else "deny"
         g.default_action_observed = True
+        # The default policy's OWN line. The bridge used to borrow an arbitrary
+        # rule's evidence for this, which cited an unrelated policy as the
+        # proof -- and left a permit-all device with no rules unable to
+        # evidence its own default at all.
+        g.default_action_evidence = [cfg.evidence(ln, raw)]
     else:
-        for p2 in cfg.multi:
+        for p2, entries in cfg.multi.items():
             if p2.endswith("security/policies/default-policy/permit-all"):
                 g.default_action, g.default_action_observed = "allow", True
+                if entries:
+                    _v, ln, raw = entries[0]
+                    g.default_action_evidence = [cfg.evidence(ln, raw)]
                 break
             if p2.endswith("security/policies/default-policy/deny-all"):
                 g.default_action, g.default_action_observed = "deny", True

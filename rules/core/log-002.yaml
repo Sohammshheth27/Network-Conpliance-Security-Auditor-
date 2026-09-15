@@ -30,3 +30,13 @@ remediation:
     - set system syslog host 10.0.0.11 any notice
     phase: 10
     verify: show configuration system syslog host
+
+  sonicwall_sonicos:
+    commands:
+    - configure
+    - log syslog
+    - add server <SYSLOG-PRIMARY> port 514
+    - add server <SYSLOG-SECONDARY> port 514
+    - commit
+    phase: 30
+    verify: show log syslog server

@@ -32,10 +32,18 @@ class SkippedRule:
     """A rule we could not evaluate, and exactly why. Doc section 9's
     UNRESOLVED_REFERENCE: show the reference path, do not silently drop."""
 
-    __slots__ = ("rule", "reason", "refs")
+    # `evidence` carries the RULE's own evidence -- the line in the
+    # configuration where the unevaluable rule is defined.
+    #
+    # Without it the finding "rule X is not evaluable" reached the report with
+    # no position at all, so an administrator was told a rule was a problem and
+    # given no way to find it. The reason is derived, but the rule it is about
+    # sits on a real line.
+    __slots__ = ("rule", "reason", "refs", "evidence")
 
-    def __init__(self, rule, reason: str, refs):
+    def __init__(self, rule, reason: str, refs, evidence=None):
         self.rule, self.reason, self.refs = rule, reason, refs
+        self.evidence = list(evidence or [])
 
     def __repr__(self) -> str:
         return f"{self.rule}: {self.reason}"
@@ -44,7 +52,7 @@ class SkippedRule:
 def _skipped(rule, bad) -> SkippedRule:
     name = rule.name or rule.id
     detail = "; ".join(f"{b.name} [{b.state.value}]" for b in bad[:3])
-    return SkippedRule(name, detail, bad)
+    return SkippedRule(name, detail, bad, evidence=getattr(rule, "evidence", None))
 
 
 ADMIN_PORTS = {22: "ssh", 23: "telnet", 3389: "rdp", 5900: "vnc",

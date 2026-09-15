@@ -45,6 +45,12 @@ const FindingRow: FC<{ finding: Finding }> = ({ finding }) => {
     ...fw.stig_ids.map((c) => ({ label: c, src: 'STIG' })),
     ...fw.cis_ids.map((c) => ({ label: c, src: 'CIS' })),
     ...fw.iso_27001.map((c) => ({ label: c, src: 'ISO 27001' })),
+    // ATT&CK names the adversary technique this control stands in front of.
+    // It is presentation only: no state or score is derived from it.
+    ...(finding.attack ?? []).map((t) => ({
+      label: `${t.id} ${t.name}`,
+      src: 'MITRE ATT&CK',
+    })),
   ];
 
   return (
@@ -113,30 +119,73 @@ const FindingRow: FC<{ finding: Finding }> = ({ finding }) => {
                 {finding.evidence.length > 1 ? 's' : ''} from the configuration
               </span>
               <div className="mt-1.5 space-y-1.5">
-                {finding.evidence.slice(0, 8).map((e, i) => (
-                  <div
-                    key={i}
-                    className="overflow-x-auto rounded-lg border border-[rgba(100,150,220,0.16)] bg-[rgba(5,11,24,0.8)] px-3 py-2"
-                  >
-                    <div className="mb-1 flex items-center gap-2 text-[10.5px] text-[#65738B]">
-                      <Terminal className="h-3 w-3" />
-                      <span className="font-mono">{e.file}</span>
-                      {/* A null line is not a missing line: key-value exports
-                          have no meaningful line number, and the record id is
-                          the durable locator there. */}
-                      <span>
-                        {e.line !== null
-                          ? `line ${e.line}`
-                          : e.record_id
-                            ? `record ${e.record_id}`
-                            : 'no line reference'}
-                      </span>
+                {finding.evidence.slice(0, 8).map((e, i) => {
+                  // A GUTTER, the way an editor shows it -- the number sits
+                  // beside the line it belongs to, not in small print above.
+                  //
+                  // Every reference is locatable. Where the reader supplies a
+                  // line number that is the number; where the configuration is
+                  // a single physical line of key=value settings, line 1 is
+                  // genuinely where the value is and the setting's position
+                  // along that line is what finds it.
+                  const ordinal = e.record_id?.startsWith('setting[')
+                    ? e.record_id.slice(8, -1)
+                    : null;
+                  // For a single-line export the gutter shows the SETTING
+                  // number, not the line. The decoded SonicOS backup is 2.7
+                  // million characters with zero newlines, so every setting is
+                  // on line 1 -- true, and useless: the gutter would read 1
+                  // for all 92,636 of them. The ordinal is unique and
+                  // reachable with `tr '&' '\n' | sed -n 'Np'`.
+                  const lineNo =
+                    e.line !== null ? String(e.line) : (ordinal ?? '—');
+                  const detail =
+                    e.line !== null ? null : ordinal ? 'setting' : e.record_id;
+
+                  return (
+                    <div
+                      key={i}
+                      className="overflow-hidden rounded-lg border border-[rgba(100,150,220,0.16)] bg-[rgba(5,11,24,0.8)]"
+                    >
+                      <div className="flex items-stretch">
+                        <div className="flex w-14 shrink-0 items-center justify-end border-r border-[rgba(100,150,220,0.16)] bg-[rgba(100,150,220,0.06)] px-2 py-2">
+                          <span
+                            className="font-mono text-[12px] font-semibold text-[#8FA0BC]"
+                            title={
+                              e.line !== null
+                                ? `line ${e.line} of ${e.file}`
+                                : ordinal
+                                  ? `setting ${ordinal}. This export is one physical ` +
+                                    `line, so a line number would read 1 for every ` +
+                                    `setting. Read it with: tr '&' '\\n' < file | ` +
+                                    `sed -n '${ordinal}p'`
+                                  : `${e.file} — no line reference available`
+                            }
+                          >
+                            {lineNo}
+                          </span>
+                        </div>
+                        <pre className="min-w-0 flex-1 overflow-x-auto whitespace-pre-wrap px-3 py-2 font-mono text-[12px] text-[#DDE7F7]">
+                          {e.raw}
+                        </pre>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 border-t border-[rgba(100,150,220,0.12)] px-3 py-1 text-[10.5px] text-[#65738B]">
+                        <Terminal className="h-3 w-3" />
+                        <span className="font-mono">{e.file}</span>
+                        <span>
+                          {e.line !== null
+                            ? `line ${e.line}`
+                            : ordinal
+                              ? `setting ${ordinal} — one-line export, so every value is on line 1`
+                              : 'no line reference'}
+                        </span>
+                        {detail && e.line === null && !ordinal && (
+                          <span>· {detail}</span>
+                        )}
+                      </div>
                     </div>
-                    <pre className="whitespace-pre-wrap font-mono text-[12px] text-[#DDE7F7]">
-                      {e.raw}
-                    </pre>
-                  </div>
-                ))}
+                  );
+                })}
                 {finding.evidence.length > 8 && (
                   <p className="text-[11px] text-[#65738B]">
                     + {finding.evidence.length - 8} more evidence lines

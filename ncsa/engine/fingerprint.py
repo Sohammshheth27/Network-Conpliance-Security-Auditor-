@@ -176,10 +176,21 @@ def fingerprint_json(data) -> Fingerprint:
             return Fingerprint(vendor="aws", platform="security_groups",
                                reader="json", os="AWS EC2", confidence=1.0,
                                matched=["GroupId+IpPermissions"])
-        if "securityRules" in data[0] or "properties" in data[0]:
+        first = data[0]
+        # Azure NSGs: rules at the top level (az CLI) or under `properties`
+        # (ARM/REST). The old test accepted any object with `properties`,
+        # which is half the Azure resource model.
+        if "securityRules" in first or "securityRules" in (first.get("properties") or {}):
             return Fingerprint(vendor="azure", platform="network_security_groups",
-                               reader="json", os="Azure", confidence=0.8,
+                               reader="json", os="Azure", confidence=1.0,
                                matched=["securityRules"])
+        # GCP VPC firewall rules, from `gcloud compute firewall-rules list`.
+        if first.get("kind") == "compute#firewall" or (
+                "direction" in first and "network" in first
+                and ("allowed" in first or "denied" in first)):
+            return Fingerprint(vendor="gcp", platform="gcp_firewall",
+                               reader="json", os="Google Cloud VPC",
+                               confidence=1.0, matched=["compute#firewall"])
     if isinstance(data, dict):
         if "DEVICE_METADATA" in data:
             return Fingerprint(vendor="sonic", platform="sonic", reader="json",
@@ -187,6 +198,10 @@ def fingerprint_json(data) -> Fingerprint:
         if "SecurityGroups" in data:
             return Fingerprint(vendor="aws", platform="security_groups", reader="json",
                                os="AWS EC2", confidence=1.0, matched=["SecurityGroups"])
+        if "securityRules" in data or "securityRules" in (data.get("properties") or {}):
+            return Fingerprint(vendor="azure", platform="network_security_groups",
+                               reader="json", os="Azure", confidence=1.0,
+                               matched=["securityRules"])
     return Fingerprint()
 
 

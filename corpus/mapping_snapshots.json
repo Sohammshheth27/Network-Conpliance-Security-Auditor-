@@ -1,13 +1,51 @@
 {
+ "c9800-wlc-01.cfg": {
+  "counts": {
+   "ERROR": 0,
+   "FAIL": 44,
+   "MANUAL_REVIEW": 0,
+   "NOT_APPLICABLE": 4,
+   "PARTIAL": 0,
+   "PASS": 14,
+   "UNKNOWN": 26
+  },
+  "fields": {
+   "authentication.aaa_authentication": [
+    "default",
+    "local"
+   ],
+   "authentication.aaa_enabled": true,
+   "authentication.local_accounts": [
+    "wlcadmin"
+   ],
+   "authentication.password_encryption": true,
+   "authorization.role_based": true,
+   "crypto.weak_ciphers": [],
+   "firewall.default_action": "deny",
+   "management.ssh.enabled": true,
+   "management.ssh.version": 2,
+   "management.telnet.enabled": false,
+   "management.vty.transport_input": [
+    "ssh"
+   ],
+   "snmp.version": "2c"
+  },
+  "platform": "cisco_iosxe_router",
+  "records": {
+   "MAPPED": 9,
+   "PARSED": 29,
+   "UNKNOWN": 0
+  }
+ },
  "describe-security-groups.json": {
   "counts": {
    "ERROR": 0,
-   "FAIL": 3,
+   "FAIL": 2,
    "MANUAL_REVIEW": 0,
    "NOT_APPLICABLE": 64,
    "PARTIAL": 0,
-   "PASS": 3,
-   "UNKNOWN": 18
+   "PASS": 7,
+   "UNKNOWN": 15
   },
   "fields": {
    "cloud.security_groups.egress": [
@@ -15,28 +53,24 @@
    ],
    "cloud.security_groups.id": "sg-0a1b2c3d4e5f60001",
    "exposure.admin_ports_open_to_internet": [
-    "sg-0a1b2c3d4e5f60001:all/1433 from 0.0.0.0/0",
-    "sg-0a1b2c3d4e5f60001:all/21 from 0.0.0.0/0",
-    "sg-0a1b2c3d4e5f60001:all/22 from 0.0.0.0/0",
-    "sg-0a1b2c3d4e5f60001:all/23 from 0.0.0.0/0",
-    "sg-0a1b2c3d4e5f60001:all/27017 from 0.0.0.0/0",
-    "sg-0a1b2c3d4e5f60001:all/3306 from 0.0.0.0/0",
-    "sg-0a1b2c3d4e5f60001:all/3389 from 0.0.0.0/0",
-    "sg-0a1b2c3d4e5f60001:all/5432 from 0.0.0.0/0",
-    "sg-0a1b2c3d4e5f60001:all/6379 from 0.0.0.0/0",
-    "sg-0a1b2c3d4e5f60001:all/9200 from 0.0.0.0/0",
-    "sg-0a1b2c3d4e5f60002:tcp/22 from 0.0.0.0/0"
+    "rule web-tier-sg ingress tcp/22: ssh/22 from internet to sg-0a1b2c3d4e5f60002",
+    "rule web-tier-sg ingress tcp/443: https-mgmt/443 from internet to sg-0a1b2c3d4e5f60002",
+    "rule web-tier-sg ingress tcp/80: http-mgmt/80 from internet to sg-0a1b2c3d4e5f60002"
    ],
-   "exposure.any_any_rules": [
-    "sg-0a1b2c3d4e5f60001 (default): all protocols from 0.0.0.0/0"
+   "exposure.any_any_rules": [],
+   "exposure.unrestricted_ingress": [],
+   "firewall.default_action": "deny",
+   "firewall.rules.service": [
+    "0.0.0.0/0"
    ],
-   "exposure.unrestricted_ingress": [
-    "sg-0a1b2c3d4e5f60001:all/all from 0.0.0.0/0",
-    "sg-0a1b2c3d4e5f60002:tcp/22 from 0.0.0.0/0",
-    "sg-0a1b2c3d4e5f60002:tcp/443 from 0.0.0.0/0",
-    "sg-0a1b2c3d4e5f60002:tcp/80 from 0.0.0.0/0"
+   "firewall.rules.source": [
+    "0.0.0.0/0"
    ],
-   "firewall.default_action": "deny"
+   "firewall.zones": [
+    "sg-0a1b2c3d4e5f60001",
+    "sg-0a1b2c3d4e5f60002",
+    "sg-0a1b2c3d4e5f60003"
+   ]
   },
   "platform": "security_groups",
   "records": {
@@ -103,6 +137,47 @@
   "records": {
    "MAPPED": 32,
    "PARSED": 13,
+   "UNKNOWN": 0
+  }
+ },
+ "firewall-rules.json": {
+  "counts": {
+   "ERROR": 0,
+   "FAIL": 4,
+   "MANUAL_REVIEW": 0,
+   "NOT_APPLICABLE": 55,
+   "PARTIAL": 0,
+   "PASS": 6,
+   "UNKNOWN": 23
+  },
+  "fields": {
+   "cloud.security_groups.egress": [
+    "{'kind': 'compute#firewall', 'id': '1000000000000000008', 'name': 'deny-egress-smtp', 'network': 'https://www.googleapis.com/compute/v1/projects/fixture-project/global/networks/default', 'direction': 'EGRESS', 'priority': 1000, 'destinationRanges': ['0.0.0.0/0'], 'denied': [{'IPProtocol': 'tcp', 'ports': ['25']}], 'disabled': False}"
+   ],
+   "cloud.security_groups.id": "1000000000000000001",
+   "exposure.admin_ports_open_to_internet": [
+    "rule default-allow-rdp (priority 65534): rdp/3389 from internet to default",
+    "rule default-allow-ssh (priority 65534): ssh/22 from internet to default"
+   ],
+   "exposure.any_any_rules": [],
+   "exposure.unrestricted_ingress": [
+    "rule allow-postgres-public (priority 1000): postgres/5432 from internet"
+   ],
+   "firewall.default_action": "deny",
+   "firewall.rules.log": false,
+   "firewall.rules.service": [
+    "0.0.0.0/0"
+   ],
+   "firewall.rules.source": [
+    "0.0.0.0/0"
+   ],
+   "firewall.zones": [
+    "default"
+   ]
+  },
+  "platform": "gcp_firewall",
+  "records": {
+   "PARSED": 94,
    "UNKNOWN": 0
   }
  },
@@ -277,6 +352,45 @@
    "UNKNOWN": 13
   }
  },
+ "nsg-list.json": {
+  "counts": {
+   "ERROR": 0,
+   "FAIL": 4,
+   "MANUAL_REVIEW": 0,
+   "NOT_APPLICABLE": 64,
+   "PARTIAL": 0,
+   "PASS": 5,
+   "UNKNOWN": 15
+  },
+  "fields": {
+   "cloud.security_groups.id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/fixture-rg/providers/Microsoft.Network/networkSecurityGroups/web-nsg",
+   "exposure.admin_ports_open_to_internet": [
+    "rule web-nsg/AllowHTTPSInbound (priority 100): https-mgmt/443 from internet to 0.0.0.0/0",
+    "rule web-nsg/AllowRDPFromInternet (priority 200): rdp/3389 from internet to 0.0.0.0/0",
+    "rule web-nsg/AllowSSHFromAnywhere (priority 110): ssh/22 from internet to 0.0.0.0/0"
+   ],
+   "exposure.any_any_rules": [],
+   "exposure.unrestricted_ingress": [
+    "rule db-nsg/AllowSqlFromInternet (priority 150): mssql/1433 from internet"
+   ],
+   "firewall.default_action": "deny",
+   "firewall.rules.service": [
+    "tcp/443"
+   ],
+   "firewall.rules.source": [
+    "0.0.0.0/0"
+   ],
+   "firewall.zones": [
+    "db-nsg",
+    "web-nsg"
+   ]
+  },
+  "platform": "network_security_groups",
+  "records": {
+   "PARSED": 76,
+   "UNKNOWN": 122
+  }
+ },
  "srx-combined.conf": {
   "counts": {
    "ERROR": 0,
@@ -339,8 +453,8 @@
    "MANUAL_REVIEW": 0,
    "NOT_APPLICABLE": 4,
    "PARTIAL": 0,
-   "PASS": 4,
-   "UNKNOWN": 71
+   "PASS": 7,
+   "UNKNOWN": 68
   },
   "fields": {
    "authentication.local_accounts": [
@@ -349,6 +463,9 @@
     "operator"
    ],
    "authorization.role_based": true,
+   "exposure.admin_ports_open_to_internet": [],
+   "exposure.any_any_rules": [],
+   "exposure.unrestricted_ingress": [],
    "firewall.default_action": "permit",
    "firewall.zones": [
     "trust"
@@ -378,12 +495,12 @@
  "srx-display-xml.xml": {
   "counts": {
    "ERROR": 0,
-   "FAIL": 0,
+   "FAIL": 1,
    "MANUAL_REVIEW": 0,
    "NOT_APPLICABLE": 4,
    "PARTIAL": 0,
-   "PASS": 20,
-   "UNKNOWN": 64
+   "PASS": 22,
+   "UNKNOWN": 61
   },
   "fields": {
    "authentication.local_accounts": [
@@ -392,6 +509,13 @@
    "authorization.role_based": true,
    "banner.login": "Authorised access only. Activity is monitored and logged.",
    "firewall.default_action": "deny",
+   "firewall.rules.log": true,
+   "firewall.rules.service": [
+    "tcp/443"
+   ],
+   "firewall.rules_unevaluable": [
+    "allow-web-out: LAN-NET [UNRESOLVED]"
+   ],
    "firewall.zones": [
     "trust",
     "untrust"
@@ -420,8 +544,8 @@
   },
   "platform": "juniper_srx_xml",
   "records": {
-   "MAPPED": 19,
-   "PARSED": 22,
+   "MAPPED": 23,
+   "PARSED": 18,
    "UNKNOWN": 0
   }
  },

@@ -45,6 +45,25 @@ PROTO = {"6": "tcp", "17": "udp", "1": "icmp", "58": "icmpv6"}
 UNTRUSTED_ZONES = {"wan", "untrust", "internet", "public", "wlan"}
 
 
+def _ev(exp, key: str, fallback_index: int, fallback_raw: str):
+    """Evidence anchored at the setting's REAL position in the file.
+
+    The index in `addrObjId_14` is the object's number, NOT where the setting
+    sits in the export. Passing it as the position produced evidence claiming
+    `policyName_1=Test_SSH` was setting 1, when setting 1 is `checksumVersion`
+    and the policy is actually at 37,290. Every graph-derived finding on this
+    platform pointed at the wrong place, and an administrator following the
+    reference would have found an unrelated value.
+
+    The reader already records the true position, so it is looked up here.
+    """
+    hit = exp.values.get(key)
+    if hit is not None:
+        _val, position, raw = hit
+        return exp.evidence(position, raw)
+    return exp.evidence(fallback_index, fallback_raw)
+
+
 def _idx(values: dict, prefix: str, *, exp=None) -> dict[int, str]:
     """All `prefix_N` values keyed by N.
 
@@ -88,7 +107,7 @@ def build(exp, *, include_ipv6: bool = True) -> ObjectGraph:
         if node is None:
             node = Node(id=name, kind=(NodeKind.ADDRESS_GROUP if is_group else NodeKind.ADDRESS),
                         name=name, values=vals,
-                        evidence=[exp.evidence(i, f"addrObjId_{i}={name}")])
+                        evidence=[_ev(exp, f"addrObjId_{i}", i, f"addrObjId_{i}={name}")])
             g.add(node)
         else:
             node.values = node.values or vals
@@ -106,7 +125,7 @@ def build(exp, *, include_ipv6: bool = True) -> ObjectGraph:
         node = g.lookup(grp)
         if node is None:
             node = Node(id=grp, kind=NodeKind.ADDRESS_GROUP, name=grp,
-                        evidence=[exp.evidence(i, f"addro_grpToGrp_{i}={grp}")])
+                        evidence=[_ev(exp, f"addro_grpToGrp_{i}", i, f"addro_grpToGrp_{i}={grp}")])
             g.add(node)
         elif node.kind is NodeKind.ADDRESS:
             node.kind = NodeKind.ADDRESS_GROUP     # membership proves it is a group
@@ -133,26 +152,26 @@ def build(exp, *, include_ipv6: bool = True) -> ObjectGraph:
             # makes the resolver report UNSUPPORTED, which is the truth.
             g.add(Node(id=name, kind=NodeKind.SERVICE_GROUP, name=name,
                        attrs={"members_unknown": True},
-                       evidence=[exp.evidence(i, f"svcObjId_{i}={name}")]))
+                       evidence=[_ev(exp, f"svcObjId_{i}", i, f"svcObjId_{i}={name}")]))
             continue
         proto = PROTO.get(str(sproto.get(i, "")))
         if proto is None:
             g.add(Node(id=name, kind=NodeKind.SERVICE, name=name,
                        attrs={"protocol_unknown": sproto.get(i, "")},
-                       evidence=[exp.evidence(i, f"svcObjId_{i}={name}")]))
+                       evidence=[_ev(exp, f"svcObjId_{i}", i, f"svcObjId_{i}={name}")]))
             continue
         a, b = sp1.get(i, ""), sp2.get(i, "")
         vals = []
         if a and a != "0":
             vals = [f"{proto}/{a}"] if (not b or b == a) else [f"{proto}/{a}-{b}"]
         g.add(Node(id=name, kind=NodeKind.SERVICE, name=name, values=vals,
-                   evidence=[exp.evidence(i, f"svcObjId_{i}={name}")]))
+                   evidence=[_ev(exp, f"svcObjId_{i}", i, f"svcObjId_{i}={name}")]))
 
     # ---------------------------------------------------------------- zones
     for i, zname in _idx(V, "zoneObjId", exp=exp).items():
         if zname and not g.lookup(zname):
             g.add(Node(id=zname, kind=NodeKind.ZONE, name=zname,
-                       evidence=[exp.evidence(i, f"zoneObjId_{i}={zname}")]))
+                       evidence=[_ev(exp, f"zoneObjId_{i}", i, f"zoneObjId_{i}={zname}")]))
         if zname and zname.lower() in UNTRUSTED_ZONES:
             g.untrusted_zones.add(zname)
 
@@ -196,7 +215,7 @@ def build(exp, *, include_ipv6: bool = True) -> ObjectGraph:
                            else None),
                 source_zones=[szone.get(i, "")] if szone.get(i) else [],
                 destination_zones=[dzone.get(i, "")] if dzone.get(i) else [],
-                evidence=[exp.evidence(i, f"policyName{suf}_{i}={name}")],
+                evidence=[_ev(exp, f"policyName{suf}_{i}", i, f"policyName{suf}_{i}={name}")],
             )
             g.add_rule(rule)
 

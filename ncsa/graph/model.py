@@ -152,6 +152,15 @@ class ObjectGraph(BaseModel):
     unordered: bool = False
     default_action: str = "deny"
     default_action_observed: bool = False
+    #: The line that STATES the default policy, where the config states one.
+    #:
+    #: Without this the bridge cited an arbitrary rule's evidence for the
+    #: default policy -- misleading even when it worked, and outright wrong on
+    #: a device with a `permit-all` default and no rules at all: there was no
+    #: rule to borrow evidence from, so an observed permit-all degraded to an
+    #: assumption and the finding disappeared. That is the exact false PASS the
+    #: Junos builder exists to prevent.
+    default_action_evidence: list[EvidenceRef] = Field(default_factory=list)
 
     # ------------------------------------------------------------------ build
     def add(self, node: Node) -> None:

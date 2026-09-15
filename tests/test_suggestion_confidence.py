@@ -43,7 +43,16 @@ sw_only = pytest.mark.skipif(not os.path.exists(SW), reason="SonicWall sample ab
 @pytest.fixture(scope="module")
 def queue():
     """Built ONCE. Suggesting for 400 settings means 400 embedding lookups on a
-    2.7 MB export; doing that per test made this file take minutes."""
+    2.7 MB export; doing that per test made this file take minutes.
+
+    Skips when the embedding service is unreachable. The matcher degrades to
+    type-prior x lexical in that case, which is deliberate -- an assessment
+    must never depend on a model server being up -- but the degraded arm
+    produces far fewer distinct confidences, so the spread assertions below
+    would fail for a reason that has nothing to do with the code under test.
+    """
+    if not SemanticMatcher(lexical=None).fit().dense_available:
+        pytest.skip("embedding service unreachable; dense arm unavailable")
     r = assess(SW, redact=False, assessment_id="conf")
     return build_queue(r, with_suggestions=True, limit=400)
 

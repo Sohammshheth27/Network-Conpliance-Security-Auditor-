@@ -13,3 +13,15 @@ frameworks:
   # STIG/CIS ids intentionally omitted: they are per-platform and
   # belong in the vendor pack (plan 6.1). An invented id is worse
   # than none -- see the v1.4 6.4 caveat.
+
+remediation:
+  sonicwall_sonicos:
+    commands:
+    - configure
+    - administration
+    - login-lockout enable
+    - login-lockout-threshold 5
+    - login-lockout-period 5
+    - commit
+    phase: 20
+    verify: show administration | grep lockout

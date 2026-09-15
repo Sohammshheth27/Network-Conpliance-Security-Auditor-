@@ -31,3 +31,12 @@ remediation:
     - set snmp v3 usm local-engine user <user> authentication-sha authentication-key <AUTHKEY>
     phase: 20
     verify: show configuration snmp
+
+  sonicwall_sonicos:
+    commands:
+    - configure
+    - administration snmp
+    - version v3-only
+    - commit
+    phase: 40
+    verify: show administration snmp

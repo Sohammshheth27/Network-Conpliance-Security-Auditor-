@@ -30,3 +30,12 @@ remediation:
     - set system login message "Authorised access only. Activity is monitored and logged."
     phase: 30
     verify: show configuration system login message
+
+  sonicwall_sonicos:
+    commands:
+    - configure
+    - administration
+    - login-banner "Authorised access only. Activity is monitored."
+    - commit
+    phase: 10
+    verify: show administration | grep banner

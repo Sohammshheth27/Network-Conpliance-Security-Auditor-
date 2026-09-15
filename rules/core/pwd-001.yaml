@@ -26,3 +26,12 @@ remediation:
     - '! apply: username <n> common-criteria-policy NCSA-PWD'
     phase: 30
     verify: show aaa common-criteria policy all
+
+  sonicwall_sonicos:
+    commands:
+    - configure
+    - administration password-policy
+    - minimum-length 15
+    - commit
+    phase: 20
+    verify: show administration password-policy

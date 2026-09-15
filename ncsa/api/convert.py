@@ -33,7 +33,14 @@ def finding_out(f, risk=None) -> FindingOut:
             cis_ids=list(getattr(fw, "cis_ids", []) or [])),
         risk=(RiskOut(score=round(risk.score, 1), band=risk.band,
                       rationale=list(risk.rationale))
-              if risk is not None else None))
+              if risk is not None else None),
+        attack=_attack(f.control_id))
+
+
+def _attack(control_id: str) -> list[dict]:
+    # Tags are presentation: they never change a state or a score.
+    from ..frameworks.attack import tags_for
+    return tags_for(control_id)
 
 
 def assessment_out(da, assessment_id: str) -> AssessmentOut:

@@ -76,6 +76,14 @@ class DeviceAssessment:
     # consumption and re-offers settings that are already mapped -- the queue
     # was proposing `minPasswordLength`, which the pack has mapped all along.
     document: object | None = None
+    # The normalised device model the controls were evaluated against.
+    #
+    # It was previously discarded once the findings existed, so anything that
+    # needed it -- remediation's lockout check, and now the baseline export --
+    # had to re-parse the file and rebuild it. Keeping it costs nothing: it is
+    # computed on every assessment regardless, and a second parse can silently
+    # diverge from the one the findings actually came from.
+    sbm: object | None = None
     # Vendor-agnostic detections and their cross-check against the pack.
     # Computed for EVERY device, including unsupported ones -- the universal
     # layer is the floor under a vendor nobody has described to us.
@@ -351,6 +359,10 @@ GRAPH_BUILDERS = {
     "juniper_srx": ("ncsa.graph.junos_builder", "Junos / SRX"),
     "panos": ("ncsa.graph.panos_builder", "PAN-OS"),
     "fortios": ("ncsa.graph.fortios_builder", "FortiOS"),
+    "security_groups": ("ncsa.graph.aws_builder", "AWS security groups"),
+    "juniper_srx_xml": ("ncsa.graph.junos_xml_builder", "Junos / SRX (XML)"),
+    "network_security_groups": ("ncsa.graph.azure_builder", "Azure NSG"),
+    "gcp_firewall": ("ncsa.graph.gcp_builder", "GCP VPC firewall"),
 }
 
 
@@ -547,7 +559,7 @@ def assess(path, *, packs_dir="packs", rules_dir="rules", redact=True,
     out = DeviceAssessment(identity=identity, assessment=assessment,
                            fingerprint=fp, graph=graph, records=records,
                            total_records=total, unrecognised=unrecognised,
-                           document=doc, notes=identity_notes)
+                           document=doc, sbm=sbm, notes=identity_notes)
     _universal_pass(p, out)
     _parser_crosscheck(p, out)
     return out

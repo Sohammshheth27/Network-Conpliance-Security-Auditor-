@@ -4,7 +4,7 @@ Multi-vendor firewall and network configuration auditing. A configuration file
 goes in; a compliance assessment comes out, with the exact line of the exact
 file behind every claim.
 
-**476 tests passing.** Validated against real device exports — a 92,635-setting
+**661 tests passing.** Validated against real device exports — a 92,635-setting
 SonicWall NSA 3700 backup and a genuine PAN-OS running-config — not only against
 fixtures written alongside the code.
 
@@ -70,7 +70,23 @@ walks all of them and fails on the first that cannot say why.
 | Parser cross-check | Two independent methods over the same device |
 | Host firewall | Windows / iptables through the same appliance analysers |
 | Remediation | Fix commands, lockout-checked |
+| Blast radius | From a foothold zone, every zone reachable on lateral-movement ports, with the permitting rule; marks paths LATENT when nothing sits in the zone |
+| What-if remediation | Re-scores a copy with fixes applied or rules disabled; warns when an IPv6 twin still permits the traffic |
+| VPN checks | Per-tunnel PFS, anti-replay, SA lifetimes, management over the tunnel |
+| Wireless checks | Open/WEP/TKIP, PMF, guest isolation, cleartext PSK (Catalyst 9800; SonicWall access-point provisioning) |
+| Known vulnerabilities | Firmware against a dated NVD snapshot + CISA KEV; version **and** hardware model must match |
+| MITRE ATT&CK tags | The adversary technique each control stands in front of, verified against ATT&CK v19.2 |
+| Cloud firewalls | AWS security groups, Azure NSGs, GCP VPC firewall rules |
 | Learning loop | Unmapped settings queued, ranked by a calibrated confidence |
+
+### Extended checks sit beside the score, never inside it
+
+VPN, wireless and CVE results are reported next to the compliance score and do
+not change it. Adding them to the 88-control catalogue would have moved every
+device's score and coverage, including results already reported. They follow
+the same rules as the controls: a failure cites the setting behind it, and a
+value that cannot be decoded (SonicOS's private VPN algorithm codes, for
+example) is reported as not decided rather than guessed.
 
 Frameworks: **5,785 controls** across NIST 800-53, DISA STIG, CIS, ISO 27001,
 NIST 800-171 r3, PCI DSS 4.0, CMMC and NERC CIP — with provenance chained
@@ -95,8 +111,21 @@ Open **http://localhost:5173**. The UI proxies `/api` to the engine, so one URL
 is enough.
 
 ```bash
-python -m pytest -q          # 476 tests
+python -m pytest -q          # 661 tests
 ```
+
+### Refreshing threat data
+
+The CVE lookup and ATT&CK tags run offline from local files, so every result
+is reproducible and states the date of its data.
+
+```bash
+python -m tools.fetch_cve        # NVD snapshot + CISA KEV -> reference/cve/
+curl -L https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/enterprise-attack/enterprise-attack.json \
+     -o reference/attack/enterprise-attack.json
+```
+
+A CVE result older than 30 days says so first.
 
 ---
 
@@ -146,7 +175,12 @@ Everything above is enforced by `.gitignore` and, for the licensed content, by
 
 ## Status
 
-Built for SIH 2026. Packs for Arista, Aruba and FortiOS are at version `0.9` —
-validated against constructed fixtures only, pending real device output. The
-SonicWall, PAN-OS, Cisco IOS-XE, ASA and Juniper paths are validated against
-real or captured configurations.
+Built for SIH 2026. Packs for Arista, Aruba, FortiOS, Azure and GCP are at
+version `0.9` — validated against constructed fixtures only, pending real
+exports. The SonicWall, PAN-OS, Cisco IOS-XE, ASA and Juniper paths are
+validated against real or captured configurations.
+
+Of the extended checks, VPN, CVE and the no-access-point wireless result are
+validated on the real SonicWall NSA 3700. The Catalyst 9800 wireless adapter is
+validated on a fixture built from Cisco's published commands, and says so in
+every result.

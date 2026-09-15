@@ -21,6 +21,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
+from pydantic import BaseModel
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -143,6 +144,214 @@ def get_remediation(aid: str):
         "rules", platform=da.identity.platform)}
     sbm = _sbm_for(da)
     return remediation_out(build_plan(da, controls_by_id=controls, sbm=sbm))
+
+
+@app.get("/assessment/{aid}/baseline", tags=["report"])
+def get_baseline(aid: str):
+    """The device's Security Baseline Model as JSON.
+
+    The machine-readable counterpart to the PDF report: the same assessment,
+    shaped for a pipeline. Every field carries its observation state, so a
+    consumer can tell a value we READ from one we assumed.
+    """
+    from ..schema.export import baseline
+
+    da, _ = _get(aid)
+    return baseline(da, aid)
+
+
+@app.get("/assessment/{aid}/report", tags=["report"])
+def get_report(aid: str, format: str = Query("pdf", pattern="^(pdf|html)$")):
+    """The formal assessment report: device details and every result.
+
+    Monochrome and typeset for print, because this is the artefact an auditor
+    signs against. Every figure is computed from the assessment when the
+    report is rendered -- nothing is cached, and nothing is written by hand.
+    """
+    from fastapi.responses import HTMLResponse
+
+    from ..report import build_report, write_pdf
+
+    da, _ = _get(aid)
+    device = (da.identity.hostname or da.identity.source_file or aid)
+    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in device)
+
+    if format == "html":
+        return HTMLResponse(build_report(da, aid))
+
+    out = _UPLOADS / f"NCSA_Report_{safe}_{aid}.pdf"
+    try:
+        write_pdf(da, out, aid)
+    except RuntimeError as exc:
+        # PDF rendering needs a Chromium binary. Saying so beats a 500, and
+        # the HTML form of the same report is always available.
+        raise HTTPException(503, {
+            "error": str(exc),
+            "alternative": f"/assessment/{aid}/report?format=html",
+        }) from exc
+    return FileResponse(str(out), media_type="application/pdf",
+                        filename=out.name)
+
+
+@app.post("/assessment/{aid}/blast-radius", tags=["analyse"])
+def get_blast_radius(aid: str, origin_zone: str = Query(""),
+                     origin_address: str = Query("any")):
+    """If this segment is compromised, what else can be reached?
+
+    Walks the policy outward from a foothold and names the rule permitting
+    each step. Exposure only -- policy permitting a packet says nothing about
+    whether a service is listening, patched or authenticated.
+    """
+    from ..topology.blast import blast_radius
+
+    da, _ = _get(aid)
+    _require_graph(da, "blast radius")
+    return blast_radius(da.graph, origin_zone=origin_zone,
+                        origin_address=origin_address,
+                        origin_members=_zone_members(da, origin_zone)).to_json()
+
+
+def _zone_members(da, zone: str):
+    """What sits in a zone today: interfaces, plus access points for WLAN.
+
+    None when the device model is unavailable -- "could not tell" must not
+    be reported as "empty", or every path would be mislabelled latent.
+    """
+    from ..topology.blast import zone_members
+    return zone_members(da, zone)
+
+
+@app.get("/assessment/{aid}/zones", tags=["analyse"])
+def get_zones(aid: str):
+    """Zones a blast radius can start from, read from the policy itself."""
+    da, _ = _get(aid)
+    _require_graph(da, "zone listing")
+    g = da.graph
+    src = sorted({z for r in g.rules for z in r.source_zones if z})
+    dst = sorted({z for r in g.rules for z in r.destination_zones if z})
+    return {"source_zones": src, "destination_zones": dst,
+            "untrusted": sorted(g.untrusted_zones)}
+
+
+@app.get("/assessment/{aid}/extended", tags=["analyse"])
+def get_extended(aid: str):
+    """VPN and wireless checks, reported beside the compliance score.
+
+    They never change the score or coverage of the assessment: see
+    ncsa/extended/model.py for why.
+    """
+    from ..extended.run import run_extended
+
+    da, _ = _get(aid)
+    return run_extended(da)
+
+
+class WhatIfRequest(BaseModel):
+    fix_controls: list[str] = []
+    disable_rules: list[str] = []
+    origin_zone: str = ""
+
+
+@app.post("/assessment/{aid}/what-if", tags=["analyse"])
+def what_if(aid: str, req: WhatIfRequest):
+    """Re-score a COPY of the assessment with the requested changes applied.
+
+    The stored assessment and the device are untouched; every response carries
+    that label. Requests that cannot be simulated honestly come back under
+    `rejected` with the reason; changes that did not close what they appear to
+    close (an IPv6 twin still open) come back under `warnings`.
+    """
+    from ..whatif import simulate
+
+    da, _ = _get(aid)
+    try:
+        return simulate(da, fix_controls=req.fix_controls,
+                        disable_rules=req.disable_rules,
+                        origin_zone=req.origin_zone,
+                        origin_members=(_zone_members(da, req.origin_zone)
+                                        if req.origin_zone else None))
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@app.get("/assessment/{aid}/graph", tags=["analyse"])
+def get_graph(aid: str, limit: int = Query(500, le=5000)):
+    """The policy object graph itself -- objects, rules and how they resolve.
+
+    Everything else in the analyse group is a CONCLUSION drawn from this graph:
+    rule hygiene, reachability and recertification all read it. Until now it
+    was computed on every assessment and visible nowhere, so a reviewer could
+    see the verdicts but not the reconstruction they came from -- and the
+    number of objects was the only evidence it existed at all.
+
+    Each rule is returned with its references RESOLVED, so a reader can check
+    `LAN Subnets -> 10.10.0.0/24` rather than take the verdict on trust. A
+    reference that did not resolve is marked, not omitted: an unresolved group
+    silently rendered as an empty list is how a policy reads as tidier than it
+    is.
+    """
+    from ..graph.model import NodeKind
+    from ..graph.resolve import Resolver
+
+    da, _ = _get(aid)
+    _require_graph(da, "the policy object graph")
+    g = da.graph
+    r = Resolver(g)
+
+    def resolve_side(names):
+        out = []
+        for res in (r.resolve(n) for n in names):
+            out.append({"name": res.name, "state": res.state.value,
+                        "values": res.values, "path": res.path,
+                        "detail": res.detail})
+        return out
+
+    rules = []
+    for rule in sorted(g.rules, key=lambda x: (x.order, x.id))[:limit]:
+        rules.append({
+            "id": rule.id, "name": rule.name, "order": rule.order,
+            "enabled": rule.enabled, "action": rule.action,
+            "source_zones": rule.source_zones,
+            "destination_zones": rule.destination_zones,
+            "source": resolve_side(rule.source),
+            "destination": resolve_side(rule.destination),
+            "services": resolve_side(rule.services),
+            "logging": rule.logging, "hit_count": rule.hit_count,
+            # Why a port question cannot be decided by this rule alone --
+            # App-ID, negation, a schedule, or a program on a host firewall.
+            "undecidable_for_ports": rule.program,
+            "evidence": [e.model_dump(mode="json") for e in rule.evidence[:2]],
+        })
+
+    objects = []
+    for n in list(g.nodes.values())[:limit]:
+        objects.append({
+            "name": n.name, "kind": n.kind.value, "values": n.values,
+            "members": n.members, "attrs": n.attrs,
+            "evidence": [e.model_dump(mode="json") for e in n.evidence[:1]],
+        })
+
+    by_kind: dict = {}
+    for n in g.nodes.values():
+        by_kind[n.kind.value] = by_kind.get(n.kind.value, 0) + 1
+
+    return {
+        "summary": {
+            "objects": len(g.nodes), "rules": len(g.rules),
+            "by_kind": by_kind,
+            "zones": [n.name for n in g.of_kind(NodeKind.ZONE)],
+            "untrusted_zones": sorted(g.untrusted_zones),
+            "interfaces": g.zones_of_interface,
+        },
+        # `ordered` false means the platform does not evaluate top-to-bottom,
+        # so shadow analysis is suppressed. Stating it here keeps a reader from
+        # reading the absence of shadow findings as a tidy policy.
+        "ordered": not g.unordered,
+        "default_action": g.default_action,
+        "default_action_observed": g.default_action_observed,
+        "objects_shown": objects,
+        "rules_shown": rules,
+    }
 
 
 @app.get("/assessment/{aid}/hygiene", tags=["analyse"])
@@ -482,6 +691,73 @@ def assess_this_host(enable: bool = Query(
 
 
 # -------------------------------------------------------------- frameworks
+@app.get("/ai-governance", tags=["meta"])
+def ai_governance():
+    """How the AI *we* run is governed -- MITRE ATLAS and the NIST AI RMF.
+
+    Deliberately NOT part of /frameworks. Those catalogues describe how a
+    device should be configured; these describe how an AI system should be
+    governed, and the AI system here is our own mapping suggester. Presenting
+    them together would imply we audit firewalls against ATLAS, which would be
+    meaningless -- ATLAS catalogues attacks on machine-learning systems.
+    """
+    from ..frameworks.ai_security import (GUARDRAIL_COVERAGE,
+                                          INJECTION_SIGNATURES, load_atlas)
+
+    techniques = mitigations = 0
+    resolved = None
+    try:
+        kb = load_atlas("reference/ai_security/stix-atlas.json")
+        techniques, mitigations = len(kb.techniques), len(kb.mitigations)
+        claimed = {t for g in GUARDRAIL_COVERAGE for t in g["atlas"]}
+        # Every identifier we cite is checked against the published bundle.
+        # An invented technique id would be worse than none.
+        resolved = {"claimed": len(claimed),
+                    "resolve_in_atlas": len(claimed & set(kb.techniques))}
+    except Exception:                                  # noqa: BLE001
+        pass
+
+    by_function: dict = {}
+    for g in GUARDRAIL_COVERAGE:
+        by_function.setdefault(g["ai_rmf"], []).append(g["guardrail"])
+
+    return {
+        "scope": "Governs the AI inside NCSA -- the mapping suggester that "
+                 "reads untrusted configuration text. It does NOT assess the "
+                 "audited device against these frameworks.",
+        "atlas": {"techniques": techniques, "mitigations": mitigations,
+                   "identifier_check": resolved},
+        "ai_rmf_functions": by_function,
+        "guardrails": GUARDRAIL_COVERAGE,
+        "injection_signatures": len(INJECTION_SIGNATURES),
+        "corpus_isolation": "Governance text is refused entry to the parser "
+                            "corpus by assert_not_parser_corpus(). ATLAS is a "
+                            "catalogue of attack descriptions; retrieval works "
+                            "by similarity, so indexing it beside "
+                            "configuration examples would let a line "
+                            "mentioning 'inject' retrieve an attack as a "
+                            "similar example.",
+    }
+
+
+@app.get("/attack-coverage", tags=["meta"])
+def attack_coverage():
+    """Which MITRE ATT&CK techniques the control set stands in front of.
+
+    ATT&CK describes the adversary; it is not a compliance framework, and no
+    score is computed from it. Controls that prevent no specific technique are
+    left untagged on purpose and counted as such.
+    """
+    from ..engine.rules import load_rules
+    from ..extended.cve import CHECK_ID
+    from ..extended.wireless import CHECKS
+    from ..frameworks.attack import coverage
+
+    ids = [c.id for c in load_rules("rules")]
+    ids += sorted(CHECKS) + [f"NCSA-X-VPN-00{i}" for i in range(1, 6)] + [CHECK_ID]
+    return coverage(ids)
+
+
 @app.get("/frameworks", tags=["meta"])
 def frameworks():
     from ..frameworks.registry import load_all

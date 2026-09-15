@@ -1,0 +1,67 @@
+# Google Cloud VPC firewall rules mapping pack
+#
+# Source artifact: `gcloud compute firewall-rules list --format=json`
+#
+# A sibling of packs/aws.yaml. Policy semantics -- priority, deny-wins-ties,
+# target tags, implied rules, disabled rules, per-rule logging -- live in
+# ncsa/graph/gcp_builder.py; exposure findings come from the graph.
+#
+# VALIDATED ON A FIXTURE (samples/gcp/firewall-rules.json), built in the
+# documented gcloud output shape with the real default-network rule names.
+# Not yet run against a real project export.
+
+vendor: gcp
+platform: gcp_firewall
+reader: json
+version: "0.9"
+
+supported_domains: [cloud, firewall, exposure, device]
+
+# As for AWS and Azure, identity (Cloud IAM) is absent from THIS artifact, not
+# from the platform, so authentication/authorization stay UNKNOWN.
+not_applicable_domains:
+  banner: "a VPC firewall rule has no console or login surface to display a banner on"
+  time: "clock and NTP are instance-level, not properties of a firewall rule"
+  snmp: "a VPC firewall runs no SNMP agent"
+  management: "VPC firewall rules have no management plane of their own -- they are configured through the Compute API"
+  crypto: "a firewall rule terminates nothing, so it has no cipher or TLS configuration"
+  interfaces: "firewall rules apply to instances by network and tag; they define no interfaces"
+  l2: "layer 2 is not exposed to the tenant in a VPC"
+  routing: "routes are a separate VPC resource"
+  platform: "there is no appliance here: no firmware, no config archive, no local API"
+  security: "threat inspection is Cloud IDS or Cloud NGFW, not a VPC firewall rule"
+  services: "a firewall rule runs no services of its own"
+
+fingerprint:
+  - "$[*].direction"
+
+mappings:
+  - field: cloud.provider
+    const: gcp
+
+  - field: cloud.security_groups.id
+    jsonpath: "$[*].id"
+    scope: "$[*].name"
+
+  - field: cloud.security_groups.name
+    jsonpath: "$[*].name"
+    scope: "$[*].name"
+
+  - field: cloud.security_groups.ingress
+    jsonpath: "$[?(@.direction == 'INGRESS')]"
+    scope: "$[*].name"
+
+  - field: cloud.security_groups.egress
+    jsonpath: "$[?(@.direction == 'EGRESS')]"
+    scope: "$[*].name"
+
+  - field: firewall.rules.description
+    jsonpath: "$[*].description"
+    scope: "$[*].name"
+
+  # The implied deny-all INGRESS rule (priority 65535) is a platform invariant
+  # and is not in the export, so it is recorded as assumed. Egress is the
+  # opposite -- implied ALLOW -- and this field does not describe it; the graph
+  # therefore leaves unmatched traffic undecidable rather than denied.
+  - field: firewall.default_action
+    const: deny

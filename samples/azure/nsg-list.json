@@ -1,0 +1,78 @@
+[
+  {
+    "_fixture": "Constructed in the documented `az network nsg list --output json` shape. Not a real subscription export.",
+    "name": "web-nsg",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/fixture-rg/providers/Microsoft.Network/networkSecurityGroups/web-nsg",
+    "location": "centralindia",
+    "resourceGroup": "fixture-rg",
+    "type": "Microsoft.Network/networkSecurityGroups",
+    "provisioningState": "Succeeded",
+    "securityRules": [
+      {"name": "AllowHTTPSInbound", "priority": 100, "direction": "Inbound", "access": "Allow", "protocol": "Tcp",
+       "sourceAddressPrefix": "Internet", "sourcePortRange": "*", "destinationAddressPrefix": "*", "destinationPortRange": "443",
+       "provisioningState": "Succeeded"},
+      {"name": "AllowSSHFromAnywhere", "priority": 110, "direction": "Inbound", "access": "Allow", "protocol": "Tcp",
+       "sourceAddressPrefix": "*", "sourcePortRange": "*", "destinationAddressPrefix": "*", "destinationPortRange": "22",
+       "provisioningState": "Succeeded"},
+      {"name": "DenyRDPInbound", "priority": 120, "direction": "Inbound", "access": "Deny", "protocol": "Tcp",
+       "sourceAddressPrefix": "Internet", "sourcePortRange": "*", "destinationAddressPrefix": "*", "destinationPortRange": "3389",
+       "provisioningState": "Succeeded"},
+      {"name": "AllowRDPFromInternet", "priority": 200, "direction": "Inbound", "access": "Allow", "protocol": "Tcp",
+       "sourceAddressPrefix": "Internet", "sourcePortRange": "*", "destinationAddressPrefix": "*", "destinationPortRange": "3389",
+       "provisioningState": "Succeeded"},
+      {"name": "AllowMgmtSubnet", "priority": 300, "direction": "Inbound", "access": "Allow", "protocol": "Tcp",
+       "sourceAddressPrefix": "10.20.0.0/24", "sourcePortRange": "*", "destinationAddressPrefix": "*",
+       "destinationPortRanges": ["22", "3389"], "provisioningState": "Succeeded"}
+    ],
+    "defaultSecurityRules": [
+      {"name": "AllowVnetInBound", "priority": 65000, "direction": "Inbound", "access": "Allow", "protocol": "*",
+       "sourceAddressPrefix": "VirtualNetwork", "sourcePortRange": "*", "destinationAddressPrefix": "VirtualNetwork", "destinationPortRange": "*",
+       "description": "Allow inbound traffic from all VMs in VNET"},
+      {"name": "AllowAzureLoadBalancerInBound", "priority": 65001, "direction": "Inbound", "access": "Allow", "protocol": "*",
+       "sourceAddressPrefix": "AzureLoadBalancer", "sourcePortRange": "*", "destinationAddressPrefix": "*", "destinationPortRange": "*",
+       "description": "Allow inbound traffic from azure load balancer"},
+      {"name": "DenyAllInBound", "priority": 65500, "direction": "Inbound", "access": "Deny", "protocol": "*",
+       "sourceAddressPrefix": "*", "sourcePortRange": "*", "destinationAddressPrefix": "*", "destinationPortRange": "*",
+       "description": "Deny all inbound traffic"},
+      {"name": "AllowVnetOutBound", "priority": 65000, "direction": "Outbound", "access": "Allow", "protocol": "*",
+       "sourceAddressPrefix": "VirtualNetwork", "sourcePortRange": "*", "destinationAddressPrefix": "VirtualNetwork", "destinationPortRange": "*",
+       "description": "Allow outbound traffic from all VMs to all VMs in VNET"},
+      {"name": "AllowInternetOutBound", "priority": 65001, "direction": "Outbound", "access": "Allow", "protocol": "*",
+       "sourceAddressPrefix": "*", "sourcePortRange": "*", "destinationAddressPrefix": "Internet", "destinationPortRange": "*",
+       "description": "Allow outbound traffic from all VMs to Internet"},
+      {"name": "DenyAllOutBound", "priority": 65500, "direction": "Outbound", "access": "Deny", "protocol": "*",
+       "sourceAddressPrefix": "*", "sourcePortRange": "*", "destinationAddressPrefix": "*", "destinationPortRange": "*",
+       "description": "Deny all outbound traffic"}
+    ]
+  },
+  {
+    "name": "db-nsg",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/fixture-rg/providers/Microsoft.Network/networkSecurityGroups/db-nsg",
+    "location": "centralindia",
+    "resourceGroup": "fixture-rg",
+    "type": "Microsoft.Network/networkSecurityGroups",
+    "provisioningState": "Succeeded",
+    "securityRules": [
+      {"name": "AllowPostgresFromWeb", "priority": 100, "direction": "Inbound", "access": "Allow", "protocol": "Tcp",
+       "sourceAddressPrefix": "10.10.1.0/24", "sourcePortRange": "*", "destinationAddressPrefix": "*", "destinationPortRange": "5432",
+       "provisioningState": "Succeeded"},
+      {"name": "AllowSqlFromInternet", "priority": 150, "direction": "Inbound", "access": "Allow", "protocol": "Tcp",
+       "sourceAddressPrefix": "Internet", "sourcePortRange": "*", "destinationAddressPrefix": "*", "destinationPortRange": "1433",
+       "provisioningState": "Succeeded"}
+    ],
+    "defaultSecurityRules": [
+      {"name": "AllowVnetInBound", "priority": 65000, "direction": "Inbound", "access": "Allow", "protocol": "*",
+       "sourceAddressPrefix": "VirtualNetwork", "sourcePortRange": "*", "destinationAddressPrefix": "VirtualNetwork", "destinationPortRange": "*"},
+      {"name": "AllowAzureLoadBalancerInBound", "priority": 65001, "direction": "Inbound", "access": "Allow", "protocol": "*",
+       "sourceAddressPrefix": "AzureLoadBalancer", "sourcePortRange": "*", "destinationAddressPrefix": "*", "destinationPortRange": "*"},
+      {"name": "DenyAllInBound", "priority": 65500, "direction": "Inbound", "access": "Deny", "protocol": "*",
+       "sourceAddressPrefix": "*", "sourcePortRange": "*", "destinationAddressPrefix": "*", "destinationPortRange": "*"},
+      {"name": "AllowVnetOutBound", "priority": 65000, "direction": "Outbound", "access": "Allow", "protocol": "*",
+       "sourceAddressPrefix": "VirtualNetwork", "sourcePortRange": "*", "destinationAddressPrefix": "VirtualNetwork", "destinationPortRange": "*"},
+      {"name": "AllowInternetOutBound", "priority": 65001, "direction": "Outbound", "access": "Allow", "protocol": "*",
+       "sourceAddressPrefix": "*", "sourcePortRange": "*", "destinationAddressPrefix": "Internet", "destinationPortRange": "*"},
+      {"name": "DenyAllOutBound", "priority": 65500, "direction": "Outbound", "access": "Deny", "protocol": "*",
+       "sourceAddressPrefix": "*", "sourcePortRange": "*", "destinationAddressPrefix": "*", "destinationPortRange": "*"}
+    ]
+  }
+]

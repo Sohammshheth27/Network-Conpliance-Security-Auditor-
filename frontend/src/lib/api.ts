@@ -147,6 +147,7 @@ export interface Finding {
   evidence: EvidenceRef[];
   frameworks: FrameworkRefs;
   risk: number | null;
+  attack?: AttackTag[];
 }
 
 export interface ConsensusSummary {
@@ -394,6 +395,211 @@ export interface DiffResponse {
   note?: string;
 }
 
+
+// ------------------------------------------------------- policy object graph
+
+export interface ResolvedRef {
+  name: string;
+  /** RESOLVED / UNRESOLVED / CYCLIC / UNSUPPORTED / AMBIGUOUS */
+  state: string;
+  values: string[];
+  path: string[];
+  detail: string;
+}
+
+export interface GraphRule {
+  id: string;
+  name: string;
+  order: number;
+  enabled: boolean;
+  action: string;
+  source_zones: string[];
+  destination_zones: string[];
+  source: ResolvedRef[];
+  destination: ResolvedRef[];
+  services: ResolvedRef[];
+  logging: boolean | null;
+  hit_count: number | null;
+  /** Why a port question cannot be decided by this rule alone. */
+  undecidable_for_ports: string | null;
+  evidence: EvidenceRef[];
+}
+
+export interface GraphObject {
+  name: string;
+  kind: string;
+  values: string[];
+  members: string[];
+  attrs: Record<string, unknown>;
+  evidence: EvidenceRef[];
+}
+
+export interface GraphResponse {
+  summary: {
+    objects: number;
+    rules: number;
+    by_kind: Record<string, number>;
+    zones: string[];
+    untrusted_zones: string[];
+    interfaces: Record<string, string>;
+  };
+  /** False means the platform does not evaluate top-to-bottom, so shadow
+   *  analysis is suppressed -- and the absence of shadow findings must not be
+   *  read as a tidy policy. */
+  ordered: boolean;
+  default_action: string;
+  default_action_observed: boolean;
+  objects_shown: GraphObject[];
+  rules_shown: GraphRule[];
+}
+
+
+// ------------------------------------------------- AI governance (our AI)
+
+/** Governs the model INSIDE NCSA, not the audited device. See /ai-governance. */
+export interface AiGovernanceResponse {
+  scope: string;
+  atlas: {
+    techniques: number;
+    mitigations: number;
+    identifier_check: { claimed: number; resolve_in_atlas: number } | null;
+  };
+  ai_rmf_functions: Record<string, string[]>;
+  guardrails: {
+    guardrail: string;
+    atlas: string[];
+    owasp_llm: string;
+    ai_rmf: string;
+  }[];
+  injection_signatures: number;
+  corpus_isolation: string;
+}
+
+// ------------------------------------------ extended checks, blast, what-if
+
+/** A MITRE ATT&CK technique a control stands in front of. Presentation only. */
+export interface AttackTag {
+  id: string;
+  name: string;
+  tactics: string[];
+  why: string;
+}
+
+export interface ExtendedEvidence {
+  file: string;
+  line: number | null;
+  record: string | null;
+  raw: string;
+}
+
+export interface ExtendedFinding {
+  check_id: string;
+  title: string;
+  domain: string;
+  state: ResultState;
+  severity: Severity | "info";
+  scope: string;
+  reason: string;
+  observed: unknown;
+  expected: unknown;
+  rationale: string;
+  nist_800_53: string[];
+  attack: AttackTag[];
+  evidence: ExtendedEvidence[];
+}
+
+/** One extended domain. `present: null` means we could not tell -- not "none". */
+export interface ExtendedDomain {
+  domain: string;
+  present: boolean | null;
+  summary: string;
+  counts: Partial<Record<ResultState, number>>;
+  validated_on: string;
+  inventory: Record<string, unknown>[];
+  notes: string[];
+  findings: ExtendedFinding[];
+  error?: boolean;
+}
+
+export interface ExtendedResponse {
+  scope: string;
+  domains: Record<string, ExtendedDomain>;
+}
+
+export interface BlastStep {
+  to_zone: string;
+  port: number;
+  protocol: string;
+  service: string;
+  permitted: boolean;
+  decided_by: string;
+  reason: string;
+  uncertain: boolean;
+  zone_assumed: boolean;
+  administrative: boolean;
+}
+
+export interface BlastSummary {
+  origin: string;
+  zones_reachable: number;
+  zones_considered: number;
+  paths_open: number;
+  administrative_paths: number;
+  uncertain_paths: number;
+  blocked: number;
+  undecidable: number;
+  undecidable_by_zone: Record<string, number>;
+  zones_fully_undecidable: string[];
+  origin_populated: boolean | null;
+  origin_members: string[];
+  latent: boolean;
+}
+
+export interface BlastResponse {
+  summary: BlastSummary;
+  origin: string;
+  origin_address: string;
+  reachable: BlastStep[];
+  zones_considered: string[];
+  notes: string[];
+  explain: string;
+}
+
+export interface ZonesResponse {
+  source_zones: string[];
+  destination_zones: string[];
+  untrusted: string[];
+}
+
+export interface WhatIfRequest {
+  fix_controls?: string[];
+  disable_rules?: string[];
+  origin_zone?: string;
+}
+
+export interface WhatIfChange {
+  control_id: string;
+  title: string;
+  severity: Severity;
+  before: ResultState;
+  after: ResultState;
+  targeted: boolean;
+}
+
+export interface WhatIfResponse {
+  simulated: true;
+  label: string;
+  applied: Record<string, unknown>[];
+  rejected: { item: string; reason: string; suggest_disable_rules?: string[] }[];
+  warnings: string[];
+  before: Coverage;
+  after: Coverage;
+  delta: { score_pct: number | null; assessed_pct: number | null };
+  changes: WhatIfChange[];
+  caveats: string[];
+  blast_radius?: { origin_zone: string; before: BlastSummary; after: BlastSummary };
+}
+
 // --------------------------------------------------------------- the client
 
 /**
@@ -459,6 +665,7 @@ export const api = {
   health: () => request<HealthResponse>("/health"),
   platforms: () => request<PlatformInfo[]>("/platforms"),
   frameworks: () => request<FrameworksResponse>("/frameworks"),
+  aiGovernance: () => request<AiGovernanceResponse>("/ai-governance"),
 
   assessments: () => request<AssessmentSummary[]>("/assessments"),
   assessment: (id: string) => request<Assessment>(`/assessment/${id}`),
@@ -474,6 +681,21 @@ export const api = {
   },
 
   hygiene: (id: string) => request<HygieneResponse>(`/assessment/${id}/hygiene`),
+  graph: (id: string) => request<GraphResponse>(`/assessment/${id}/graph`),
+  extended: (id: string) =>
+    request<ExtendedResponse>(`/assessment/${id}/extended`),
+  zones: (id: string) => request<ZonesResponse>(`/assessment/${id}/zones`),
+  blastRadius: (id: string, originZone: string) =>
+    request<BlastResponse>(
+      `/assessment/${id}/blast-radius?origin_zone=${encodeURIComponent(originZone)}`,
+      { method: "POST" },
+    ),
+  whatIf: (id: string, body: WhatIfRequest) =>
+    request<WhatIfResponse>(`/assessment/${id}/what-if`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
   remediation: (id: string) =>
     request<RemediationResponse>(`/assessment/${id}/remediation`),
   training: (id: string) =>

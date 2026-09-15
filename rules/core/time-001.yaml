@@ -30,3 +30,12 @@ remediation:
     - set system login idle-timeout 10
     phase: 30
     verify: show configuration system login
+
+  sonicwall_sonicos:
+    commands:
+    - configure
+    - administration
+    - inactivity-timeout 10
+    - commit
+    phase: 20
+    verify: show administration | grep inactivity

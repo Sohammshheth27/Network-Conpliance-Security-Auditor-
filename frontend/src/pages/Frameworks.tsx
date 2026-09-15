@@ -5,6 +5,7 @@ import { Badge } from '../components/ui/Badge';
 import { ErrorPanel, Loading } from '../components/ui/States';
 import { api } from '../lib/api';
 import { useApi } from '../lib/useApi';
+import { AiGovernance } from '../components/AiGovernance';
 
 /**
  * Catalogue metadata the engine does not carry.
@@ -200,6 +201,12 @@ const Frameworks: FC = () => {
             than by policy, so copyrighted text cannot be emitted by
             construction.
           </div>
+
+          {/* Below the rule, and deliberately so: everything above describes
+              how a DEVICE should be configured. What follows governs the AI
+              inside this tool. */}
+          <hr className="my-2 border-0 border-t border-[rgba(100,150,220,0.14)]" />
+          <AiGovernance />
         </>
       )}
     </div>
