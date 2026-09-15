@@ -32,3 +32,25 @@ remediation:
     phase: 40
     management_impact: disables_telnet
     verify: show configuration system services
+  cisco_asa:
+    commands:
+    - no telnet <NET> <MASK> <INTERFACE>
+    phase: 40
+    management_impact: disables_telnet
+    verify: show running-config telnet
+  fortios:
+    commands:
+    - config system interface
+    - edit <PORT>
+    - set allowaccess ssh https ping
+    - end
+    phase: 40
+    management_impact: disables_telnet
+    verify: show system interface <PORT>
+  panos:
+    commands:
+    - set deviceconfig system service disable-telnet yes
+    - commit
+    phase: 40
+    management_impact: disables_telnet
+    verify: show deviceconfig system service

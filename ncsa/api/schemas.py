@@ -24,7 +24,25 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
+
+
+class CollectIn(BaseModel):
+    """Live collection request (ncsa/collect/live.py).
+
+    Credentials are SecretStr so they never appear in a repr, a log line or a
+    validation error. They are used for one SSH session and not stored.
+    """
+    host: str = Field(description="IP address or DNS name")
+    platform: str = Field(description="Selects the SSH driver; the fingerprint "
+                                      "still decides which pack applies")
+    username: str
+    password: SecretStr
+    secret: SecretStr | None = Field(default=None, description="Enable secret, Cisco only")
+    port: int = 22
+    driver: str = Field(default="netmiko", description="netmiko | napalm")
+    redact: bool = True
+    frameworks: list[str] | None = None
 
 
 class EvidenceOut(BaseModel):
@@ -148,6 +166,12 @@ class AssessmentOut(BaseModel):
     objects: int = 0
     relationships: int = 0
     notes: list[str] = Field(default_factory=list)
+    frameworks: list[str] | None = Field(
+        default=None,
+        description="Frameworks the user selected; null means all of them.")
+    framework_coverage: list[dict] = Field(
+        default_factory=list,
+        description="Per framework: controls citing it, decided, passed, score.")
 
 
 class TrainingCandidateOut(BaseModel):
@@ -161,6 +185,8 @@ class TrainingCandidateOut(BaseModel):
     suggestion_score: float = 0.0
     suggested_from: str = ""
     status: str = "PENDING"
+    kind: str = Field(default="value",
+                      description="value | keys (a table whose keys are the values)")
 
 
 class ApprovalIn(BaseModel):
@@ -171,6 +197,14 @@ class ApprovalIn(BaseModel):
     platform: str
     approved_by: str
     value_hint: Any = None
+    kind: str = "value"
+    #: Set only when teaching a vendor that has no pack yet.
+    vendor: str | None = None
+    reader: str | None = None
+    signature: list[str] = Field(default_factory=list)
+    #: The assessment the approval came from, so a new vendor's signature can
+    #: be checked against that device's own file before anything is written.
+    assessment_id: str | None = None
 
 
 class ApprovalOut(BaseModel):

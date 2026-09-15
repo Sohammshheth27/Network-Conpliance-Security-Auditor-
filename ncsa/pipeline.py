@@ -84,6 +84,8 @@ class DeviceAssessment:
     # computed on every assessment regardless, and a second parse can silently
     # diverge from the one the findings actually came from.
     sbm: object | None = None
+    #: Frameworks the user selected; None means all of them.
+    frameworks: list | None = None
     # Vendor-agnostic detections and their cross-check against the pack.
     # Computed for EVERY device, including unsupported ones -- the universal
     # layer is the floor under a vendor nobody has described to us.
@@ -287,6 +289,22 @@ def load_packs(packs_dir="packs") -> list:
             except Exception:                          # noqa: BLE001
                 pass
         out.append(pack)
+
+    # Standalone taught packs: a vendor learned entirely through the training
+    # interface has no authored pack to merge into, so its learned file IS its
+    # pack. Only files the training loop created as such are loaded this way;
+    # a learned file for a platform that has an authored pack was merged above.
+    have = {pk.platform for pk in out}
+    for p in sorted(root.glob("*.learned.yaml")):
+        try:
+            taught = load_pack(p)
+        except Exception as exc:                       # noqa: BLE001
+            PACK_LOAD_ERRORS.append({"pack": p.name,
+                                     "error": f"{type(exc).__name__}: {exc}"})
+            continue
+        if taught.platform not in have and taught.version == "learned-bootstrap":
+            out.append(taught)
+            have.add(taught.platform)
     return out
 
 
@@ -496,7 +514,8 @@ def _universal_pass(path: Path, device_assessment) -> None:
 
 
 def assess(path, *, packs_dir="packs", rules_dir="rules", redact=True,
-           assessment_id=None, tiers=None, show_output=None) -> DeviceAssessment:
+           assessment_id=None, tiers=None, show_output=None,
+           frameworks=None) -> DeviceAssessment:
     p = Path(path)
     sha = _sha256(p)
     aid = assessment_id or sha[:12]
@@ -523,14 +542,32 @@ def assess(path, *, packs_dir="packs", rules_dir="rules", redact=True,
         unsupported = DeviceAssessment(
             identity=identity, fingerprint=fp, supported=False,
             unrecognised=_raw_lines(p),
+            # Parsed with the format's reader even though no pack exists, so
+            # the training queue sees STRUCTURE -- setting names and tables --
+            # rather than raw text lines.
+            document=_parse_for_training(p, fp),
             notes=identity_notes + [
                 "no mapping pack for vendor={!r} platform={!r}; this device "
-                "needs a pack before it can be assessed".format(
-                    fp.vendor, fp.platform)])
+                "needs a pack before it can be assessed -- teach it in the "
+                "Training page".format(fp.vendor, fp.platform)])
         _universal_pass(p, unsupported)
         return unsupported
 
     sbm, doc = _read_and_apply(p, pack, aid=aid, sha=sha, redact=redact)
+
+    # The release, from the fingerprint or else from the configuration's own
+    # version line, and a note when the pack was never checked against it.
+    from .engine.versions import version_notes
+    ver = identity.version
+    if not ver:
+        try:
+            obs = sbm.get("device.version")
+            ver = getattr(obs, "value", None) if obs is not None else None
+            if ver:
+                identity.version = str(ver)
+        except Exception:                              # noqa: BLE001
+            ver = None
+    ver_notes = version_notes(pack, str(ver) if ver else None)
 
     graph = _build_graph(pack.platform, doc)
     if graph is not None:
@@ -538,6 +575,27 @@ def assess(path, *, packs_dir="packs", rules_dir="rules", redact=True,
         merge(sbm, graph)
 
     controls = load_rules(rules_dir, platform=pack.platform, tiers=tiers)
+
+    # User-selected frameworks. None means all -- the assessment exactly as
+    # it has always been produced.
+    from .frameworks.selection import FRAMEWORKS, cites
+    from .frameworks.selection import normalise as _normalise_fw
+    fws = _normalise_fw(frameworks)
+    fw_notes: list = []
+    if fws:
+        controls = [c for c in controls if any(cites(c, k) for k in fws)]
+        for k in fws:
+            if not any(cites(c, k) for c in controls):
+                why = ""
+                if k == "cis":
+                    from .engine.rules import cis_benchmark
+                    why = (" -- CIS publishes no benchmark for this platform"
+                           if cis_benchmark(pack.platform) is None
+                           else " -- no control is mapped to its benchmark yet")
+                fw_notes.append(
+                    f"{FRAMEWORKS[k][0]} was selected, but no control carries "
+                    f"its identifiers for platform {pack.platform!r}{why}. It "
+                    "contributes nothing to this assessment.")
     assessment = evaluate_all(
         controls, sbm, device=identity.hostname or p.stem,
         platform=pack.platform,
@@ -559,7 +617,9 @@ def assess(path, *, packs_dir="packs", rules_dir="rules", redact=True,
     out = DeviceAssessment(identity=identity, assessment=assessment,
                            fingerprint=fp, graph=graph, records=records,
                            total_records=total, unrecognised=unrecognised,
-                           document=doc, sbm=sbm, notes=identity_notes)
+                           document=doc, sbm=sbm,
+                           notes=identity_notes + ver_notes + fw_notes,
+                           frameworks=fws)
     _universal_pass(p, out)
     _parser_crosscheck(p, out)
     return out
@@ -577,6 +637,45 @@ def assess_many(paths, **kw) -> list:
                 supported=False,
                 notes=["{}: {}".format(type(exc).__name__, exc)]))
     return out
+
+
+def guess_reader(path: Path) -> str:
+    """The file FORMAT of a device nothing recognises: json, xml, braces or
+    indented. Decided by structure, never by vendor keywords."""
+    try:
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
+    except Exception:                                  # noqa: BLE001
+        return "indented"
+    head = text.lstrip()[:1]
+    if head in ("{", "["):
+        return "json"
+    if head == "<":
+        return "xml"
+    import re as _re
+    opens = len(_re.findall(r"\{\s*$", text, _re.M))
+    closes = len(_re.findall(r"^\s*\}\s*$", text, _re.M))
+    if opens >= 3 and closes >= 3:
+        return "braces"
+    return "indented"
+
+
+def _parse_for_training(path: Path, fp):
+    """A reader document for a file no pack covers, or None. Never raises."""
+    reader = (fp.reader if fp and fp.reader else None) or guess_reader(path)
+    try:
+        if reader == "json":
+            return load_json(path)
+        if reader == "xml":
+            return load_xml(path)
+        if reader == "braces":
+            return load_braces(path)
+        if reader in ("block", "fortinet_block"):
+            return load_block(path)
+        if reader == "sonicos_exp":
+            return load_exp(path, redact=True)
+        return load_indented(path)
+    except Exception:                                  # noqa: BLE001
+        return None
 
 
 def _raw_lines(path: Path, limit: int = 4000) -> list:

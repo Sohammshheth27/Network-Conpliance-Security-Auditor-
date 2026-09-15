@@ -50,6 +50,11 @@ def _coerce(raw: Any, spec: dict, target_type: str) -> Any:
         # OBSERVED false matters: an admin who explicitly disabled HTTP is a
         # provable PASS, which an absence could never be (plan 2.3).
         return not bool(raw)
+    if spec.get("scale") and isinstance(out, (int, float)) and not isinstance(out, bool):
+        # Unit normalisation. ASA `ssh timeout` is minutes; the SBM field is
+        # seconds. Comparing 5 (minutes) against a 120-second threshold passed
+        # every ASA ever configured.
+        out = out * spec["scale"]
     return out
 
 

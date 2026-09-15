@@ -73,3 +73,9 @@ reference/attack/
 docs/NCSA_Assessment_Report.pdf
 docs/_t*.pdf
 reference/training_queue.jsonl
+
+# Knowledge taught through the training interface stays on the machine that
+# taught it: learned packs carry setting names from real devices, and a
+# committed pack would pre-teach the tool and spoil the live demo.
+packs/*.learned.yaml
+reference/training_decisions.jsonl

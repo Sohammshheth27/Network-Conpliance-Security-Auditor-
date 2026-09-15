@@ -173,6 +173,18 @@ export interface Assessment {
   objects: number;
   relationships: number;
   notes: string[];
+  /** Frameworks the user selected; null means all of them. */
+  frameworks: string[] | null;
+  framework_coverage: FrameworkCoverage[];
+}
+
+export interface FrameworkCoverage {
+  framework: string;
+  name: string;
+  controls: number;
+  decided: number;
+  passed: number;
+  score_pct: number | null;
 }
 
 export interface AssessmentSummary {
@@ -292,6 +304,8 @@ export interface TrainingCandidate {
   suggestion_score: number;
   suggested_from: string;
   status: string;
+  /** "keys": a table whose keys are the values (SONiC NTP_SERVER). */
+  kind: string;
 }
 
 export interface RecertResponse {
@@ -600,6 +614,65 @@ export interface WhatIfResponse {
   blast_radius?: { origin_zone: string; before: BlastSummary; after: BlastSummary };
 }
 
+// ------------------------------------------------------------ training loop
+
+export interface TrainingContext {
+  supported: boolean;
+  has_pack: boolean;
+  vendor: string;
+  platform: string;
+  platform_known: boolean;
+  reader: string;
+  suggested_signature: string[];
+  source_file: string;
+  coverage: Coverage | null;
+}
+
+export interface SchemaField {
+  field: string;
+  type: string;
+  domain: string;
+  controls: string[];
+}
+
+export interface ApprovalRequest {
+  setting_name: string;
+  field: string;
+  platform: string;
+  approved_by: string;
+  kind?: string;
+  assessment_id?: string;
+  vendor?: string;
+  reader?: string;
+  signature?: string[];
+}
+
+export interface ApprovalResult {
+  accepted: boolean;
+  reason: string;
+  registry_version: string;
+  regression: {
+    broken?: string[];
+    detail?: string[];
+    pass_rate_before?: number;
+    pass_rate_after?: number;
+    direction_alert?: boolean;
+  };
+}
+
+export interface LearnedSummary {
+  total: number;
+  platforms: {
+    platform: string;
+    vendor: string;
+    new_vendor: boolean;
+    reader: string;
+    signature: string[];
+    count: number;
+    mappings: { setting: string; field: string; approved_by: string }[];
+  }[];
+}
+
 // --------------------------------------------------------------- the client
 
 /**
@@ -661,6 +734,26 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+/** A platform live collection supports, and the exact commands it sends. */
+export interface CollectProfile {
+  platform: string;
+  netmiko: string;
+  napalm: string | null;
+  commands: string[];
+}
+
+export interface CollectRequest {
+  host: string;
+  platform: string;
+  username: string;
+  password: string;
+  secret?: string;
+  port?: number;
+  driver?: string;
+  redact?: boolean;
+  frameworks?: string[] | null;
+}
+
 export const api = {
   health: () => request<HealthResponse>("/health"),
   platforms: () => request<PlatformInfo[]>("/platforms"),
@@ -671,14 +764,24 @@ export const api = {
   assessment: (id: string) => request<Assessment>(`/assessment/${id}`),
 
   /** Bulk ingestion is a deliverable, so this takes many files by design. */
-  assess: (files: File[], redact: boolean) => {
+  assess: (files: File[], redact: boolean, frameworks: string[] = []) => {
     const form = new FormData();
     for (const f of files) form.append("files", f);
-    return request<Assessment[]>(`/assess?redact=${redact}`, {
+    const fw = frameworks.map((k) => `&frameworks=${encodeURIComponent(k)}`).join("");
+    return request<Assessment[]>(`/assess?redact=${redact}${fw}`, {
       method: "POST",
       body: form,
     });
   },
+
+  /** Live SSH collection: read-only commands, credentials used once. */
+  collectProfiles: () => request<CollectProfile[]>("/collect/profiles"),
+  collect: (body: CollectRequest) =>
+    request<Assessment[]>("/collect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
 
   hygiene: (id: string) => request<HygieneResponse>(`/assessment/${id}/hygiene`),
   graph: (id: string) => request<GraphResponse>(`/assessment/${id}/graph`),
@@ -708,6 +811,29 @@ export const api = {
     request<RemediationResponse>(`/assessment/${id}/remediation`),
   training: (id: string) =>
     request<TrainingCandidate[]>(`/assessment/${id}/training`),
+  trainingContext: (id: string) =>
+    request<TrainingContext>(`/assessment/${id}/training/context`),
+  schemaFields: () => request<SchemaField[]>("/schema/fields"),
+  learnedSummary: () => request<LearnedSummary>("/training/learned"),
+  approveMapping: (body: ApprovalRequest) =>
+    request<ApprovalResult>("/training/approve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  rejectMapping: (body: {
+    setting_name: string;
+    platform: string;
+    rejected_by: string;
+    reason?: string;
+  }) =>
+    request<unknown>("/training/reject", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  reassess: (id: string) =>
+    request<Assessment>(`/assessment/${id}/reassess`, { method: "POST" }),
   recertification: (id: string) =>
     request<RecertResponse>(`/assessment/${id}/recertification`),
   consensus: (id: string) =>

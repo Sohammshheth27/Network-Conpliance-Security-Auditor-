@@ -77,6 +77,11 @@ def _fmt(value) -> str:
 
 # --------------------------------------------------------------- collection
 
+def _fw_coverage(findings) -> list:
+    from ..frameworks.selection import framework_coverage
+    return framework_coverage(findings)
+
+
 def _collect(da, aid: str) -> dict:
     """Everything the report shows, gathered from the engine in one place.
 
@@ -127,6 +132,8 @@ def _collect(da, aid: str) -> dict:
         "remediation": remediation,
         "supported": da.supported,
         "notes": list(da.notes or []),
+        "frameworks": getattr(da, "frameworks", None),
+        "framework_coverage": _fw_coverage(findings),
         "generated_at": datetime.now(timezone.utc).strftime(
             "%d %B %Y at %H:%M UTC"),
     }
@@ -248,7 +255,17 @@ reports are not comparable.</p>
   <tr><th>Controls not decided</th><td>{cov['controls_undecided']}</td></tr>
   <tr><th>Controls not applicable</th><td>{cov['not_applicable']}</td></tr>
   <tr><th>Aggregate risk</th><td>{d['risk'].get('total_risk', 0)} &mdash; highest band {_e(d['risk'].get('worst') or 'none')}</td></tr>
+  <tr><th>Frameworks assessed</th><td>{_fw_selection(d)}</td></tr>
 </table>
+
+<h3>Result by framework</h3>
+<table>
+  <tr><th>Framework</th><th class="num">Controls citing it</th><th class="num">Decided</th><th class="num">Passed</th><th class="num">Score</th></tr>
+  {''.join(f"<tr><td>{_e(r['name'])}</td><td class='num'>{r['controls']}</td><td class='num'>{r['decided']}</td><td class='num'>{r['passed']}</td><td class='num'>{'&mdash;' if r['score_pct'] is None else str(r['score_pct']) + '%'}</td></tr>" for r in d['framework_coverage'])}
+</table>
+<p class="footnote">A framework's score counts only the controls that cite
+it. A framework citing no control on this platform is shown with no score
+rather than omitted.</p>
 
 <div class="note">
 <strong>How to read the score.</strong> The compliance score is calculated over
@@ -258,6 +275,14 @@ assessed &mdash; not that the device is well configured. Both figures must be
 quoted together.
 </div>
 """
+
+
+def _fw_selection(d: dict) -> str:
+    from ..frameworks.selection import FRAMEWORKS
+    sel = d.get("frameworks")
+    if not sel:
+        return "All frameworks (CIS, NIST SP 800-53, DISA STIG, ISO/IEC 27001)"
+    return _e(", ".join(FRAMEWORKS[k][0] for k in sel if k in FRAMEWORKS))
 
 
 def _states(d: dict) -> str:

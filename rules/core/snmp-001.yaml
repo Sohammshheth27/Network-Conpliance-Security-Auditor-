@@ -40,3 +40,10 @@ remediation:
     - commit
     phase: 40
     verify: show administration snmp
+  fortios:
+    commands:
+    - config system snmp community
+    - delete <COMMUNITY-ID>
+    - end
+    phase: 40
+    verify: show system snmp community

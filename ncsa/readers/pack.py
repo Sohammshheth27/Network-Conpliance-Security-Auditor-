@@ -137,6 +137,15 @@ class Pack(BaseModel):
     mappings: list[Mapping] = Field(default_factory=list)
     derivations: list[Derivation] = Field(default_factory=list)
     version: str = "1.0"
+    verified_versions: list[str] = Field(
+        default_factory=list,
+        description=(
+            "OS releases this pack's mappings were checked against, taken from "
+            "the version line of a real configuration in the corpus. A device "
+            "outside them is still assessed, with a note saying so. Empty means "
+            "no release was verified and nothing is claimed."
+        ),
+    )
 
     def validate_fields(self) -> list[str]:
         problems = []
@@ -290,6 +299,13 @@ def apply_json_pack(
             continue
 
         hits = doc.query(m.jsonpath) if m.jsonpath else []
+        if hits and (m.value or {}).get("from") == "keys":
+            # The table's KEYS are the values. SONiC writes NTP and syslog
+            # servers, and SNMP communities, as the keys of a table:
+            # "NTP_SERVER": {"0.pool.ntp.org": {}}. Reading the value would
+            # yield a list of empty objects and report "no servers".
+            hits = [(f"{p}.{k}", k) for p, v in hits
+                    if isinstance(v, dict) for k in v.keys()]
         if not hits:
             if m.if_absent is not None:
                 sbm.set(m.field, Observation.default_assumed(m.if_absent, field_path=m.field))

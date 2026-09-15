@@ -18,3 +18,10 @@ requires:
   - field: snmp.version
     not_in: [disabled, off, "none", ""]
     because: "SNMP is disabled on this device, so SNMPv3 settings are moot"
+
+remediation:
+  cisco_asa:
+    commands:
+    - snmp-server group <GROUP> v3 priv
+    phase: 30
+    verify: show running-config snmp-server

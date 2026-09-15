@@ -28,8 +28,9 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .convert import assessment_out, candidate_out, remediation_out
-from .schemas import (ApprovalIn, ApprovalOut, AssessmentOut, ReachQueryIn,
-                      RemediationOut, TopologyIn, TrainingCandidateOut)
+from .schemas import (ApprovalIn, ApprovalOut, AssessmentOut, CollectIn,
+                      ReachQueryIn, RemediationOut, TopologyIn,
+                      TrainingCandidateOut)
 
 app = FastAPI(
     title="NCSA -- Network Compliance & Security Auditor",
@@ -66,8 +67,18 @@ def console():
 # Assessments live for the session. A database is the right answer later; an
 # in-memory dict is the honest answer now, and swapping it is one function.
 _STORE: dict = {}
+#: The redaction choice each assessment was made with, so a re-assessment
+#: after training uses the same one.
+_REDACT: dict = {}
+#: The frameworks each assessment was made against.
+_FRAMEWORKS: dict = {}
 _UPLOADS = Path(tempfile.gettempdir()) / "ncsa_uploads"
 _UPLOADS.mkdir(parents=True, exist_ok=True)
+
+#: The hash-chained log of every approved mapping -- the product's audit trail.
+#: A module constant so tests can point it elsewhere: a test approval written
+#: here is a fabricated entry in a record auditors are told to trust.
+APPROVALS_LOG = Path("reference/approved_mappings.jsonl")
 
 MAX_UPLOAD_MB = 64
 
@@ -75,14 +86,20 @@ MAX_UPLOAD_MB = 64
 # --------------------------------------------------------------- ingestion
 @app.post("/assess", response_model=list[AssessmentOut], tags=["assess"])
 async def assess_upload(files: list[UploadFile] = File(...),
-                        redact: bool = Query(True)):
+                        redact: bool = Query(True),
+                        frameworks: list[str] | None = Query(None)):
     """Deliverable 1: single or bulk ingestion.
 
     One unreadable file must never abort a batch -- an administrator uploading
     forty devices should get thirty-nine assessments and one clear error, not
     a stack trace.
     """
-    from ..pipeline import assess
+    from ..frameworks.selection import normalise
+
+    try:
+        fws = normalise(frameworks)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
     out = []
     for f in files:
@@ -96,22 +113,81 @@ async def assess_upload(files: list[UploadFile] = File(...),
                     raise HTTPException(413, f"{f.filename} exceeds "
                                              f"{MAX_UPLOAD_MB} MB")
                 fh.write(chunk)
-
-        aid = uuid.uuid4().hex[:12]
-        try:
-            da = assess(dest, redact=redact, assessment_id=aid)
-        except Exception as exc:                       # noqa: BLE001
-            # A refusal is a RESULT, not a failure: the tool declining an
-            # encrypted backup is the behaviour we want to surface, with the
-            # reason attached.
-            from ..pipeline import DeviceAssessment, DeviceIdentity
-            da = DeviceAssessment(
-                identity=DeviceIdentity(source_file=f.filename or dest.name),
-                supported=False,
-                notes=[f"{type(exc).__name__}: {exc}"])
-        _STORE[aid] = (da, dest)
+        aid, da = _ingest(dest, f.filename or dest.name, redact, fws)
         out.append(assessment_out(da, aid))
     return out
+
+
+def _ingest(dest: Path, name: str, redact: bool, fws, notes: list | None = None):
+    """Assess one stored configuration and keep it for the session.
+
+    Shared by upload and live collection, so the two ingest paths cannot
+    drift into assessing the same device differently.
+    """
+    from ..pipeline import DeviceAssessment, DeviceIdentity, assess
+
+    aid = uuid.uuid4().hex[:12]
+    try:
+        da = assess(dest, redact=redact, assessment_id=aid, frameworks=fws)
+    except Exception as exc:                       # noqa: BLE001
+        # A refusal is a RESULT, not a failure: the tool declining an
+        # encrypted backup is the behaviour we want to surface, with the
+        # reason attached.
+        da = DeviceAssessment(identity=DeviceIdentity(source_file=name),
+                              supported=False,
+                              notes=[f"{type(exc).__name__}: {exc}"])
+    if notes and isinstance(da.notes, list):
+        da.notes[0:0] = list(notes)
+    _STORE[aid] = (da, dest)
+    _REDACT[aid] = redact
+    _FRAMEWORKS[aid] = fws
+    return aid, da
+
+
+# --------------------------------------------------------- live collection
+@app.get("/collect/profiles", tags=["assess"])
+def collect_profiles():
+    """Platforms live collection supports, and exactly what it will send."""
+    from ..collect.live import PROFILES
+
+    return [{"platform": k, "netmiko": p.netmiko, "napalm": p.napalm,
+             "commands": list(p.commands)} for k, p in PROFILES.items()]
+
+
+@app.post("/collect", response_model=list[AssessmentOut], tags=["assess"])
+def collect_live(body: CollectIn):
+    """Pull a running configuration over SSH with read-only commands, then
+    assess it exactly as an upload. Credentials are used once, never stored.
+
+    422 bad request or unsupported platform; 503 SSH library not installed;
+    502 the device could not be reached, refused the login, or sent nothing.
+    """
+    from ..collect import live
+    from ..frameworks.selection import normalise
+
+    # `from None` throughout: a chained traceback is one more place a
+    # credential could surface.
+    try:
+        fws = normalise(body.frameworks)
+        c = live.collect(
+            body.host, body.platform, body.username,
+            body.password.get_secret_value(), port=body.port, driver=body.driver,
+            secret=body.secret.get_secret_value() if body.secret else None)
+    except live.CollectorUnavailable as exc:
+        raise HTTPException(503, str(exc)) from None
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+    except live.CollectionError as exc:
+        raise HTTPException(502, str(exc)) from None
+
+    dest = live.write_collected(c, _UPLOADS)
+    aid, da = _ingest(dest, f"{c.host} (live)", body.redact, fws, notes=[c.note()])
+    got = da.identity.platform
+    if got and got != body.platform and isinstance(da.notes, list):
+        da.notes.append(
+            f"Requested platform {body.platform!r}, but the configuration "
+            f"fingerprints as {got!r}; it was assessed as {got!r}.")
+    return [assessment_out(da, aid)]
 
 
 @app.get("/assessment/{aid}", response_model=AssessmentOut, tags=["assess"])
@@ -441,18 +517,193 @@ def approve_mapping(body: ApprovalIn):
     from ..training.apply import approve
 
     try:
-        registry = MappingRegistry("reference/approved_mappings.jsonl")
+        registry = MappingRegistry(str(APPROVALS_LOG))
     except Exception:                                  # noqa: BLE001
         registry = None
 
+    if body.vendor:
+        problem = _check_new_vendor(body)
+        if problem:
+            return ApprovalOut(accepted=False, reason=problem)
+
     r = approve(body.setting_name, body.field, body.platform, body.approved_by,
-                value_hint=body.value_hint, registry=registry)
+                value_hint=body.value_hint, registry=registry, kind=body.kind,
+                vendor=body.vendor, reader=body.reader,
+                signature=body.signature or None)
     return ApprovalOut(accepted=r.accepted, reason=r.reason,
                        registry_version=r.registry_version,
                        regression=r.to_json())
 
 
 # ------------------------------------------------------- reachability
+def _check_new_vendor(body) -> str | None:
+    """Refuse a new-vendor signature that cannot work, before writing anything.
+
+    Two failures are caught here because the pack loader cannot see them:
+      * a signature that does not match the device's OWN file, so its next
+        upload would be refused again, and
+      * a signature that also matches another vendor's sample, so the taught
+        pack would capture configs it knows nothing about.
+    """
+    import json as _json
+    import re as _re
+
+    if not body.assessment_id:
+        return "teaching a new vendor needs the assessment it came from"
+    da, dest = _get(body.assessment_id)
+    known = (da.identity.platform or "").upper()
+    if known and known != "UNKNOWN" and body.platform != da.identity.platform:
+        return (f"this file was recognised as platform {da.identity.platform!r}; "
+                "the new pack must use that platform id or it will never be selected")
+    sigs = [s for s in (body.signature or []) if s.strip()]
+    if not sigs:
+        return "a signature is required so the next upload of this vendor is recognised"
+
+    def matches(path) -> bool:
+        try:
+            raw = Path(path).read_text(encoding="utf-8", errors="replace")
+        except Exception:                              # noqa: BLE001
+            return False
+        try:
+            if body.reader == "json":
+                from jsonpath_ng.ext import parse
+                data = _json.loads(raw)
+                return all(parse(s).find(data) for s in sigs)
+            head = "\n".join(raw.splitlines()[:400])
+            return all(_re.search(s, head, _re.M) for s in sigs)
+        except Exception:                              # noqa: BLE001
+            return False
+
+    if not matches(dest):
+        return ("the signature does not match this device's own file, so its "
+                "next upload would be refused again")
+    from ..engine.fingerprint import fingerprint_file
+
+    for other in sorted(Path("samples").rglob("*")):
+        if not other.is_file() or other.resolve() == Path(dest).resolve():
+            continue
+        if not matches(other):
+            continue
+        # A sample of the SAME vendor matching is the signature working. Only
+        # a file recognised as some OTHER platform is a capture -- the first
+        # version refused SONiC's own sample as "another vendor".
+        try:
+            theirs = fingerprint_file(other).platform
+        except Exception:                              # noqa: BLE001
+            theirs = "UNKNOWN"
+        if theirs in (body.platform, da.identity.platform):
+            continue
+        return (f"the signature also matches {other.as_posix()}, which is "
+                f"recognised as {theirs!r} -- too generic to identify this vendor")
+    return None
+
+
+class RejectIn(BaseModel):
+    setting_name: str
+    platform: str
+    rejected_by: str
+    reason: str = ""
+
+
+@app.post("/training/reject", tags=["training"])
+def reject_mapping(body: RejectIn):
+    """Record that a person declined to map a setting; it leaves the queue."""
+    from ..training.apply import reject
+
+    try:
+        return reject(body.setting_name, body.platform, body.rejected_by, body.reason)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@app.get("/training/learned", tags=["training"])
+def learned_mappings():
+    """Everything the training interface has taught, per platform."""
+    from ..training.apply import learned_summary
+
+    return learned_summary()
+
+
+@app.get("/schema/fields", tags=["training"])
+def schema_fields():
+    """The vendor-neutral fields a setting can be mapped to, with the
+    controls that read each one -- so an administrator can see what an
+    approval will actually change."""
+    from ..engine.rules import load_rules
+    from ..schema.sbm import FIELD_TYPES
+
+    readers: dict = {}
+    for c in load_rules("rules"):
+        readers.setdefault(c.field, []).append(c.id)
+    return [{"field": f, "type": t, "domain": f.split(".")[0],
+             "controls": sorted(readers.get(f, []))}
+            for f, t in sorted(FIELD_TYPES.items())]
+
+
+@app.get("/assessment/{aid}/training/context", tags=["training"])
+def training_context(aid: str):
+    """What the training page needs to know before a first approval."""
+    import json as _json
+    import re as _re
+
+    from ..pipeline import guess_reader, load_packs
+
+    da, dest = _get(aid)
+    platform = da.identity.platform or ""
+    known = bool(platform) and platform.upper() != "UNKNOWN"
+    has_pack = any(p.platform == platform for p in load_packs())
+    fp = da.fingerprint
+    reader = (fp.reader if fp is not None and fp.reader else None) or guess_reader(dest)
+
+    signature: list = []
+    try:
+        raw = Path(dest).read_text(encoding="utf-8", errors="replace")
+        if reader == "json":
+            data = _json.loads(raw)
+            keys = [k for k in (data if isinstance(data, dict) else {})
+                    if not str(k).startswith("_")]
+            caps = [k for k in keys if str(k).isupper()] or keys
+            signature = [f"$.{caps[0]}"] if caps else []
+        else:
+            lines = [l.strip() for l in raw.splitlines() if l.strip()
+                     and not l.strip().startswith(("!", "#"))]
+            pick = next((l for l in lines if _re.search(
+                r"version|software|model|firmware", l, _re.I)),
+                lines[0] if lines else "")
+            if pick:
+                signature = ["^" + _re.escape(pick[:60])]
+    except Exception:                                  # noqa: BLE001
+        pass
+
+    return {"supported": da.supported, "has_pack": has_pack,
+            "vendor": da.identity.vendor or "", "platform": platform,
+            "platform_known": known, "reader": reader,
+            "suggested_signature": signature,
+            "source_file": da.identity.source_file,
+            "coverage": da.coverage() if da.assessment else None}
+
+
+@app.post("/assessment/{aid}/reassess", response_model=AssessmentOut,
+          tags=["training"])
+def reassess(aid: str):
+    """Run the same file again with everything learned since.
+
+    The proof that training changes behaviour without a redeploy: nothing is
+    restarted, the next assessment simply reads the learned mappings.
+    """
+    from ..pipeline import assess
+
+    _old, dest = _get(aid)
+    new_aid = uuid.uuid4().hex[:12]
+    redact = _REDACT.get(aid, True)
+    fws = _FRAMEWORKS.get(aid)
+    da = assess(dest, redact=redact, assessment_id=new_aid, frameworks=fws)
+    _STORE[new_aid] = (da, dest)
+    _REDACT[new_aid] = redact
+    _FRAMEWORKS[new_aid] = fws
+    return assessment_out(da, new_aid)
+
+
 @app.post("/assessment/{aid}/reach", tags=["analyse"])
 def ask_reachability(aid: str, q: ReachQueryIn):
     """Would this device permit that traffic? First-match-wins, with the rule.

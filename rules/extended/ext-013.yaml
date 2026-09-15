@@ -25,3 +25,11 @@ remediation:
     - commit
     phase: 20
     verify: show administration | grep lockout
+  fortios:
+    commands:
+    - config system global
+    - set admin-lockout-threshold 3
+    - set admin-lockout-duration 900
+    - end
+    phase: 30
+    verify: show system global

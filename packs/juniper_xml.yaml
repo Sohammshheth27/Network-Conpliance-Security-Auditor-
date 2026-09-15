@@ -63,8 +63,10 @@ mappings:
   - field: management.ssh.version
     path: "configuration/system/services/ssh/protocol-version"
     value: {as: int}
+  # Failed attempts before disconnect -- not `connection-limit`, which caps
+  # concurrent SSH connections (see packs/juniper.yaml).
   - field: management.ssh.max_auth_tries
-    path: "configuration/system/services/ssh/connection-limit"
+    path: "configuration/system/login/retry-options/tries-before-disconnect"
     value: {as: int}
 
   # --- telnet: presence of the element IS the setting ----------------------
@@ -88,9 +90,14 @@ mappings:
     if_absent: false
 
   # --- session / banner ----------------------------------------------------
+  # Junos sets the idle timeout per LOGIN CLASS. The XML reader keys repeated
+  # elements by a `name` attribute, and Junos carries the class name in a
+  # `<name>` child, so classes cannot be scoped here. Collect every class's
+  # timeout instead: `lte` over a list requires every class to comply, so a
+  # lax second class cannot hide behind a strict first one.
   - field: management.vty.exec_timeout
-    path: "configuration/system/login/idle-timeout"
-    value: {as: int}
+    path: "configuration/system/login/class/idle-timeout"
+    as_type: list
   - field: banner.login
     path: "configuration/system/login/message"
   - field: authentication.local_accounts

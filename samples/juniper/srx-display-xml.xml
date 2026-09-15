@@ -10,7 +10,11 @@
       </root-authentication>
       <login>
         <message>Authorised access only. Activity is monitored and logged.</message>
-        <idle-timeout>10</idle-timeout>
+        <class>
+          <name>ops</name>
+          <idle-timeout>10</idle-timeout>
+          <permissions>all</permissions>
+        </class>
         <user>
           <name>netadmin</name>
           <class>super-user</class>

@@ -15,6 +15,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { ErrorPanel } from '../components/ui/States';
+import LiveCollect from '../components/audit/LiveCollect';
 import { api, ApiError, vendorLabel, type PlatformInfo } from '../lib/api';
 import { useApi } from '../lib/useApi';
 
@@ -31,6 +32,8 @@ const NewAudit: FC = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
   const [redact, setRedact] = useState(true);
+  // Empty means every framework -- the assessment as it has always been.
+  const [fws, setFws] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
@@ -55,7 +58,7 @@ const NewAudit: FC = () => {
     setRunning(true);
     setError(null);
     try {
-      const results = await api.assess(files, redact);
+      const results = await api.assess(files, redact, fws);
       if (results.length === 1) navigate(`/assessments/${results[0].assessment_id}`);
       else navigate('/assessments');
     } catch (e) {
@@ -163,7 +166,49 @@ const NewAudit: FC = () => {
             </span>
           </button>
         </div>
+
+        {/* Framework selection is a real engine parameter: score and coverage
+            are computed over the controls the chosen frameworks cite. */}
+        <div className="mt-6 pt-6 border-t border-[rgba(100,150,220,0.12)]">
+          <span className="block text-xs font-semibold text-[#F5F8FF]">
+            Assess against
+          </span>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {[
+              ['cis', 'CIS Benchmarks'],
+              ['nist_800_53', 'NIST SP 800-53'],
+              ['stig', 'DISA STIG'],
+              ['iso_27001', 'ISO/IEC 27001'],
+            ].map(([key, label]) => {
+              const on = fws.includes(key);
+              return (
+                <button
+                  key={key}
+                  onClick={() =>
+                    setFws((cur) => (on ? cur.filter((k) => k !== key) : [...cur, key]))
+                  }
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    on
+                      ? 'border-[#1677FF] bg-[rgba(22,119,255,0.14)] text-[#F5F8FF]'
+                      : 'border-[rgba(100,150,220,0.2)] text-[#8FA0BC] hover:text-[#F5F8FF]'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <span className="block text-[11.5px] text-[#8FA0BC] mt-2 leading-relaxed">
+            {fws.length === 0
+              ? 'All frameworks. Choose one or more to score the device against only the controls they cite.'
+              : 'Score and coverage will count only the controls these frameworks cite. A framework with no benchmark for the device (CIS publishes none for SonicWall) is reported as such.'}
+          </span>
+        </div>
       </Card>
+
+      {/* Same redaction and framework choices as an upload, so the two
+          ingest paths assess a device identically. */}
+      <LiveCollect redact={redact} frameworks={fws} />
 
       {files.length > 0 && (
         <Card variant="default" className="p-6">
@@ -229,7 +274,7 @@ const NewAudit: FC = () => {
               <div className="flex items-center gap-3">
                 <span className="w-3 h-3 rounded-full bg-[#2D8CFF] animate-pulse" />
                 <span className="text-xs font-semibold text-[#F5F8FF]">
-                  Fingerprint → mapping pack → parse → baseline model → 81 rules
+                  Fingerprint → mapping pack → parse → baseline model → 88 controls
                 </span>
               </div>
               {/* An indeterminate bar, because the engine reports no progress

@@ -57,9 +57,11 @@ mappings:
   - field: management.ssh.enabled
     regex: "^ssh (?:\\d+\\.\\d+\\.\\d+\\.\\d+|timeout|stricthostkeycheck|key-exchange)"
     value: {const: true}
+  # ASA `ssh timeout` is MINUTES (1-60); the SBM field is seconds, as IOS
+  # `ip ssh time-out` writes it. Unscaled, `ssh timeout 5` read as 5 seconds.
   - field: management.ssh.timeout
     regex: "^ssh timeout (\\d+)"
-    value: {group: 1, as: int}
+    value: {group: 1, as: int, scale: 60}
   - field: management.ssh.strict_host_key
     regex: "^ssh stricthostkeycheck\\s*$"
     value: {const: true}

@@ -23,3 +23,8 @@ remediation:
     - set system syslog file messages any notice
     phase: 20
     verify: show configuration system syslog
+  cisco_asa:
+    commands:
+    - logging enable
+    phase: 20
+    verify: show running-config logging

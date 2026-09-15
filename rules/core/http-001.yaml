@@ -30,3 +30,19 @@ remediation:
     phase: 40
     management_impact: disables_http
     verify: show configuration system services web-management
+  fortios:
+    commands:
+    - config system interface
+    - edit <PORT>
+    - set allowaccess ssh https ping
+    - end
+    phase: 40
+    management_impact: disables_http
+    verify: show system interface <PORT>
+  panos:
+    commands:
+    - set deviceconfig system service disable-http yes
+    - commit
+    phase: 40
+    management_impact: disables_http
+    verify: show deviceconfig system service

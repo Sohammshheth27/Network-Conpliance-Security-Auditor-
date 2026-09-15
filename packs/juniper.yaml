@@ -37,12 +37,19 @@ mappings:
   - field: management.ssh.version
     path: "system/services/ssh/protocol-version"
     value: {as: int}                 # "v2" -> 2 via normalise
+  # Failed attempts before disconnect. NOT `services ssh connection-limit`,
+  # which caps concurrent SSH connections -- a different setting that let a
+  # device with `connection-limit 3` pass a lockout control it never set.
   - field: management.ssh.max_auth_tries
-    path: "system/services/ssh/connection-limit"
+    path: "system/login/retry-options/tries-before-disconnect"
     value: {as: int}
 
+  # Junos sets the idle timeout per LOGIN CLASS (`system login class <name>
+  # idle-timeout <min>`); there is no system-wide statement. Scoped per class,
+  # so the engine reports the worst class rather than whichever came first.
   - field: management.vty.exec_timeout
-    path: "system/login/idle-timeout"
+    path: "system/login/class/*/idle-timeout"
+    scope_from: 3
     value: {as: int}
 
   - field: authentication.min_password_length
@@ -119,8 +126,11 @@ mappings:
   - field: management.vty.transport_input
     path: "system/services/ssh"
     value: {const: ["ssh"]}
+  # Junos restricts who may reach management with a firewall filter applied
+  # inbound on the loopback -- the equivalent of an IOS vty access-class. It
+  # was read from `connection-limit`, which restricts nobody.
   - field: management.vty.access_class
-    path: "system/services/ssh/connection-limit"
+    path: "interfaces/lo0/unit/*/family/inet/filter/input"
 
 derivations:
   - field: management.telnet.enabled

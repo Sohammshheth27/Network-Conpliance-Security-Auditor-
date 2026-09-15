@@ -28,3 +28,9 @@ remediation:
     phase: 30
     management_impact: restricts_source
     verify: show running-config | section line vty
+  cisco_asa:
+    commands:
+    - ssh <MGMT-NET> <MASK> <INTERFACE>
+    phase: 30
+    management_impact: restricts_source
+    verify: show running-config ssh

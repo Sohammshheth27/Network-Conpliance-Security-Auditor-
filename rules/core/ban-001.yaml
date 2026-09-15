@@ -39,3 +39,15 @@ remediation:
     - commit
     phase: 10
     verify: show administration | grep banner
+  cisco_asa:
+    commands:
+    - banner login <LEGAL NOTICE>
+    phase: 30
+    verify: show running-config banner
+  fortios:
+    commands:
+    - config system global
+    - set pre-login-banner enable
+    - end
+    phase: 30
+    verify: show system global

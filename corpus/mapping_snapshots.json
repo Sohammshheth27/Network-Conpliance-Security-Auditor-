@@ -37,6 +37,9 @@
    "UNKNOWN": 0
   }
  },
+ "config_db.json": {
+  "_unsupported": "sonic"
+ },
  "describe-security-groups.json": {
   "counts": {
    "ERROR": 0,
@@ -398,8 +401,8 @@
    "MANUAL_REVIEW": 0,
    "NOT_APPLICABLE": 2,
    "PARTIAL": 2,
-   "PASS": 13,
-   "UNKNOWN": 58
+   "PASS": 12,
+   "UNKNOWN": 59
   },
   "fields": {
    "authentication.local_accounts": [
@@ -426,10 +429,8 @@
     "notice"
    ],
    "management.ssh.enabled": true,
-   "management.ssh.max_auth_tries": 10,
    "management.ssh.version": 2,
    "management.telnet.enabled": true,
-   "management.vty.access_class": "10",
    "management.vty.exec_timeout": 45,
    "snmp.communities": [
     "read-only"
@@ -443,7 +444,7 @@
   "platform": "juniper_srx",
   "records": {
    "PARSED": 13,
-   "UNKNOWN": 35
+   "UNKNOWN": 36
   }
  },
  "srx-display-xml-weak.xml": {
@@ -499,8 +500,8 @@
    "MANUAL_REVIEW": 0,
    "NOT_APPLICABLE": 4,
    "PARTIAL": 0,
-   "PASS": 22,
-   "UNKNOWN": 61
+   "PASS": 21,
+   "UNKNOWN": 62
   },
   "fields": {
    "authentication.local_accounts": [
@@ -528,10 +529,11 @@
    "management.http.enabled": false,
    "management.https.enabled": false,
    "management.ssh.enabled": true,
-   "management.ssh.max_auth_tries": 3,
    "management.ssh.version": 2,
    "management.telnet.enabled": false,
-   "management.vty.exec_timeout": 10,
+   "management.vty.exec_timeout": [
+    "10"
+   ],
    "snmp.v3_auth": true,
    "snmp.v3_priv": true,
    "time.authenticated": true,
@@ -544,8 +546,8 @@
   },
   "platform": "juniper_srx_xml",
   "records": {
-   "MAPPED": 23,
-   "PARSED": 18,
+   "MAPPED": 22,
+   "PARSED": 21,
    "UNKNOWN": 0
   }
  },
@@ -556,8 +558,8 @@
    "MANUAL_REVIEW": 0,
    "NOT_APPLICABLE": 2,
    "PARTIAL": 2,
-   "PASS": 15,
-   "UNKNOWN": 59
+   "PASS": 14,
+   "UNKNOWN": 60
   },
   "fields": {
    "authentication.local_accounts": [
@@ -574,10 +576,8 @@
     "notice"
    ],
    "management.ssh.enabled": true,
-   "management.ssh.max_auth_tries": 10,
    "management.ssh.version": 2,
    "management.telnet.enabled": true,
-   "management.vty.access_class": "10",
    "management.vty.exec_timeout": 45,
    "snmp.communities": [
     "read-only"
@@ -591,7 +591,7 @@
   "platform": "juniper_srx",
   "records": {
    "PARSED": 13,
-   "UNKNOWN": 3
+   "UNKNOWN": 4
   }
  },
  "srx-policy-01.conf": {

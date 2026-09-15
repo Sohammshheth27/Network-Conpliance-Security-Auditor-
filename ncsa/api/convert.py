@@ -43,6 +43,11 @@ def _attack(control_id: str) -> list[dict]:
     return tags_for(control_id)
 
 
+def _framework_coverage(da) -> list[dict]:
+    from ..frameworks.selection import framework_coverage
+    return framework_coverage(da.assessment.findings) if da.assessment else []
+
+
 def assessment_out(da, assessment_id: str) -> AssessmentOut:
     from ..engine.risk import score_assessment
 
@@ -85,6 +90,8 @@ def assessment_out(da, assessment_id: str) -> AssessmentOut:
             security_relevant_unmapped=da.training_gap()),
         counts=da.counts(),
         findings=findings,
+        frameworks=getattr(da, "frameworks", None),
+        framework_coverage=_framework_coverage(da),
         risk_total=scored.get("total_risk", 0.0),
         risk_worst=scored.get("worst"),
         consensus=consensus,
@@ -102,7 +109,9 @@ def candidate_out(c) -> TrainingCandidateOut:
         vendor=c.vendor, platform=c.platform,
         suggested_field=c.suggested_field,
         suggestion_score=round(c.suggestion_score, 3),
-        suggested_from=c.suggested_from)
+        suggested_from=c.suggested_from,
+        kind=getattr(c, "kind", "value"),
+        status=getattr(c, "status", "PENDING"))
 
 
 def remediation_out(plan) -> RemediationOut:

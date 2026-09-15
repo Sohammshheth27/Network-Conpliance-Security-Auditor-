@@ -25,3 +25,16 @@ remediation:
     - commit
     phase: 20
     verify: show administration password-policy
+  fortios:
+    commands:
+    - config system password-policy
+    - set status enable
+    - end
+    phase: 30
+    verify: show system password-policy
+  panos:
+    commands:
+    - set mgt-config password-complexity enabled yes
+    - commit
+    phase: 30
+    verify: show mgt-config password-complexity

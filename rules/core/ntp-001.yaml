@@ -30,3 +30,16 @@ remediation:
     - set system ntp server 10.0.0.21
     phase: 10
     verify: show configuration system ntp
+  fortios:
+    commands:
+    - config system ntp
+    - set ntpsync enable
+    - set type custom
+    - config ntpserver
+    - edit 1
+    - set server <NTP-SERVER>
+    - next
+    - end
+    - end
+    phase: 20
+    verify: diagnose sys ntp status

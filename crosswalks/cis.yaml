@@ -1,0 +1,172 @@
+# Control -> CIS Benchmark recommendation numbers, per platform.
+#
+# IDENTIFIERS ONLY. CIS Benchmark text is copyrighted: titles and prose are
+# never stored here. Each pairing was verified by a person against the
+# recommendation's Audit section in a locally licensed copy of the benchmark,
+# and tests/test_framework_selection.py checks every number exists in it.
+#
+# The mapping rule -- a control cites a recommendation only when:
+#   1. the recommendation audits the SAME setting the control reads, and
+#   2. the pass threshold is the SAME. Stricter or looser is a near-miss and
+#      stays unmapped: "FAIL - CIS 2.1.1.1.4" on a 90-second SSH timeout would
+#      be false, because CIS asks for 60 and we ask for 120.
+#   A recommendation that audits two settings (FortiGate 2.4.5: neither HTTP
+#   nor Telnet on any interface) is cited by the controls that check each
+#   half; it holds only when all of them pass.
+#
+# Rejected on the rule, recorded so nobody re-adds them:
+#   IOS-XE  EXT-006 (CIS 60 s, ours 120 s)  LOG-002 (CIS 1 host, ours 2)
+#           EXT-018 (CIS requires informational; ours checks a level is set)
+#           SNMP-002 (ours also forbids cisco/admin/default; CIS names two)
+#           LOG-001 vs 2.2.1 (CIS means archive config-change logging)
+#   ASA     EXT-006 / TIME-001 (CIS 5 min)  PWD-001 (CIS 14, ours 15)
+#           AAA-001 / EXT-015 (CIS audits server groups for ssh specifically)
+#           NTP-001 vs 1.9.1.3 (CIS requires a key)  SNMP-002 (as IOS-XE)
+#   Junos   TIME-001 (CIS 15 min)  PWD-001 (CIS 10)  EXT-023/024 (CIS names
+#           SHA1/AES128)  NTP-002 (CIS: a key on every server)
+#   FortiOS PWD-001 (CIS 14)  HTTPS-001 (CIS TLS 1.3 only)  TIME-001 (CIS 5)
+#           EXT-013 (CIS also bounds threshold and duration)
+#   PAN-OS  PWD-001 (CIS 12)  HTTP-001/TEL-001 vs 1.2.4 (CIS audits interface
+#           management profiles; our pack reads the device service setting)
+#
+# CIS publishes no SonicWall benchmark, so sonicwall_sonicos has no entry and
+# selecting CIS on a SonicWall reports exactly that. The AWS benchmark's
+# contents could not be read from the local copy, so nothing is mapped to it
+# rather than mapped from memory.
+
+benchmarks:
+  cisco_iosxe_router: "CIS Cisco IOS XE 17.x Benchmark v2.2.1"
+  cisco_asa: "CIS Cisco ASA 9.x Firewall Benchmark v1.1.0"
+  juniper_srx: "CIS Juniper OS Benchmark v2.1.0 PDF"
+  fortios: "CIS FortiGate 7.4.x Benchmark v1.0.1"
+  panos: "CIS Palo Alto Firewall 11 Benchmark v1.2.0"
+  arista_eos: "CIS Arista EOS benchmark v1.0.0"
+  aruba_aoscx: "CIS HPE Aruba Networking CX Switch Benchmark v1.0.1"
+  security_groups: "CIS Amazon Web Services Foundations Benchmark v7.0.0"
+  network_security_groups: "CIS Microsoft Azure Foundations Benchmark v6.0.0"
+  gcp_firewall: "CIS Google Cloud Platform Foundation Benchmark v5.0.0"
+
+map:
+  NCSA-AAA-001:
+    cisco_iosxe_router: ["1.1.1"]
+    juniper_srx: ["6.8.1"]
+  NCSA-BAN-001:
+    cisco_iosxe_router: ["1.3.2"]
+    cisco_asa: ["1.5.3"]
+    juniper_srx: ["6.6.8"]
+    fortios: ["2.1.1"]
+    panos: ["1.1.2"]
+    arista_eos: ["2.9.1"]
+    aruba_aoscx: ["1.12"]
+  NCSA-CAT-001:
+    fortios: ["3.4"]
+  NCSA-CAT-011:
+    cisco_asa: ["1.2.4"]
+    juniper_srx: ["3.3"]
+  NCSA-CLD-001:
+    network_security_groups: ["7.1", "7.2"]
+    gcp_firewall: ["3.6", "3.7"]
+  NCSA-EXT-001:
+    juniper_srx: ["6.10.1.6", "6.10.1.9"]
+  NCSA-EXT-005:
+    cisco_iosxe_router: ["2.1.1.1.3"]
+    cisco_asa: ["1.6.3"]
+  NCSA-EXT-007:
+    juniper_srx: ["6.10.2.2"]
+  NCSA-EXT-009:
+    cisco_iosxe_router: ["1.2.3"]
+    juniper_srx: ["6.11.1"]
+  NCSA-EXT-012:
+    cisco_iosxe_router: ["1.4.1"]
+    cisco_asa: ["1.1.2"]
+  NCSA-EXT-015:
+    cisco_iosxe_router: ["1.1.2"]
+    juniper_srx: ["6.3.1"]
+  NCSA-EXT-016:
+    cisco_asa: ["1.4.4.1"]
+  NCSA-EXT-017:
+    cisco_asa: ["1.4.5.1"]
+  NCSA-EXT-019:
+    cisco_iosxe_router: ["2.2.7"]
+  NCSA-EXT-022:
+    cisco_iosxe_router: ["2.2.4"]
+    cisco_asa: ["1.10.3"]
+    fortios: ["7.2.1"]
+    panos: ["1.1.1.1"]
+  NCSA-EXT-024:
+    cisco_iosxe_router: ["1.5.9"]
+    cisco_asa: ["1.11.1"]
+  NCSA-EXT-025:
+    cisco_iosxe_router: ["1.5.5"]
+    juniper_srx: ["5.3"]
+  NCSA-EXT-027:
+    juniper_srx: ["6.7.2"]
+    panos: ["1.6.2"]
+  NCSA-EXT-028:
+    cisco_asa: ["1.9.2"]
+  NCSA-EXT-030:
+    cisco_iosxe_router: ["1.3.3"]
+    cisco_asa: ["1.5.4"]
+  NCSA-EXT-032:
+    juniper_srx: ["6.5.1"]
+  NCSA-EXT-034:
+    aruba_aoscx: ["3.2.1.1"]
+  NCSA-EXT-035:
+    aruba_aoscx: ["3.5"]
+  NCSA-EXT-036:
+    aruba_aoscx: ["3.4"]
+  NCSA-EXT-037:
+    cisco_iosxe_router: ["3.3.2.1"]
+    cisco_asa: ["2.1.1"]
+  NCSA-EXT-039:
+    cisco_asa: ["3.2"]
+  NCSA-EXT-042:
+    juniper_srx: ["3.4"]
+  NCSA-HTTP-001:
+    juniper_srx: ["6.10.2.1"]
+    fortios: ["2.4.5"]
+  NCSA-HTTPS-001:
+    cisco_asa: ["1.7.2"]
+  NCSA-LOG-001:
+    cisco_asa: ["1.10.1"]
+  NCSA-NTP-001:
+    cisco_iosxe_router: ["2.3.2"]
+    juniper_srx: ["6.7.1"]
+    fortios: ["2.1.4"]
+  NCSA-NTP-002:
+    cisco_iosxe_router: ["2.3.1.1"]
+    cisco_asa: ["1.9.1.1"]
+  NCSA-PWD-002:
+    panos: ["1.3.1"]
+  NCSA-PWD-003:
+    cisco_iosxe_router: ["1.4.2"]
+  NCSA-SNMP-001:
+    fortios: ["2.3.1"]
+    panos: ["1.5.1"]
+    arista_eos: ["2.7.3"]
+  NCSA-SNMP-002:
+    juniper_srx: ["5.1"]
+  NCSA-SSH-002:
+    cisco_iosxe_router: ["2.1.1.2"]
+    cisco_asa: ["1.6.2"]
+    juniper_srx: ["6.10.1.2"]
+  NCSA-SSH-003:
+    juniper_srx: ["6.10.1.6"]
+  NCSA-SSH-004:
+    cisco_iosxe_router: ["2.1.1.1.5"]
+    juniper_srx: ["6.6.1.1"]
+  NCSA-TEL-001:
+    cisco_asa: ["1.6.5"]
+    juniper_srx: ["6.10.6"]
+    fortios: ["2.4.5"]
+    arista_eos: ["2.8"]
+    aruba_aoscx: ["1.1.9"]
+  NCSA-TIME-001:
+    cisco_iosxe_router: ["1.2.8"]
+    arista_eos: ["2.6.2"]
+  NCSA-VTY-001:
+    cisco_iosxe_router: ["1.2.2"]
+  NCSA-VTY-002:
+    cisco_iosxe_router: ["1.2.5"]
+    cisco_asa: ["1.6.1"]
+    juniper_srx: ["3.10"]

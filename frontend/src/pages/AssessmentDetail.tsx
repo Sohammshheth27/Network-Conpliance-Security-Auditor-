@@ -317,6 +317,45 @@ const AssessmentDetail: FC = () => {
           and {coverage.not_applicable} do not apply to this platform.
         </p>
 
+        {/* Result per framework. A framework citing no control on this
+            platform shows no score rather than disappearing. */}
+        {data.framework_coverage?.length > 0 && (
+          <div className="mt-4 overflow-x-auto">
+            <div className="mb-2 text-[11px] uppercase tracking-wider text-[#65738B]">
+              {data.frameworks?.length
+                ? `Assessed against ${data.framework_coverage
+                    .filter((f) => data.frameworks?.includes(f.framework))
+                    .map((f) => f.name)
+                    .join(', ')}`
+                : 'Assessed against every framework'}
+            </div>
+            <table className="w-full text-left text-[12.5px]">
+              <thead className="text-[10.5px] uppercase tracking-wider text-[#65738B]">
+                <tr>
+                  <th className="py-1 pr-4">Framework</th>
+                  <th className="py-1 pr-4 text-right">Controls citing it</th>
+                  <th className="py-1 pr-4 text-right">Decided</th>
+                  <th className="py-1 pr-4 text-right">Passed</th>
+                  <th className="py-1 text-right">Score</th>
+                </tr>
+              </thead>
+              <tbody className="text-[#DDE7F7]">
+                {data.framework_coverage.map((f) => (
+                  <tr key={f.framework} className="border-t border-[rgba(100,150,220,0.1)]">
+                    <td className="py-1 pr-4">{f.name}</td>
+                    <td className="py-1 pr-4 text-right">{f.controls}</td>
+                    <td className="py-1 pr-4 text-right">{f.decided}</td>
+                    <td className="py-1 pr-4 text-right">{f.passed}</td>
+                    <td className="py-1 text-right">
+                      {f.score_pct === null ? '—' : `${f.score_pct}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         {/* All seven states. Collapsing to pass/fail would be a tidier chart
             and a dishonest one. */}
         <div className="mt-4 flex flex-wrap gap-2">

@@ -25,11 +25,14 @@ remediation:
     - ' exit'
     phase: 30
     verify: show running-config | section line vty
+  # Junos sets the idle timeout per LOGIN CLASS; there is no system-wide
+  # `system login idle-timeout`. Predefined classes cannot carry it, so each
+  # custom class the administrators use needs the statement.
   juniper_srx:
     commands:
-    - set system login idle-timeout 10
+    - set system login class <class-name> idle-timeout 10
     phase: 30
-    verify: show configuration system login
+    verify: show configuration system login | match idle-timeout
 
   sonicwall_sonicos:
     commands:
@@ -39,3 +42,21 @@ remediation:
     - commit
     phase: 20
     verify: show administration | grep inactivity
+  cisco_asa:
+    commands:
+    - ssh timeout 2
+    phase: 30
+    verify: show running-config ssh
+  fortios:
+    commands:
+    - config system global
+    - set admintimeout 5
+    - end
+    phase: 30
+    verify: show system global
+  panos:
+    commands:
+    - set deviceconfig setting management idle-timeout 10
+    - commit
+    phase: 30
+    verify: show deviceconfig setting management

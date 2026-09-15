@@ -5,7 +5,8 @@ import {
   Plus, 
   BarChart3, 
   ShieldCheck, 
-  Settings 
+  Settings,
+  GraduationCap 
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
@@ -14,6 +15,7 @@ const primaryNav = [
   { name: 'Overview', to: '/', icon: Home },
   { name: 'Assessments', to: '/assessments', icon: Layers },
   { name: 'New Audit', to: '/new-audit', icon: Plus, isAction: true },
+  { name: 'Training', to: '/training', icon: GraduationCap },
   { name: 'Analysis', to: '/analysis', icon: BarChart3 },
   { name: 'Frameworks', to: '/frameworks', icon: ShieldCheck },
 ];

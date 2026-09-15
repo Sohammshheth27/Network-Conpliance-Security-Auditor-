@@ -23,3 +23,16 @@ remediation:
     - commit
     phase: 30
     verify: show log syslog server
+  cisco_asa:
+    commands:
+    - logging host <INTERFACE> <SYSLOG-IP>
+    phase: 20
+    verify: show running-config logging
+  fortios:
+    commands:
+    - config log syslogd setting
+    - set status enable
+    - set server <SYSLOG-IP>
+    - end
+    phase: 20
+    verify: show log syslogd setting

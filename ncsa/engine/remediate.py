@@ -52,9 +52,17 @@ _IMPACT_FIELD = {
 }
 
 # The vendor's own rollback net, keyed by platform prefix.
+#
+# Matched in order, so a specific platform must precede its vendor prefix.
+# FortiOS and PAN-OS are deliberately absent: PAN-OS stages every change until
+# `commit` and has no timed revert, and a revert mechanism we have not
+# verified is worse than stating there is none.
 ROLLBACK = {
     "juniper": ("commit confirmed 5",
                 "Junos reverts automatically in 5 minutes unless you `commit` again."),
+    "cisco_asa": ("reload in 5",
+                  "The ASA reloads to its saved configuration in 5 minutes unless "
+                  "you `reload cancel`. Do not `write memory` until verified."),
     "cisco": ("reload in 5",
               "IOS reloads to the saved config in 5 minutes unless you `reload cancel`."),
 }
