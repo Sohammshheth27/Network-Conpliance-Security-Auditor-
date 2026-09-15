@@ -83,6 +83,55 @@ def test_framework_coverage_reports_every_framework():
         assert r["passed"] <= r["decided"] <= r["controls"]
 
 
+# ------------------------------------------------ per-framework scoring
+
+def test_a_requirement_is_met_only_when_every_citing_check_passes():
+    from ncsa.frameworks.selection import requirement_state as rs
+
+    assert rs(["PASS", "PASS"]) == "MET"
+    assert rs(["PASS", "FAIL"]) == "NOT_MET", "one failing test fails it"
+    assert rs(["PASS", "PARTIAL"]) == "NOT_MET"
+    assert rs(["PASS", "UNKNOWN"]) == "UNDECIDED", "unknown is not a pass"
+    assert rs(["UNKNOWN"]) == "UNDECIDED"
+
+
+def test_each_framework_is_scored_over_its_own_requirements():
+    from types import SimpleNamespace as NS
+
+    def f(state, nist, iso):
+        return NS(state=NS(value=state),
+                  frameworks=NS(nist_800_53=nist, iso_27001=iso,
+                                stig_ids=[], cis_ids=[]))
+
+    # Two NIST requirements share one failing check; ISO groups differently.
+    findings = [f("PASS", ["AC-2"], ["A.5.15"]),
+                f("FAIL", ["AC-2", "AC-17"], ["A.8.20"]),
+                f("PASS", ["AU-6"], ["A.8.20"]),
+                f("NOT_APPLICABLE", ["SC-8"], ["A.8.24"])]
+    rows = {r["framework"]: r for r in framework_coverage(findings)}
+    nist, iso = rows["nist_800_53"], rows["iso_27001"]
+    # checks: 2 of 3 decided passed, for both frameworks
+    assert nist["score_pct"] == iso["score_pct"] == 66.7
+    # requirements: NIST AC-2 and AC-17 not met, AU-6 met -> 1/3
+    assert (nist["requirements_met"], nist["requirements_not_met"]) == (1, 2)
+    assert nist["requirement_score_pct"] == 33.3
+    assert nist["not_met_ids"] == ["AC-17", "AC-2"]
+    # ISO: A.5.15 met, A.8.20 not met -> 1/2; N/A requirement excluded
+    assert iso["requirement_score_pct"] == 50.0 and iso["requirements"] == 2
+
+
+@sw_only
+def test_sonicwall_frameworks_score_differently_and_the_overall_is_unchanged():
+    da = assess(SW, redact=False, assessment_id="TEST-FW-REQ")
+    assert (da.coverage()["score_pct"], da.coverage()["assessed_pct"]) == (36.2, 53.4)
+    rows = {r["framework"]: r for r in framework_coverage(da.assessment.findings)}
+    for r in rows.values():
+        assert r["requirements_met"] + r["requirements_not_met"] == r["requirements_decided"]
+        assert r["requirements_decided"] <= r["requirements"]
+    scores = {k: rows[k]["requirement_score_pct"] for k in ("nist_800_53", "iso_27001")}
+    assert scores["nist_800_53"] != scores["iso_27001"], scores
+
+
 # ---------------------------------------------------------------- report
 
 def test_the_report_states_the_selection_and_the_per_framework_result():

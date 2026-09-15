@@ -185,6 +185,14 @@ export interface FrameworkCoverage {
   decided: number;
   passed: number;
   score_pct: number | null;
+  /** The framework's own requirements (NIST controls, ISO Annex A, STIG IDs). */
+  requirements: number;
+  requirements_decided: number;
+  requirements_met: number;
+  requirements_not_met: number;
+  /** Met / decided requirements -- this framework's own score. */
+  requirement_score_pct: number | null;
+  not_met_ids: string[];
 }
 
 export interface AssessmentSummary {
