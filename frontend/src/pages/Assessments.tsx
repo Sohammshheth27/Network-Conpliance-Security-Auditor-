@@ -13,7 +13,14 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Empty, ErrorPanel, Loading } from '../components/ui/States';
-import { api, vendorLabel, type AssessmentSummary } from '../lib/api';
+import { api, download, vendorLabel, type AssessmentSummary } from '../lib/api';
+
+const FW_COLUMNS: [string, string][] = [
+  ['nist_800_53', 'NIST'],
+  ['iso_27001', 'ISO'],
+  ['stig', 'STIG'],
+  ['cis', 'CIS'],
+];
 import { useApi } from '../lib/useApi';
 
 /**
@@ -82,6 +89,12 @@ const Assessments: FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => download('/fleet.csv', 'ncsa_fleet.csv')}
+            className="rounded-full border border-[rgba(100,150,220,0.22)] px-4 py-2.5 text-xs font-semibold text-[#AAB8D0] transition-colors hover:text-[#F5F8FF]"
+          >
+            Export CSV
+          </button>
           <button
             onClick={reload}
             className="rounded-full border border-[rgba(100,150,220,0.22)] p-2.5 text-[#AAB8D0] transition-colors hover:text-[#F5F8FF]"
@@ -193,6 +206,11 @@ const Assessments: FC = () => {
                   <th className="px-5 py-3 font-semibold">Vendor</th>
                   <th className="px-5 py-3 font-semibold">Score</th>
                   <th className="px-5 py-3 font-semibold">Coverage</th>
+                  {FW_COLUMNS.map(([key, label]) => (
+                    <th key={key} className="px-3 py-3 font-semibold text-right">
+                      {label}
+                    </th>
+                  ))}
                   <th className="px-5 py-3 font-semibold">Assessment</th>
                   <th className="px-5 py-3" />
                 </tr>
@@ -224,6 +242,16 @@ const Assessments: FC = () => {
                     <td className="px-5 py-3.5 text-[#AAB8D0]">
                       {item.assessed_pct}%
                     </td>
+                    {/* A framework with nothing to evaluate shows a dash,
+                        never 0% -- no score is not a failing score. */}
+                    {FW_COLUMNS.map(([key]) => {
+                      const v = item.frameworks?.[key];
+                      return (
+                        <td key={key} className="px-3 py-3.5 text-right text-[#DDE7F7]">
+                          {v === null || v === undefined ? '—' : `${v}%`}
+                        </td>
+                      );
+                    })}
                     <td className="px-5 py-3.5 font-mono text-[11px] text-[#65738B]">
                       {item.assessment_id}
                     </td>

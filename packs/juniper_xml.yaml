@@ -208,6 +208,9 @@ derivations:
   - field: snmp.version
     op: path_any_present
     params: {glob: "configuration/snmp/community/name", value: "2c"}
+  - field: platform.api.enabled
+    op: path_present
+    params: {glob: "configuration/system/services/rest/*"}
 
 not_applicable_fields:
   # {field: reason}. The reason is published as the finding's justification --

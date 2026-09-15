@@ -134,7 +134,8 @@ def snapshot(device_assessment, *, taken_at=None) -> Snapshot:
     if da.assessment is not None:
         from ..frameworks.selection import framework_coverage
         frameworks = {r["framework"]: r["framework_score_pct"]
-                      for r in framework_coverage(da.assessment.findings)}
+                      for r in framework_coverage(da.assessment.findings,
+                                                   da.identity.platform)}
 
     return Snapshot(
         frameworks=frameworks,

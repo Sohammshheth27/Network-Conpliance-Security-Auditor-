@@ -2,7 +2,7 @@ import { useState, type FC } from 'react';
 import { FileDown, History } from 'lucide-react';
 
 import { Card } from '../ui/Card';
-import { api, type HistoryPoint } from '../../lib/api';
+import { api, download, type HistoryPoint } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 
 const FRAMEWORKS: [string, string][] = [
@@ -43,13 +43,21 @@ const ReportAndHistory: FC<{ aid: string }> = ({ aid }) => {
           <FileDown className="h-4 w-4 text-[#2D8CFF]" /> Assessment report
         </h3>
         <div className="mt-3 flex flex-wrap gap-2">
-          <a className={link} href={api.reportUrl(aid)}>
+          {/* Buttons, not links: a link cannot carry the API token. */}
+          <button
+            className={link}
+            onClick={() => download(api.reportUrl(aid), `NCSA_Report_${aid}.pdf`)}
+          >
             PDF — all frameworks
-          </a>
+          </button>
           {FRAMEWORKS.map(([key, label]) => (
-            <a key={key} className={link} href={api.reportUrl(aid, key)}>
+            <button
+              key={key}
+              className={link}
+              onClick={() => download(api.reportUrl(aid, key), `NCSA_Report_${aid}_${key}.pdf`)}
+            >
               PDF — {label} only
-            </a>
+            </button>
           ))}
         </div>
         <p className="mt-2 text-[11.5px] text-[#8FA0BC]">

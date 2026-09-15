@@ -10,6 +10,10 @@ rationale: >-
 frameworks:
   nist_800_53: ["AC-12", "SC-10"]
   iso_27001_2022: ["A.8.20"]
+  # Threshold-profiled (crosswalks/profiles.yaml): these STIG rules ask for
+  # 5 minutes; the STIG score judges them by that, not by NCSA's own value.
+  stig_by_platform:
+    cisco_asa: [V-239920]
   # STIG/CIS ids intentionally omitted: they are per-platform and
   # belong in the vendor pack (plan 6.1). An invented id is worse
   # than none -- see the v1.4 6.4 caveat.

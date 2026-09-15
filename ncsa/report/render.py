@@ -77,9 +77,9 @@ def _fmt(value) -> str:
 
 # --------------------------------------------------------------- collection
 
-def _fw_coverage(findings) -> list:
+def _fw_coverage(findings, platform=None) -> list:
     from ..frameworks.selection import framework_coverage
-    return framework_coverage(findings)
+    return framework_coverage(findings, platform)
 
 
 def _collect(da, aid: str) -> dict:
@@ -133,7 +133,7 @@ def _collect(da, aid: str) -> dict:
         "supported": da.supported,
         "notes": list(da.notes or []),
         "frameworks": getattr(da, "frameworks", None),
-        "framework_coverage": _fw_coverage(findings),
+        "framework_coverage": _fw_coverage(findings, getattr(da.identity, "platform", None)),
         "generated_at": datetime.now(timezone.utc).strftime(
             "%d %B %Y at %H:%M UTC"),
     }
@@ -251,7 +251,7 @@ reports are not comparable.</p>
 <h2>2. Result</h2>
 <table class="plain">
   <tr><th>Compliance score</th><td><strong>{score_txt}</strong> of {cov['controls_decided']} decided controls</td></tr>
-  <tr><th>Assessment coverage</th><td><strong>{cov['assessed_pct']}%</strong> of {cov['controls_total']} controls in the catalogue</td></tr>
+  <tr><th>Assessment coverage</th><td><strong>{cov['assessed_pct']}%</strong> of the {cov.get('controls_applicable', cov['controls_total'])} controls that apply to this platform ({cov['controls_total']} in the catalogue)</td></tr>
   <tr><th>Controls not decided</th><td>{cov['controls_undecided']}</td></tr>
   <tr><th>Controls not applicable</th><td>{cov['not_applicable']}</td></tr>
   <tr><th>Aggregate risk</th><td>{d['risk'].get('total_risk', 0)} &mdash; highest band {_e(d['risk'].get('worst') or 'none')}</td></tr>

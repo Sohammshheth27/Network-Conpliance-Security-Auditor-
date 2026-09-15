@@ -61,7 +61,7 @@ def test_the_stored_assessment_is_untouched(da):
              disable_rules=[WLAN_DMZ])
 
     assert da.coverage() == cov
-    assert (cov["score_pct"], cov["assessed_pct"]) == (36.2, 53.4)
+    assert (cov["score_pct"], cov["assessed_pct"]) == (36.2, 70.1)
     assert len(da.sbm.observations) == n_obs
     assert [r.enabled for r in da.graph.rules] == rules_enabled
 
@@ -175,4 +175,4 @@ def test_the_api_endpoint(da):
     assert body["simulated"] is True
     assert body["blast_radius"]["before"]["latent"] is True
     stored = client.get(f"/assessment/{aid}").json()["coverage"]
-    assert (stored["score_pct"], stored["assessed_pct"]) == (36.2, 53.4)
+    assert (stored["score_pct"], stored["assessed_pct"]) == (36.2, 70.1)

@@ -29,7 +29,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .convert import assessment_out, candidate_out, remediation_out
 from .schemas import (ApprovalIn, ApprovalOut, AssessmentOut, CollectIn,
-                      ReachQueryIn, RemediationOut, TopologyIn,
+                      MonitorIn, ReachQueryIn, RemediationOut, TopologyIn,
                       TrainingCandidateOut)
 
 app = FastAPI(
@@ -38,9 +38,72 @@ app = FastAPI(
     description="Vendor-agnostic configuration compliance. Every finding "
                 "carries the file and line it came from.")
 
-# The UI is served from a different origin during development.
-app.add_middleware(CORSMiddleware, allow_origins=["*"],
-                   allow_methods=["*"], allow_headers=["*"])
+# --------------------------------------------------------------- security
+# The API used to answer anyone, from any origin. Since /collect carries
+# device credentials and every upload is a customer configuration, access is
+# now explicit:
+#
+#   NCSA_API_TOKEN set    -> every API call must carry
+#                            `Authorization: Bearer <token>`.
+#   NCSA_API_TOKEN unset  -> the API answers THIS machine only (loopback), so
+#                            a demo still needs no setup but is not exposed
+#                            to the network by default.
+#   NCSA_CORS_ORIGINS     -> comma-separated browser origins allowed to call
+#                            the API; defaults to the local Vite dev server.
+#
+# The landing page, the static console and /health stay public: they carry
+# no customer data.
+import hmac as _hmac
+
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+_PUBLIC = ("/", "/app", "/health", "/docs", "/openapi.json", "/redoc",
+           "/report-signing-key")
+_LOOPBACK = {"127.0.0.1", "::1", "localhost",
+             # Starlette's in-process TestClient; no network peer can present
+             # this as its address.
+             "testclient"}
+
+
+def _origins() -> list[str]:
+    raw = _os_env("NCSA_CORS_ORIGINS")
+    return [o.strip() for o in raw.split(",") if o.strip()] if raw else [
+        "http://localhost:5173", "http://127.0.0.1:5173"]
+
+
+def _os_env(name: str) -> str:
+    import os
+    return os.environ.get(name, "")
+
+
+@app.middleware("http")
+async def _require_access(request: Request, call_next):
+    path = request.url.path
+    if (request.method == "OPTIONS" or path in _PUBLIC
+            or path.startswith("/static/")):
+        return await call_next(request)
+    token = _os_env("NCSA_API_TOKEN")
+    if token:
+        sent = request.headers.get("authorization", "")
+        if not (sent.startswith("Bearer ")
+                and _hmac.compare_digest(sent[7:].strip(), token)):
+            return JSONResponse({"detail": "missing or invalid API token"},
+                                status_code=401,
+                                headers={"WWW-Authenticate": "Bearer"})
+    else:
+        host = request.client.host if request.client else ""
+        if host not in _LOOPBACK:
+            return JSONResponse(
+                {"detail": "this NCSA instance answers the local machine only; "
+                           "set NCSA_API_TOKEN to allow remote clients"},
+                status_code=403)
+    return await call_next(request)
+
+
+app.add_middleware(CORSMiddleware, allow_origins=_origins(),
+                   allow_methods=["GET", "POST"],
+                   allow_headers=["Authorization", "Content-Type"])
 
 _STATIC = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")
@@ -190,6 +253,76 @@ def collect_live(body: CollectIn):
     return [assessment_out(da, aid)]
 
 
+# ------------------------------------------------------------ monitoring
+_MONITORS: dict = {}
+
+
+def _monitor():
+    """One monitor per data directory, so tests never touch real jobs."""
+    from ..collect.monitor import Monitor
+
+    d = str(_STORE.data_dir)
+    if d not in _MONITORS:
+        _MONITORS[d] = Monitor(d)
+    return _MONITORS[d]
+
+
+def _monitor_ingest(dest, name, redact, fws, notes):
+    return _ingest(dest, name, redact, fws, notes=notes)
+
+
+@app.on_event("startup")
+def _start_monitor():
+    # Opt-in: a scheduler is a background thread that logs in to devices.
+    if _os_env("NCSA_MONITOR") == "1":
+        _monitor().start(_monitor_ingest, _UPLOADS)
+
+
+@app.post("/monitor", tags=["monitor"])
+def create_monitor(body: MonitorIn):
+    """Re-collect a device every N minutes (>= 15) and alert on drift."""
+    from ..frameworks.selection import normalise
+
+    try:
+        job = _monitor().add_job(
+            host=body.host, platform=body.platform, username=body.username,
+            password=body.password.get_secret_value(),
+            secret=body.secret.get_secret_value() if body.secret else None,
+            port=body.port, driver=body.driver,
+            interval_minutes=body.interval_minutes,
+            frameworks=normalise(body.frameworks), redact=body.redact)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+    return job
+
+
+@app.get("/monitor", tags=["monitor"])
+def list_monitors():
+    """Monitoring jobs (never their credentials) and the latest alerts."""
+    m = _monitor()
+    return {"jobs": m.jobs(), "alerts": m.alerts()}
+
+
+@app.post("/monitor/{job_id}/run", tags=["monitor"])
+def run_monitor(job_id: str):
+    """Run a monitoring job now: collect, assess, compare, alert."""
+    from ..collect.live import CollectorUnavailable
+
+    try:
+        return _monitor().run(job_id, _monitor_ingest, _UPLOADS)
+    except KeyError:
+        raise HTTPException(404, f"no monitoring job {job_id!r}") from None
+    except CollectorUnavailable as exc:
+        raise HTTPException(503, str(exc)) from None
+
+
+@app.delete("/monitor/{job_id}", tags=["monitor"])
+def delete_monitor(job_id: str):
+    if not _monitor().delete(job_id):
+        raise HTTPException(404, f"no monitoring job {job_id!r}")
+    return {"deleted": job_id}
+
+
 @app.get("/assessment/{aid}", response_model=AssessmentOut, tags=["assess"])
 def get_assessment(aid: str):
     da, _ = _get(aid)
@@ -199,8 +332,34 @@ def get_assessment(aid: str):
 @app.get("/assessments", tags=["assess"])
 def list_assessments():
     # From the database, so assessments from before a restart are listed
-    # without re-running any of them.
+    # without re-running any of them. Each carries its framework scores, so
+    # this is also the fleet view.
     return _STORE.summaries()
+
+
+@app.get("/fleet.csv", tags=["assess"])
+def fleet_csv():
+    """Every assessed device with its overall and per-framework scores."""
+    import csv
+    import io
+
+    from fastapi.responses import Response
+
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    fws = ["nist_800_53", "iso_27001", "stig", "cis"]
+    w.writerow(["assessment_id", "device", "vendor", "platform", "assessed_at",
+                "score_pct", "coverage_pct"] + [f"{k}_score_pct" for k in fws])
+    for s in _STORE.summaries():
+        if not s.get("supported", True):
+            continue
+        f = s.get("frameworks") or {}
+        w.writerow([s["assessment_id"], s["device"], s["vendor"], s["platform"],
+                    s["assessed_at"], s["score_pct"], s["assessed_pct"]]
+                   + ["" if f.get(k) is None else f[k] for k in fws])
+    return Response(buf.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition":
+                             'attachment; filename="ncsa_fleet.csv"'})
 
 
 # ------------------------------------------------------------- remediation
@@ -253,7 +412,7 @@ def get_report(aid: str, format: str = Query("pdf", pattern="^(pdf|html)$"),
     from ..report import build_report, write_pdf
 
     da, path = _get(aid)
-    suffix = ""
+    suffix, fw_key = "", None
     if framework:
         try:
             key = normalise([framework])[0]
@@ -264,7 +423,7 @@ def get_report(aid: str, format: str = Query("pdf", pattern="^(pdf|html)$"),
         meta = _STORE.meta(aid) or {}
         da = assess(path, redact=meta.get("redact", True), assessment_id=aid,
                     frameworks=[key])
-        suffix = f"_{key}"
+        suffix, fw_key = f"_{key}", key
     device = (da.identity.hostname or da.identity.source_file or aid)
     safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in device)
 
@@ -281,8 +440,44 @@ def get_report(aid: str, format: str = Query("pdf", pattern="^(pdf|html)$"),
             "error": str(exc),
             "alternative": f"/assessment/{aid}/report?format=html",
         }) from exc
+    # Tamper evidence: the exact bytes issued are hashed and signed, and the
+    # record lets /verify-report say later whether a PDF is still this one.
+    signed = _signer().sign(out.read_bytes(), aid=aid, framework=fw_key)
     return FileResponse(str(out), media_type="application/pdf",
-                        filename=out.name)
+                        filename=out.name,
+                        headers={"X-NCSA-Report-SHA256": signed["sha256"],
+                                 "X-NCSA-Signature": signed["signature"]})
+
+
+_SIGNERS: dict = {}
+
+
+def _signer():
+    """One signer per data directory, created on first use -- so a test
+    suite pointed at a temporary store never touches the real signing key."""
+    from ..report.signing import ReportSigner
+
+    d = str(_STORE.data_dir)
+    if d not in _SIGNERS:
+        _SIGNERS[d] = ReportSigner(d)
+    return _SIGNERS[d]
+
+
+@app.get("/report-signing-key", tags=["report"])
+def report_signing_key():
+    """The PUBLIC key reports are signed with. Anyone can verify a report
+    offline with this and the X-NCSA-Signature header; no secret needed."""
+    return {"algorithm": "Ed25519 over the hex SHA-256 of the PDF",
+            "public_key_pem": _signer().public_pem}
+
+
+@app.post("/verify-report", tags=["report"])
+async def verify_report(file: UploadFile = File(...)):
+    """Is this PDF a report this engine issued, byte for byte?"""
+    data = await file.read()
+    if len(data) > MAX_UPLOAD_MB * 1024 * 1024:
+        raise HTTPException(413, "file too large")
+    return _signer().verify(data)
 
 
 @app.post("/assessment/{aid}/blast-radius", tags=["analyse"])

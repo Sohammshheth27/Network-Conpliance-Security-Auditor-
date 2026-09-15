@@ -45,7 +45,8 @@ def _attack(control_id: str) -> list[dict]:
 
 def _framework_coverage(da) -> list[dict]:
     from ..frameworks.selection import framework_coverage
-    return framework_coverage(da.assessment.findings) if da.assessment else []
+    return (framework_coverage(da.assessment.findings, da.identity.platform)
+            if da.assessment else [])
 
 
 def assessment_out(da, assessment_id: str) -> AssessmentOut:

@@ -91,13 +91,17 @@ things, and collapsing them would overstate what a demo can show.
 | 17 | **Framework selection** — score against CIS / NIST / STIG / ISO only | selection + CIS crosswalk | 16 | `POST /assess?frameworks=` | ✅ Yes — New Audit chips, per-framework table |
 | 18 | **Live SSH collection** — read-only, credentials never stored | 170 lines | 17 | `POST /collect`, `GET /collect/profiles` | ✅ Yes — New Audit |
 | 19 | **Version awareness** — unverified OS release noted | 70 lines | 11 | inside `/assessment/{id}` notes | ✅ Internal |
+| 20 | **Monitoring** — scheduled re-collection, drift alerts, credentials Fernet-encrypted | monitor.py | 4 | `POST/GET /monitor`, `POST /monitor/{id}/run`, `DELETE /monitor/{id}` | ✅ Yes — New Audit + Settings |
+| 21 | **Fleet view** — every device, per-framework scores, CSV export | store + app | ✓ | `GET /assessments`, `GET /fleet.csv` | ✅ Yes — Assessments |
+| 22 | **Tamper-evident reports** — SHA-256 + Ed25519 signature on every PDF | signing.py | ✓ | `GET /report-signing-key`, `POST /verify-report` | ✅ Yes — report download |
+| 23 | **API access control** — Bearer token or loopback-only; CORS allow-list | app.py middleware | ✓ | all routes | ✅ Yes — Settings |
 
 **Nothing in this table is unreachable any more.** In the version of the table
 you pasted, seven capabilities were built, tested, and callable from nowhere.
 All seven now have endpoints. What remains is that eight of them have **no
 button in the console** — the work in §5.
 
-### The 41 live API routes
+### The 48 live API routes
 
 Counted from `ncsa/api/app.py`, not maintained by hand.
 
@@ -109,11 +113,19 @@ POST  /assess?frameworks=                 upload one or many configs; optional
                                           stig, iso_27001) -- none means all
 GET   /collect/profiles                   live-collection platforms + exact commands
 POST  /collect                            SSH read-only collection, then assess
-GET   /assessments                        everything assessed this session
+POST  /monitor                            schedule re-collection (>= 15 min)
+GET   /monitor                            monitoring jobs + drift alerts
+POST  /monitor/{job_id}/run               re-collect now, compare, alert
+DELETE /monitor/{job_id}                  stop monitoring a device
+GET   /assessments                        every stored assessment (fleet view)
+GET   /fleet.csv                          fleet view as CSV, per-framework scores
 GET   /assessment/{id}                    findings, coverage, per-framework result
 GET   /assessment/{id}/remediation        fix commands, lockout-checked
 GET   /assessment/{id}/baseline           the device's security baseline model
-GET   /assessment/{id}/report             PDF report; ?framework= scopes it to one
+GET   /assessment/{id}/report             PDF report; ?framework= scopes it to one;
+                                          signed (X-Report-SHA256, X-Report-Signature)
+GET   /report-signing-key                 public Ed25519 key to verify reports offline
+POST  /verify-report                      is this PDF unaltered and signed by us?
 POST  /assessment/{id}/blast-radius       what a compromise here reaches
 GET   /assessment/{id}/zones              zone model
 GET   /assessment/{id}/extended           VPN / wireless / CVE (beside the score)

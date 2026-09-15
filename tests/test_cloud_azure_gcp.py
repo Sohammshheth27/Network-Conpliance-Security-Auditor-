@@ -204,4 +204,6 @@ def test_the_aws_result_is_unchanged():
     da = assess("samples/aws/describe-security-groups.json", redact=False,
                 assessment_id="TEST-AWS-STILL")
     cov = da.coverage()
-    assert (cov["score_pct"], cov["assessed_pct"]) == (77.8, 10.2)
+    # 9 decided of the 24 controls that apply to a security group (64 are
+    # verified not applicable to cloud and no longer dilute coverage).
+    assert (cov["score_pct"], cov["assessed_pct"]) == (77.8, 37.5)

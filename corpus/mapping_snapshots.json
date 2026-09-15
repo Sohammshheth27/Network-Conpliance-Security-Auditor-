@@ -399,8 +399,8 @@
    "MANUAL_REVIEW": 0,
    "NOT_APPLICABLE": 4,
    "PARTIAL": 2,
-   "PASS": 13,
-   "UNKNOWN": 50
+   "PASS": 14,
+   "UNKNOWN": 49
   },
   "fields": {
    "authentication.local_accounts": [
@@ -433,6 +433,7 @@
    "management.ssh.version": 2,
    "management.telnet.enabled": true,
    "management.vty.exec_timeout": 45,
+   "platform.api.enabled": false,
    "snmp.communities": [
     "read-only"
    ],
@@ -455,8 +456,8 @@
    "MANUAL_REVIEW": 0,
    "NOT_APPLICABLE": 6,
    "PARTIAL": 0,
-   "PASS": 8,
-   "UNKNOWN": 56
+   "PASS": 9,
+   "UNKNOWN": 55
   },
   "fields": {
    "authentication.local_accounts": [
@@ -478,6 +479,7 @@
    "management.ssh.enabled": true,
    "management.ssh.version": 1,
    "management.telnet.enabled": true,
+   "platform.api.enabled": false,
    "platform.firmware.version": "12.1X44-D10",
    "snmp.communities": [
     "private",
@@ -503,8 +505,8 @@
    "MANUAL_REVIEW": 0,
    "NOT_APPLICABLE": 6,
    "PARTIAL": 0,
-   "PASS": 24,
-   "UNKNOWN": 51
+   "PASS": 25,
+   "UNKNOWN": 50
   },
   "fields": {
    "authentication.local_accounts": [
@@ -539,6 +541,7 @@
    "management.vty.exec_timeout": [
     "10"
    ],
+   "platform.api.enabled": false,
    "platform.firmware.version": "21.4R3-S4.9",
    "snmp.v3_auth": true,
    "snmp.v3_priv": true,
@@ -564,8 +567,8 @@
    "MANUAL_REVIEW": 0,
    "NOT_APPLICABLE": 4,
    "PARTIAL": 2,
-   "PASS": 15,
-   "UNKNOWN": 51
+   "PASS": 16,
+   "UNKNOWN": 50
   },
   "fields": {
    "authentication.local_accounts": [
@@ -588,6 +591,7 @@
    "management.ssh.version": 2,
    "management.telnet.enabled": true,
    "management.vty.exec_timeout": 45,
+   "platform.api.enabled": false,
    "snmp.communities": [
     "read-only"
    ],

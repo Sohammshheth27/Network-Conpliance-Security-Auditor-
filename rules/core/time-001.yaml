@@ -12,9 +12,14 @@ frameworks:
   iso_27001_2022: [A.8.20]
   # STIG Vuln IDs are per-platform. Derived from the downloaded
   # XCCDF files, not recalled -- a control may map to several.
+  # Threshold-profiled (crosswalks/profiles.yaml): these STIG rules ask for
+  # 5 minutes; the STIG score judges them by that, not by NCSA's own value.
   stig_by_platform:
     juniper_srx: [V-223231]
     paloalto_panos: [V-228658]
+    cisco_iosxe_router: [V-215833]
+    cisco_iosxe_switch: [V-220544]
+    cisco_asa: [V-239920]
   # CIS recommendation numbers live in the vendor pack (plan 6.1).
 
 remediation:

@@ -255,6 +255,22 @@ def derive_path_token_any(cfg, params: dict):
     return False, [cfg.evidence(ln, raw) for _p, _v, ln, raw in hits]
 
 
+def derive_path_present(cfg, params: dict):
+    """True, with evidence, when anything matches `glob`; otherwise False
+    WITHOUT evidence, which the applier records as a platform default.
+
+    For a service that is off unless configured -- Junos REST exists only
+    under `system services rest`. The default can then pass a control but
+    never fail one (an assumption cannot carry a FAIL).
+    """
+    pattern = params.get("glob")
+    hits = cfg.glob(pattern) if pattern else []
+    if hits:
+        _p, _v, ln, raw = hits[0]
+        return True, [cfg.evidence(ln, raw)]
+    return False, []
+
+
 def derive_path_any_present(cfg, params: dict):
     """`value` when anything matches `glob`; otherwise UNEVALUATED.
 
@@ -471,4 +487,5 @@ PATH_DERIVATIONS = {
     "path_weak_tokens": derive_path_weak_tokens,
     "path_any_present": derive_path_any_present,
     "path_token_any": derive_path_token_any,
+    "path_present": derive_path_present,
 }

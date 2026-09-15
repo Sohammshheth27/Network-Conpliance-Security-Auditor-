@@ -8,7 +8,8 @@ THREE INVARIANTS THE UI MUST NOT UNDO. They are the product's credibility, and
 a dashboard can erase them by accident in a way the engine cannot:
 
  1. `score_pct` is the pass rate over controls we could DECIDE. It is not
-    compliance. `assessed_pct` says how much of the control set that was, and
+    compliance. `assessed_pct` says how much of the APPLICABLE control set
+    that was (controls the platform cannot have are excluded), and
     the two must always appear together. A tool that shows 60% without saying
     it assessed 46% of the device is claiming something it did not measure.
 
@@ -43,6 +44,12 @@ class CollectIn(BaseModel):
     driver: str = Field(default="netmiko", description="netmiko | napalm")
     redact: bool = True
     frameworks: list[str] | None = None
+
+
+class MonitorIn(CollectIn):
+    """A scheduled re-collection job (ncsa/collect/monitor.py). The password
+    is stored encrypted and never returned."""
+    interval_minutes: int = Field(default=60, description="At least 15")
 
 
 class EvidenceOut(BaseModel):
@@ -128,11 +135,17 @@ class RecordAccountingOut(BaseModel):
 
 class CoverageOut(BaseModel):
     controls_total: int
+    controls_applicable: int = Field(
+        default=0,
+        description="Controls that apply to this platform: total minus "
+                    "NOT_APPLICABLE (each of which carries its reason).")
     controls_decided: int
     controls_undecided: int
     not_applicable: int
     assessed_pct: float = Field(
-        description="How much of the control set we could decide. ALWAYS show "
+        description="Decided controls as a share of the APPLICABLE ones. "
+                    "Undecided controls stay in the denominator; controls "
+                    "that cannot exist on this platform do not. ALWAYS show "
                     "this next to score_pct.")
     score_pct: float | None = Field(
         default=None,

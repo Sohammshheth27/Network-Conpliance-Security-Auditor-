@@ -103,6 +103,9 @@ export interface Identity {
  */
 export interface Coverage {
   controls_total: number;
+  /** Controls that apply to this platform: total minus not-applicable.
+   *  assessed_pct is decided / applicable. */
+  controls_applicable: number;
   controls_decided: number;
   controls_undecided: number;
   not_applicable: number;
@@ -203,8 +206,13 @@ export interface AssessmentSummary {
   assessment_id: string;
   device: string;
   vendor: string;
+  platform?: string;
+  supported?: boolean;
   score_pct: number;
   assessed_pct: number;
+  /** Each framework's own score; null where it has nothing to evaluate. */
+  frameworks?: Record<string, number | null>;
+  assessed_at?: string;
 }
 
 export interface PlatformInfo {
@@ -716,10 +724,40 @@ export class ApiError extends Error {
   }
 }
 
+/** The API token, when the engine requires one (NCSA_API_TOKEN). Kept in this
+ *  browser only; storage can be unavailable, so every access is guarded. */
+export function apiToken(): string {
+  try {
+    return localStorage.getItem("ncsa_api_token") || "";
+  } catch {
+    return "";
+  }
+}
+
+function withAuth(init?: RequestInit): RequestInit | undefined {
+  const token = apiToken();
+  if (!token) return init;
+  const headers = new Headers(init?.headers);
+  headers.set("Authorization", `Bearer ${token}`);
+  return { ...init, headers };
+}
+
+/** Download a file the API produces, sending the token (a plain link cannot). */
+export async function download(path: string, filename: string): Promise<void> {
+  const res = await fetch(path.startsWith(BASE) ? path : `${BASE}${path}`, withAuth());
+  if (!res.ok) throw new ApiError(res.status, `download failed (${res.status})`);
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}`, init);
+    res = await fetch(`${BASE}${path}`, withAuth(init));
   } catch {
     throw new ApiError(
       0,
@@ -744,6 +782,27 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(res.status, message, detail);
   }
   return (await res.json()) as T;
+}
+
+export interface MonitorJob {
+  job_id: string;
+  host: string;
+  platform: string;
+  username: string;
+  interval_minutes: number;
+  last_run: string | null;
+  last_status: string | null;
+  last_score: number | null;
+  last_aid: string | null;
+}
+
+export interface MonitorAlert {
+  alert_id: string;
+  job_id: string;
+  at: string;
+  kind: string;
+  detail: string;
+  aid: string | null;
 }
 
 export interface HistoryPoint {
@@ -803,6 +862,20 @@ export const api = {
   reportUrl: (id: string, framework?: string, format: "pdf" | "html" = "pdf") =>
     `${BASE}/assessment/${id}/report?format=${format}` +
     (framework ? `&framework=${encodeURIComponent(framework)}` : ""),
+
+  /** Scheduled re-collection and drift alerts. Credentials never come back. */
+  monitors: () => request<{ jobs: MonitorJob[]; alerts: MonitorAlert[] }>("/monitor"),
+  createMonitor: (body: CollectRequest & { interval_minutes: number }) =>
+    request<MonitorJob>("/monitor", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  runMonitor: (id: string) =>
+    request<{ status: string; alerts: number; detail?: string[] | string }>(
+      `/monitor/${id}/run`, { method: "POST" }),
+  deleteMonitor: (id: string) =>
+    request<unknown>(`/monitor/${id}`, { method: "DELETE" }),
 
   /** Live SSH collection: read-only commands, credentials used once. */
   collectProfiles: () => request<CollectProfile[]>("/collect/profiles"),
@@ -910,7 +983,7 @@ export function failuresBySeverity(findings: Finding[]): Record<Severity, number
  * Written once, here, so no page can render the score alone by forgetting.
  */
 export function coverageCaption(c: Coverage): string {
-  return `${c.score_pct}% of ${c.controls_decided} decided controls · ${c.assessed_pct}% of the device assessed`;
+  return `${c.score_pct}% of ${c.controls_decided} decided controls · ${c.assessed_pct}% of applicable controls decided`;
 }
 
 export function vendorLabel(v: string): string {

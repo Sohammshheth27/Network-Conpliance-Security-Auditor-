@@ -96,7 +96,7 @@ def test_the_compliance_result_is_untouched():
     cov, consumed = dict(da.coverage()), set(da.document._consumed)
     assess_wireless(da)
     assert da.coverage() == cov
-    assert (cov["score_pct"], cov["assessed_pct"]) == (36.2, 53.4)
+    assert (cov["score_pct"], cov["assessed_pct"]) == (36.2, 70.1)
     assert da.document._consumed == consumed
 
 

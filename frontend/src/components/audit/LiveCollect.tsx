@@ -31,6 +31,9 @@ const LiveCollect: FC<{ redact: boolean; frameworks: string[] }> = ({
   const [secret, setSecret] = useState('');
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  // 0 = collect once. Otherwise the engine re-collects on this interval and
+  // alerts when a score drops; the password is stored encrypted for that.
+  const [monitorEvery, setMonitorEvery] = useState(0);
 
   const prof = profiles?.find((p) => p.platform === platform);
   const ready = !!(host.trim() && platform && username && password && !running);
@@ -40,7 +43,7 @@ const LiveCollect: FC<{ redact: boolean; frameworks: string[] }> = ({
     setRunning(true);
     setError(null);
     try {
-      const [a] = await api.collect({
+      const request = {
         host: host.trim(),
         port,
         platform,
@@ -50,7 +53,11 @@ const LiveCollect: FC<{ redact: boolean; frameworks: string[] }> = ({
         secret: secret || undefined,
         redact,
         frameworks: frameworks.length ? frameworks : null,
-      });
+      };
+      const [a] = await api.collect(request);
+      if (monitorEvery > 0) {
+        await api.createMonitor({ ...request, interval_minutes: monitorEvery });
+      }
       navigate(`/assessments/${a.assessment_id}`);
     } catch (e) {
       setError(e instanceof ApiError ? e : new ApiError(0, String(e)));
@@ -174,6 +181,27 @@ const LiveCollect: FC<{ redact: boolean; frameworks: string[] }> = ({
               </label>
             )}
           </div>
+
+          <label className="block text-[11px] text-[#AAB8D0]">
+            Keep monitoring
+            <select
+              className={field}
+              value={monitorEvery}
+              onChange={(e) => setMonitorEvery(Number(e.target.value))}
+            >
+              <option value={0}>No — collect once</option>
+              <option value={60}>Every hour — alert on drift</option>
+              <option value={360}>Every 6 hours — alert on drift</option>
+              <option value={1440}>Daily — alert on drift</option>
+            </select>
+            {monitorEvery > 0 && (
+              <span className="mt-1 block text-[11px] text-[#8FA0BC]">
+                The password is stored encrypted so the engine can log in again;
+                use a read-only account. Scheduling runs when the engine is started
+                with NCSA_MONITOR=1.
+              </span>
+            )}
+          </label>
 
           {prof && (
             <div className="rounded-xl border border-[rgba(100,150,220,0.15)] bg-[rgba(14,27,50,0.6)] p-3 text-[11.5px] text-[#AAB8D0]">

@@ -109,14 +109,23 @@ class DeviceAssessment:
         """
         c = self.counts()
         decided = c.get("PASS", 0) + c.get("FAIL", 0) + c.get("PARTIAL", 0)
-        total = sum(c.values()) or 1
         undecided = c.get("UNKNOWN", 0) + c.get("ERROR", 0)
+        na = c.get("NOT_APPLICABLE", 0)
+        # Coverage is decided / APPLICABLE controls. A NOT_APPLICABLE control
+        # asks about something this platform verifiably does not have (with
+        # the reason published), so it can neither be read nor be missing,
+        # and counting it made a SonicWall look 53% covered when we decided
+        # 70% of what applies to it. UNKNOWN stays in the denominator: an
+        # applicable control we could not read is exactly what coverage is
+        # there to expose.
+        applicable = sum(c.values()) - na
         return {
             "controls_total": sum(c.values()),
+            "controls_applicable": applicable,
             "controls_decided": decided,
             "controls_undecided": undecided,
-            "not_applicable": c.get("NOT_APPLICABLE", 0),
-            "assessed_pct": round(100 * decided / total, 1),
+            "not_applicable": na,
+            "assessed_pct": round(100 * decided / applicable, 1) if applicable else 0.0,
             "score_pct": round(100 * c.get("PASS", 0) / decided, 1) if decided else None,
         }
 

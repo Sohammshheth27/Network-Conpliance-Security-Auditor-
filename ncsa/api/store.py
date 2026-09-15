@@ -55,6 +55,13 @@ class AssessmentStore(dict):
         self._lock = threading.Lock()
         with self._conn() as c:
             c.execute(_SCHEMA)
+            # Each framework's own score, for the fleet view -- added after
+            # the first schema, so older databases gain the column in place.
+            cols = {r[1] for r in c.execute("PRAGMA table_info(assessments)")}
+            if "frameworks_json" not in cols:
+                c.execute("ALTER TABLE assessments ADD COLUMN frameworks_json TEXT")
+            if "platform_fp" not in cols:
+                c.execute("ALTER TABLE assessments ADD COLUMN platform_fp TEXT")
 
     # ------------------------------------------------------------ plumbing
     def _conn(self):
@@ -77,14 +84,23 @@ class AssessmentStore(dict):
         except Exception:                               # noqa: BLE001
             score = assessed = None
         ident = da.identity
+        fw_scores = {}
+        if getattr(da, "assessment", None) is not None:
+            from ..frameworks.selection import framework_coverage
+            fw_scores = {r["framework"]: r["framework_score_pct"]
+                         for r in framework_coverage(da.assessment.findings,
+                                                   ident.platform)}
         row = (aid, str(path), name, int(bool(redact)),
                json.dumps(frameworks) if frameworks else None,
                datetime.now(timezone.utc).isoformat(timespec="seconds"),
                ident.hostname or name, ident.vendor, ident.platform,
-               int(bool(getattr(da, "supported", True))), score, assessed)
+               int(bool(getattr(da, "supported", True))), score, assessed,
+               json.dumps(fw_scores), ident.platform)
         with self._lock, self._conn() as c:
-            c.execute("INSERT OR REPLACE INTO assessments VALUES "
-                      "(?,?,?,?,?,?,?,?,?,?,?,?)", row)
+            c.execute("INSERT OR REPLACE INTO assessments (aid, path, name, redact, "
+                      "frameworks, created_at, device, vendor, platform, supported, "
+                      "score_pct, assessed_pct, frameworks_json, platform_fp) "
+                      "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", row)
 
     def __setitem__(self, aid, value):
         da, path = value
@@ -127,5 +143,8 @@ class AssessmentStore(dict):
             c.row_factory = sqlite3.Row
             rows = c.execute("SELECT * FROM assessments ORDER BY created_at").fetchall()
         return [{"assessment_id": r["aid"], "device": r["device"],
-                 "vendor": r["vendor"], "score_pct": r["score_pct"],
-                 "assessed_pct": r["assessed_pct"]} for r in rows]
+                 "vendor": r["vendor"], "platform": r["platform"],
+                 "supported": bool(r["supported"]),
+                 "score_pct": r["score_pct"], "assessed_pct": r["assessed_pct"],
+                 "frameworks": json.loads(r["frameworks_json"] or "{}"),
+                 "assessed_at": r["created_at"]} for r in rows]

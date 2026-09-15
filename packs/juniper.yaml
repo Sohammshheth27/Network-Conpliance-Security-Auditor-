@@ -185,6 +185,11 @@ derivations:
     params:
       paths: ["system/ports/auxiliary", "system/ports/auxiliary/disable"]
       token: disable
+  # REST exists only under `system services rest` (CIS Junos 6.10.5.x audits
+  # it there); with no stanza the API is off, recorded as the default.
+  - field: platform.api.enabled
+    op: path_present
+    params: {glob: "system/services/rest/*"}
   # A v1/v2c community in the config IS v2c in use, whatever else is set.
   - field: snmp.version
     op: path_any_present
