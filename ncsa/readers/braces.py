@@ -44,6 +44,63 @@ _NAMED_LEAF_KEYS = {"address", "address-set", "application", "application-set",
                     "host", "server", "user", "prefix-list", "policer"}
 
 
+def _strip_trailing_comment(raw: str) -> str:
+    """Drop a trailing `## ...` annotation outside quotes.
+
+    Junos prints `## SECRET-DATA` after every secret it displays:
+
+        encrypted-password "$6$..."; ## SECRET-DATA
+
+    The line grammar requires a statement to END in `;`, so every such line
+    -- encrypted passwords, RADIUS secrets, NTP authentication keys -- was
+    silently dropped and read as absent. A whole-line comment is left alone
+    (it is skipped later); a `#` inside a quoted string is not a comment.
+    """
+    if "#" not in raw or raw.lstrip().startswith("#"):
+        return raw
+    quoted = False
+    for idx, ch in enumerate(raw):
+        if ch == '"':
+            quoted = not quoted
+        elif ch == "#" and not quoted and raw[idx:idx + 2] == "##":
+            return raw[:idx].rstrip()
+    return raw
+
+
+def _statements(lines: list[str]):
+    """Yield (line_index, statement), splitting a line that holds several.
+
+    `class ops { idle-timeout 5; }` is valid Junos on one line. The line
+    grammar expects one statement per line, so it matched neither a block
+    opener nor a leaf and the setting was silently dropped -- read as absent,
+    which a lockout or timeout control then reports as not configured.
+
+    Splitting happens only when a brace shares its line with other content,
+    respects double-quoted strings (`message "a; b { c }";`), and keeps the
+    ORIGINAL line index so evidence still points at the line the user sees.
+    """
+    for i, raw in enumerate(lines):
+        raw = _strip_trailing_comment(raw)
+        s = raw.strip()
+        if ("{" not in s and "}" not in s) or s.startswith(("#", "/*", "set ", "delete ")) \
+                or re.fullmatch(r"[^{}]*\{|\}", s):
+            yield i, raw
+            continue
+        buf, quoted = "", False
+        for ch in s:
+            if ch == '"':
+                quoted = not quoted
+            if not quoted and ch in "{};":
+                piece = (buf + ch).strip()
+                if piece and piece not in (";",):
+                    yield i, piece
+                buf = ""
+            else:
+                buf += ch
+        if buf.strip():
+            yield i, buf.strip()
+
+
 class BracesConfig:
     """Parsed Junos-style config, both syntaxes normalised to one path map."""
 
@@ -71,7 +128,7 @@ class BracesConfig:
                      else "mixed" if has_set and has_brace else "unknown")
 
         stack: list[str] = []
-        for i, raw in enumerate(self.lines):
+        for i, raw in _statements(self.lines):
             s = raw.strip()
             if not s or s.startswith("#") or s.startswith("/*"):
                 continue

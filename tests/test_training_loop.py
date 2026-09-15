@@ -15,6 +15,7 @@ Two journeys are proven, and neither involves a code change or a restart:
 Every test removes the packs it teaches, so the suite leaves no knowledge
 behind and never changes another test's result.
 """
+from ncsa.paths import resolve_packs_dir
 import json
 import os
 from pathlib import Path
@@ -33,7 +34,7 @@ SW = r"E:\sonicwall config file.txt"
 @pytest.fixture
 def clean_packs(tmp_path, monkeypatch):
     """Snapshot and restore any learned packs these tests touch."""
-    touched = [Path("packs/sonic.learned.yaml"), Path("packs/acme_os.learned.yaml")]
+    touched = [resolve_packs_dir() / "sonic.learned.yaml", resolve_packs_dir() / "acme_os.learned.yaml"]
     saved = {p: p.read_text(encoding="utf-8") for p in touched if p.exists()}
     for p in touched:
         p.unlink(missing_ok=True)
@@ -76,7 +77,7 @@ def test_a_new_vendor_cannot_be_taught_without_its_identity(clean_packs):
                          registry=None, kind="keys")
     assert not r.accepted
     assert "NEW vendor" in r.reason
-    assert not Path("packs/sonic.learned.yaml").exists(), "a refusal must write nothing"
+    assert not (resolve_packs_dir() / "sonic.learned.yaml").exists(), "a refusal must write nothing"
 
 
 @pytest.mark.parametrize("platform,reader,sig,expect", [
@@ -237,7 +238,7 @@ def test_api_refuses_a_signature_that_does_not_match_its_own_file(clean_packs, c
             "vendor": "SONiC", "reader": "json", "signature": ["$.NOT_A_TABLE"]}
     r = client.post("/training/approve", json=body).json()
     assert not r["accepted"] and "own file" in r["reason"]
-    assert not Path("packs/sonic.learned.yaml").exists()
+    assert not (resolve_packs_dir() / "sonic.learned.yaml").exists()
 
 
 def test_api_refuses_a_signature_that_captures_another_vendor(clean_packs, client, tmp_path):

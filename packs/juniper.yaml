@@ -116,9 +116,40 @@ mappings:
   - field: authentication.complexity
     path: "system/login/password/change-type"
     value: {const: true, empty_is_true: true}
-  - field: crypto.weak_ciphers
-    path: "system/services/ssh/ciphers"
-    value: {as: list}
+  # crypto.weak_ciphers is DERIVED below: this used to copy EVERY configured
+  # cipher into the field, so a device restricted to aes256-ctr failed the
+  # "no weak ciphers" controls -- and a device with no cipher statement
+  # passed them, although older Junos defaults include weak ones.
+
+  # --- grounded in the CIS Junos benchmark's audit commands ----------------
+  - field: authentication.lockout.enabled
+    path: "system/login/retry-options/lockout-period"
+    value: {const: true}
+  # management.aux.exec_disabled is DERIVED below: `auxiliary disable;` and
+  # `auxiliary { disable; }` store the same setting at different paths.
+  # `file <name> { interactive-commands any; }` records every command entered.
+  - field: logging.command_accounting
+    path: "system/syslog/*/*/interactive-commands"
+    value: {const: true}
+  - field: time.timezone
+    path: "system/time-zone"
+  # The top-level `version 21.4R3;` statement.
+  - field: platform.firmware.version
+    path: "version"
+
+  # --- grounded in the samples ----------------------------------------------
+  # Junos stores local passwords only as a hash; the config never holds the
+  # plain text, so the hash's presence is the observation.
+  - field: authentication.password_encryption
+    path: "system/root-authentication/encrypted-password"
+    value: {const: true}
+  - field: logging.remote_syslog
+    path: "system/syslog/host/*"
+    scope_from: 3
+    value: {const: true}
+  - field: logging.severity
+    path: "system/syslog/host/*/any"
+    scope_from: 3
   - field: snmp.version
     path: "snmp/v3"
     value: {const: "3"}
@@ -137,3 +168,28 @@ derivations:
     op: junos_telnet_enabled
   - field: management.ssh.enabled
     op: junos_ssh_enabled
+  # Weak = what CIS Junos 6.10.1.6 / 6.10.1.9 exclude: a cipher not matching
+  # aes|3des, a key exchange not matching sha2|ecdh|curve. With neither
+  # statement present the field stays unevaluated -- the default set is
+  # release-dependent, so absence proves nothing either way.
+  - field: crypto.weak_ciphers
+    op: path_weak_tokens
+    params:
+      rules:
+        - {path: "system/services/ssh/ciphers", strong: "aes|3des"}
+        - {path: "system/services/ssh/key-exchange", strong: "sha2|ecdh|curve"}
+  # CIS Junos 6.11.1: `set system ports auxiliary disable`. With no statement
+  # the port is enabled, so absence is judged by the control as usual.
+  - field: management.aux.exec_disabled
+    op: path_token_any
+    params:
+      paths: ["system/ports/auxiliary", "system/ports/auxiliary/disable"]
+      token: disable
+  # A v1/v2c community in the config IS v2c in use, whatever else is set.
+  - field: snmp.version
+    op: path_any_present
+    params: {glob: "snmp/community/*", value: "2c"}
+
+not_applicable_fields:
+  authentication.enable_secret: "Junos has no enable or privileged-mode password; privilege comes from the login class"
+  management.vty.transport_output: "no vty line construct on Junos"

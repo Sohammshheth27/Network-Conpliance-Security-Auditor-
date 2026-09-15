@@ -63,7 +63,9 @@ class ApprovalResult:
 
 
 def learned_path(platform: str) -> Path:
-    return PACKS_DIR / f"{platform}{LEARNED_SUFFIX}"
+    from ..paths import resolve_packs_dir
+
+    return resolve_packs_dir(PACKS_DIR) / f"{platform}{LEARNED_SUFFIX}"
 
 
 #: A pack taught entirely through the training interface, with no authored
@@ -385,7 +387,9 @@ def learned_settings(platform: str) -> set:
 def learned_summary() -> dict:
     """Everything the training interface has taught, per platform."""
     out, total = [], 0
-    for p in sorted(PACKS_DIR.glob(f"*{LEARNED_SUFFIX}")):
+    from ..paths import resolve_packs_dir
+
+    for p in sorted(resolve_packs_dir(PACKS_DIR).glob(f"*{LEARNED_SUFFIX}")):
         try:
             doc = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
         except Exception:                              # noqa: BLE001

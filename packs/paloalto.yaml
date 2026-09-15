@@ -42,6 +42,9 @@ vendor: paloalto
 platform: panos
 reader: xml
 version: "1.0"
+# The release of the genuine export the mappings were validated against
+# (tests/fixtures/panos_running_config.xml, `<config version="5.0.0">`).
+verified_versions: ["5.0.0"]
 
 supported_domains: [device, platform, management, authentication, authorization,
                     logging, time, snmp, banner, crypto, interfaces,
@@ -71,6 +74,10 @@ mappings:
     const: PAN-OS
   - field: device.hostname
     path: "devices/*/deviceconfig/system/hostname"
+  # The running config's root carries the release that wrote it:
+  # `<config version="5.0.0" ...>` in the reference export.
+  - field: device.version
+    path: "config/@version"
 
   # -------------------------------------------------------------- management
   # Negative booleans -- see the header. `disable-telnet yes` => telnet OFF.

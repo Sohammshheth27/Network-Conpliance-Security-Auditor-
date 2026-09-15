@@ -233,6 +233,13 @@ PACK_LOAD_ERRORS: list[dict] = []
 
 
 def load_packs(packs_dir="packs") -> list:
+    """Every pack on disk; the default directory follows NCSA_PACKS_DIR."""
+    from .paths import resolve_packs_dir
+
+    return _load_packs(resolve_packs_dir(packs_dir))
+
+
+def _load_packs(packs_dir) -> list:
     """Every pack on disk, with learned mappings merged in.
 
     `<platform>.learned.yaml` holds mappings approved through the training

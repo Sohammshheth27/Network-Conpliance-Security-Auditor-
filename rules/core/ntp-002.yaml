@@ -14,6 +14,8 @@ frameworks:
   # XCCDF files, not recalled -- a control may map to several.
   stig_by_platform:
     cisco_iosxe_router: [V-215843]
+    cisco_iosxe_switch: [V-220554]
+    paloalto_panos: [V-228678]
   # CIS recommendation numbers live in the vendor pack (plan 6.1).
 
 remediation:

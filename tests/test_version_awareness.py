@@ -79,7 +79,8 @@ def test_an_unverified_release_is_noted_and_changes_no_result(packs_17_9, tmp_pa
 
 
 def test_real_packs_claim_only_releases_seen_on_a_real_device():
-    """Only the SonicWall pack is grounded in a captured device export."""
+    """Only packs grounded in a captured device export may claim a release:
+    SonicWall (the NSA 3700 export) and PAN-OS (a genuine running config)."""
     import glob
 
     import yaml
@@ -89,4 +90,4 @@ def test_real_packs_claim_only_releases_seen_on_a_real_device():
         d = yaml.safe_load(open(p, encoding="utf-8")) or {}
         if d.get("verified_versions"):
             claims[d["platform"]] = d["verified_versions"]
-    assert claims == {"sonicwall_sonicos": ["7.3.0"]}
+    assert claims == {"sonicwall_sonicos": ["7.3.0"], "panos": ["5.0.0"]}

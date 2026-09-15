@@ -255,7 +255,8 @@ def _suggest(candidates) -> None:
     try:
         from ..nlp.matcher import NlpMatcher, corpus_from_packs
         from ..nlp.semantic import SemanticMatcher
-        lex = NlpMatcher(corpus_from_packs("packs", "samples")).fit()
+        from ..paths import resolve_packs_dir
+        lex = NlpMatcher(corpus_from_packs(str(resolve_packs_dir()), "samples")).fit()
         sem = SemanticMatcher(lexical=lex).fit()
     except Exception:                                  # noqa: BLE001
         return

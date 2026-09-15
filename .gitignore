@@ -19,6 +19,9 @@ downloads/
 
 # ------------------------------------------------------------ customer data
 # Plan 5.1: never commit a real config. Run netconan on anything real first.
+# data/ holds every uploaded or collected configuration and the assessment
+# database (ncsa/api/store.py) -- customer data by definition.
+data/
 samples/**/*.exp
 samples/**/real_*
 *.exp

@@ -20,30 +20,65 @@ all work unchanged:
     system/services/ssh/protocol-version
 
 Namespaces are stripped. Junos wraps its output in the JUNOS namespace, and a
-pack author writing `system/services/ssh` should not have to know that. Two
-elements that differ only by namespace are vanishingly rare in device configs
-and would be a poor trade for making every path unreadable.
+pack author writing `system/services/ssh` should not have to know that.
 
-`entry` elements are the vendor's list idiom (PAN-OS names every rule, zone and
-address object with `<entry name="...">`). The `name` attribute is folded into
-the path, so a pack can address one rule by name rather than by position --
-position changes when a rule is inserted, and a mapping keyed on it would
-silently start reading a different rule.
+REPEATED ELEMENTS ARE KEYED BY THEIR OWN IDENTITY
+-------------------------------------------------
+A list element's identity is folded into its path segment, so each item keeps
+its own settings:
+
+    PAN-OS   <entry name="rule-1">              -> entry[rule-1]
+    Junos    <class><name>ops</name>            -> class[ops]
+    Junos    <policy><from-zone-name>trust</..>
+                     <to-zone-name>untrust</..> -> policy[trust>untrust]
+
+Junos carries the name in a CHILD element rather than an attribute, and this
+reader used to key only on attributes. Every <policy>, <class>, <user> and
+<host> then shared one path: a policy graph built from it gave every rule the
+first rule's action and the union of every rule's addresses, and refused
+outright when a device had more than one zone pair.
+
+Exact-path lookups stay backward compatible: `get`/`get_all` fall back to the
+path with the keys removed, which returns the old collapsed view. Wildcard
+`glob` patterns already match a keyed segment with its bare name.
 """
 from __future__ import annotations
 
 import re
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from ..schema.evidence import EvidenceRef
 
 # `{urn:...}tag` -> `tag`
 _NS = re.compile(r"^\{[^}]*\}")
+_INDEX = re.compile(r"\[[^\]]*\]")
 
 
 def _tag(el) -> str:
     return _NS.sub("", el.tag)
+
+
+def _escape(ident: str) -> str:
+    # An identity may contain the path separator: PAN-OS names interfaces
+    # `ethernet1/1`, Junos names them `ge-0/0/0`. Encoding keeps the segment
+    # atomic; `%2F` is the conventional escape and round-trips through unquote.
+    return ident.replace("%", "%25").replace("/", "%2F").replace("]", "%5D")
+
+
+class _Node:
+    __slots__ = ("tag", "attrs", "line", "text", "children")
+
+    def __init__(self, tag, attrs, line):
+        self.tag, self.attrs, self.line = tag, attrs, line
+        self.text: list = []
+        self.children: list = []
+
+    def leaf_text(self, tag: str) -> str | None:
+        for c in self.children:
+            if c.tag == tag and not c.children:
+                t = "".join(c.text).strip()
+                return t or None
+        return None
 
 
 class XmlConfig:
@@ -53,85 +88,42 @@ class XmlConfig:
         self.source_file = source_file
         self.lines = text.splitlines()
         self._consumed: set[int] = set()
-        # path -> list[(value, lineno, raw)]
+        # path -> list[(value, lineno, raw)], in document order
         self._paths: dict[str, list] = {}
+        # the same entries under the path with every [key] removed
+        self._plain: dict[str, list] = {}
         # (line, raw) -> structural path, for EvidenceRef.record_id
         self._rec_of: dict = {}
         self._parse(text)
 
     # ------------------------------------------------------------------ parse
     def _parse(self, text: str) -> None:
-        """Streamed with expat, for the line numbers.
+        """Build a light tree with expat (for true line numbers), then walk it.
 
-        ElementTree does not record source positions, and the documented
-        recipe for adding them (overriding `XMLParser._start`) is silently
-        inert on CPython's C accelerator -- the hook is never called, so every
-        element reported line 1.
-
-        The first attempt instead indexed the first textual occurrence of each
-        tag name. That collapsed repeated elements: both `<host><name>` entries
-        in a Junos syslog block cited the same line, so the evidence for the
-        SECOND syslog server pointed at the FIRST. Evidence that points at the
-        wrong line is worse than none -- a reviewer checks it, sees a different
-        value, and stops trusting every other finding in the report.
-
-        expat reports `CurrentLineNumber` natively, and since this reader
-        builds a flat path map rather than a tree, the parser is all we need.
+        Two passes because an element's key can depend on its CHILDREN -- a
+        Junos <class> is named by the <name> inside it -- so its path is only
+        known once the element has closed. expat reports `CurrentLineNumber`
+        natively; ElementTree records no positions at all.
         """
         import xml.parsers.expat
 
-        trail: list = []
-        text_buf: list = []
-        # Elements that turned out to have children are not flags; the buffer
-        # lets us decide that only when the element closes.
-        has_child: list = []
-
+        stack: list[_Node] = []
+        root: list[_Node] = []
         p = xml.parsers.expat.ParserCreate(namespace_separator=None)
 
         def start(tag, attrs):
-            tag = _NS.sub("", tag)
-            if has_child:
-                has_child[-1] = True
-            ident = attrs.get("name")
-            if ident is not None:
-                # An entry name may legitimately contain the path separator.
-                # PAN-OS names every interface `ethernet1/1` and every address
-                # `81.81.0.1/24`, so folding the raw name in split
-                # `entry[ethernet1/1]` into `entry[ethernet1` + `1]` and
-                # mangled the path of every interface and every IP on the
-                # device. Encoding keeps the segment atomic; `%2F` is the
-                # conventional escape and round-trips through `unquote`.
-                ident = ident.replace("%", "%25").replace("/", "%2F")
-            trail.append((f"{tag}[{ident}]" if ident else tag,
-                          p.CurrentLineNumber, tag))
-            has_child.append(False)
-            text_buf.append([])
-            path = self._path(trail)
-            for k, v in attrs.items():
-                k = _NS.sub("", k)          # attributes carry namespaces too
-                if k == "name":
-                    continue
-                self._add(f"{path}/@{k}", v, p.CurrentLineNumber,
-                          f"{tag} @{k}={v}")
+            n = _Node(_NS.sub("", tag),
+                      {_NS.sub("", k): v for k, v in attrs.items()},
+                      p.CurrentLineNumber)
+            (stack[-1].children if stack else root).append(n)
+            stack.append(n)
 
         def chars(data):
-            if text_buf:
-                text_buf[-1].append(data)
+            if stack:
+                stack[-1].text.append(data)
 
         def end(_tag):
-            seg, line, name = trail[-1]
-            body = "".join(text_buf.pop()).strip()
-            had_children = has_child.pop()
-            path = self._path(trail)
-            if body and not had_children:
-                self._add(path, body, line, f"<{name}>{body[:60]}</{name}>")
-            elif not body and not had_children:
-                # An empty element is a FLAG, not a missing value. Junos writes
-                # `<telnet/>` to mean telnet is ENABLED; reading that as absent
-                # inverts the meaning of every boolean the vendor expresses
-                # this way, which is most of them.
-                self._add(path, "<present>", line, f"<{name}/>")
-            trail.pop()
+            stack.pop()
 
         p.StartElementHandler = start
         p.EndElementHandler = end
@@ -141,29 +133,65 @@ class XmlConfig:
         except xml.parsers.expat.ExpatError as exc:
             raise ValueError(f"{self.source_file}: not well-formed XML ({exc})")
 
+        for r in root:
+            self._walk(r, [], is_root=True)
+
     @staticmethod
-    def _path(trail) -> str:
-        return "/".join(seg for seg, _l, _n in trail[1:]) or (
-            trail[0][0] if trail else "")
+    def _segment(n: _Node) -> str:
+        ident = n.attrs.get("name")
+        if ident is None:
+            ident = n.leaf_text("name")
+        if ident is None:
+            src, dst = n.leaf_text("from-zone-name"), n.leaf_text("to-zone-name")
+            if src and dst:
+                ident = f"{src}>{dst}"
+        return f"{n.tag}[{_escape(ident)}]" if ident is not None else n.tag
+
+    def _walk(self, n: _Node, prefix: list, *, is_root: bool = False) -> None:
+        # The root element is not part of child paths (`system/...`, not
+        # `rpc-reply/configuration/...` for its first level) but its own
+        # attributes and text are addressed by its tag: `config/@version`.
+        seg = n.tag if is_root else self._segment(n)
+        segs = [] if is_root else prefix + [seg]
+        own = "/".join(segs) or n.tag
+        for k, v in n.attrs.items():
+            if k == "name":
+                continue
+            self._add(f"{own}/@{k}", v, n.line, f"{n.tag} @{k}={v}")
+        body = "".join(n.text).strip()
+        if not n.children:
+            if body:
+                self._add(own, body, n.line, f"<{n.tag}>{body[:60]}</{n.tag}>")
+            elif not is_root:
+                # An empty element is a FLAG, not a missing value. Junos writes
+                # `<telnet/>` to mean telnet is ENABLED; reading that as absent
+                # inverts the meaning of every boolean expressed this way.
+                self._add(own, "<present>", n.line, f"<{n.tag}/>")
+            return
+        for c in n.children:
+            self._walk(c, segs)
 
     def _add(self, path: str, value: str, line: int, raw: str) -> None:
-        self._paths.setdefault(path, []).append((value, line, raw))
+        entry = (value, line, raw)
+        self._paths.setdefault(path, []).append(entry)
+        self._plain.setdefault(_INDEX.sub("", path), []).append(entry)
         self._rec_of[(line, raw)] = path
 
     # -------------------------------------------------------------- accessors
     def get_all(self, path: str) -> list:
-        return list(self._paths.get(path, []))
+        return list(self._paths.get(path) or self._plain.get(path) or [])
 
     def get(self, path: str):
-        hits = self._paths.get(path)
+        hits = self._paths.get(path) or self._plain.get(path)
         if not hits:
             return None
         self._consumed.add(hits[0][1] - 1)
         return hits[0]
 
     def glob(self, pattern: str) -> list:
-        """Wildcard path match. `*` spans one segment, and an indexed segment
-        (`entry[name]`) matches a bare `*` so a pack need not know the names."""
+        """Wildcard path match. `*` spans one segment, and a keyed segment
+        (`entry[name]`, `class[ops]`) matches its bare name so a pack need not
+        know the keys."""
         rx = re.compile(
             "^" + "/".join(
                 r"[^/]+" if seg == "*" else re.escape(seg) + r"(\[[^\]]*\])?"
@@ -180,11 +208,9 @@ class XmlConfig:
     def evidence(self, lineno: int, raw: str) -> EvidenceRef:
         """Anchor a finding back into the export.
 
-        `record_id` exists on EvidenceRef for exactly this -- "structural path
-        for non-line formats" -- so an XML finding cites both the line a human
-        can scroll to AND the path a machine can re-query. A line number alone
-        is fragile here: an XML export is often re-serialised with different
-        whitespace, and the path survives that where the line does not.
+        `record_id` carries the structural path, so an XML finding cites both
+        the line a human can scroll to AND the path a machine can re-query --
+        a re-serialised export changes the line but not the path.
         """
         return EvidenceRef(file=self.source_file, line=lineno,
                            raw=raw.strip()[:200],
@@ -221,6 +247,10 @@ class XmlConfig:
     @property
     def paths(self) -> list:
         return sorted(self._paths)
+
+    def iter_paths(self) -> list:
+        """Every path in DOCUMENT order -- rule order on a firewall matters."""
+        return list(self._paths)
 
 
 def load(path, **_kw) -> XmlConfig:

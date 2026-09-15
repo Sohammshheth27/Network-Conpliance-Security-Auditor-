@@ -185,6 +185,9 @@ def write_collected(c: Collected, dest_dir: Path) -> Path:
     """Write the configuration exactly as received -- no header, because a
     comment line in front of XML or a Junos block changes how it parses."""
     safe = re.sub(r"[^A-Za-z0-9.\-]", "_", c.host)
-    dest = Path(dest_dir) / f"{uuid.uuid4().hex}_{safe}{PROFILES[c.platform].suffix}"
+    # One folder per collection, so the file keeps a clean name (the host).
+    folder = Path(dest_dir) / uuid.uuid4().hex
+    folder.mkdir(parents=True, exist_ok=True)
+    dest = folder / f"{safe}{PROFILES[c.platform].suffix}"
     dest.write_text(c.text, encoding="utf-8")
     return dest

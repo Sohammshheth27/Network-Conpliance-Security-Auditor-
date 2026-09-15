@@ -13,8 +13,7 @@ frameworks:
   # STIG Vuln IDs are per-platform. Derived from the downloaded
   # XCCDF files, not recalled -- a control may map to several.
   stig_by_platform:
-    cisco_iosxe_router: [V-215838]
-    cisco_iosxe_switch: [V-220549]
+    juniper_srx: [V-223205]
   # CIS recommendation numbers live in the vendor pack (plan 6.1).
 
 remediation:

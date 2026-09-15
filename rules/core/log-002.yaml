@@ -15,6 +15,7 @@ frameworks:
   stig_by_platform:
     cisco_iosxe_router: [V-220139]
     cisco_iosxe_switch: [V-220568]
+    cisco_asa: [V-239943]
   # CIS recommendation numbers live in the vendor pack (plan 6.1).
 
 remediation:

@@ -42,8 +42,10 @@ def analysis_fingerprint(packs_dir="packs", rules_dir="rules") -> str:
     unrelated edit look like an analysis change, and then nobody would trust
     the distinction that makes this module worth having.
     """
+    from ..paths import resolve_packs_dir
+
     h = hashlib.sha256()
-    for d in (Path(packs_dir), Path(rules_dir)):
+    for d in (resolve_packs_dir(packs_dir), Path(rules_dir)):
         for f in sorted(d.rglob("*.yaml")):
             if f.name.endswith(".learned.yaml"):
                 # Learned mappings DO change outcomes, so they are included --
@@ -69,6 +71,9 @@ class Snapshot:
     states: dict = field(default_factory=dict)       # control_id -> state
     observed: dict = field(default_factory=dict)     # control_id -> value
     rules: dict = field(default_factory=dict)        # rule id -> signature
+    # framework key -> that framework's own score (average requirement
+    # satisfaction). Empty in snapshots taken before this was recorded.
+    frameworks: dict = field(default_factory=dict)
 
     def to_json(self) -> dict:
         return {"taken_at": self.taken_at, "device_key": self.device_key,
@@ -77,7 +82,7 @@ class Snapshot:
                 "analysis_version": self.analysis_version,
                 "identity": self.identity, "coverage": self.coverage,
                 "states": self.states, "observed": self.observed,
-                "rules": self.rules}
+                "rules": self.rules, "frameworks": self.frameworks}
 
     @staticmethod
     def from_json(d) -> "Snapshot":
@@ -125,7 +130,14 @@ def snapshot(device_assessment, *, taken_at=None) -> Snapshot:
         for r in getattr(da.graph, "rules", []):
             rules[r.id] = _rule_signature(r)
 
+    frameworks = {}
+    if da.assessment is not None:
+        from ..frameworks.selection import framework_coverage
+        frameworks = {r["framework"]: r["framework_score_pct"]
+                      for r in framework_coverage(da.assessment.findings)}
+
     return Snapshot(
+        frameworks=frameworks,
         taken_at=taken_at or datetime.now().replace(microsecond=0).isoformat(),
         device_key=_device_key(da.identity),
         device_keys=device_identifiers(da.identity),
@@ -206,6 +218,8 @@ class DiffReport:
     rules_removed: list = field(default_factory=list)
     rules_modified: list = field(default_factory=list)
     notes: list = field(default_factory=list)
+    # framework key -> [score before, score after]
+    framework_scores: dict = field(default_factory=dict)
 
     def by_direction(self, d) -> list:
         return [c for c in self.control_changes if c.direction == d]
@@ -214,6 +228,7 @@ class DiffReport:
         return {"device_changed": self.device_changed,
                 "analysis_changed": self.analysis_changed,
                 "score": [self.score_before, self.score_after],
+                "frameworks": self.framework_scores,
                 "improved": len(self.by_direction(IMPROVED)),
                 "regressed": len(self.by_direction(REGRESSED)),
                 "coverage_changes": len(self.by_direction(COVERAGE)),
@@ -242,6 +257,9 @@ class DiffReport:
 
         if self.score_before is not None and self.score_after is not None:
             out.append(f"score {self.score_before}% -> {self.score_after}%")
+        for fw, (b, a) in sorted(self.framework_scores.items()):
+            if b != a and b is not None and a is not None:
+                out.append(f"  {fw} score {b}% -> {a}%")
         for c in self.by_direction(REGRESSED):
             out.append(f"  WORSE  {c.control_id}: {c.before} -> {c.after}")
         for c in self.by_direction(IMPROVED):
@@ -272,7 +290,12 @@ def compare(before: Snapshot, after: Snapshot) -> DiffReport:
         analysis_changed=before.analysis_version != after.analysis_version,
         before_at=before.taken_at, after_at=after.taken_at,
         score_before=before.coverage.get("score_pct"),
-        score_after=after.coverage.get("score_pct"))
+        score_after=after.coverage.get("score_pct"),
+        # Only frameworks recorded on BOTH sides: a snapshot from before
+        # framework scores were kept has none, and a missing value is not 0.
+        framework_scores={k: [before.frameworks.get(k), after.frameworks.get(k)]
+                          for k in sorted(set(before.frameworks or {})
+                                          & set(after.frameworks or {}))})
 
     if not rep.same_device:
         rep.notes.append(

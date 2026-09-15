@@ -97,7 +97,7 @@ you pasted, seven capabilities were built, tested, and callable from nowhere.
 All seven now have endpoints. What remains is that eight of them have **no
 button in the console** — the work in §5.
 
-### The 40 live API routes
+### The 41 live API routes
 
 Counted from `ncsa/api/app.py`, not maintained by hand.
 
@@ -113,7 +113,7 @@ GET   /assessments                        everything assessed this session
 GET   /assessment/{id}                    findings, coverage, per-framework result
 GET   /assessment/{id}/remediation        fix commands, lockout-checked
 GET   /assessment/{id}/baseline           the device's security baseline model
-GET   /assessment/{id}/report             PDF report
+GET   /assessment/{id}/report             PDF report; ?framework= scopes it to one
 POST  /assessment/{id}/blast-radius       what a compromise here reaches
 GET   /assessment/{id}/zones              zone model
 GET   /assessment/{id}/extended           VPN / wireless / CVE (beside the score)
@@ -134,6 +134,7 @@ POST  /topology                           build a fabric from several devices
 GET   /assessment/{id}/interfaces         the addressing topology infers from
 POST  /assessment/{id}/snapshot           record state for later comparison
 GET   /assessment/{id}/diff               what changed since last snapshot
+GET   /assessment/{id}/history            framework scores over time (snapshots)
 GET   /assessment/{id}/recertification    rules due for review / deletion
 POST  /assessment/{id}/logs               correlate syslog against rules
 GET   /assessment/{id}/consensus          independent-parser agreement

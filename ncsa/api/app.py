@@ -64,16 +64,18 @@ def console():
     return FileResponse(str(_STATIC / "index.html"))
 
 
-# Assessments live for the session. A database is the right answer later; an
-# in-memory dict is the honest answer now, and swapping it is one function.
-_STORE: dict = {}
-#: The redaction choice each assessment was made with, so a re-assessment
-#: after training uses the same one.
-_REDACT: dict = {}
-#: The frameworks each assessment was made against.
-_FRAMEWORKS: dict = {}
-_UPLOADS = Path(tempfile.gettempdir()) / "ncsa_uploads"
-_UPLOADS.mkdir(parents=True, exist_ok=True)
+# Assessments survive a restart: SQLite records each one with the file and the
+# options it was made with, and it is rebuilt on first access afterwards (see
+# store.py). NCSA_DATA_DIR moves the data directory; it defaults to ./data,
+# which is git-ignored because it holds customer configurations.
+import os as _os
+
+from .store import AssessmentStore
+
+_DATA_DIR = Path(_os.environ.get("NCSA_DATA_DIR")
+                 or Path(__file__).resolve().parents[2] / "data")
+_STORE = AssessmentStore(_DATA_DIR)
+_UPLOADS = _STORE.uploads
 
 #: The hash-chained log of every approved mapping -- the product's audit trail.
 #: A module constant so tests can point it elsewhere: a test approval written
@@ -103,7 +105,7 @@ async def assess_upload(files: list[UploadFile] = File(...),
 
     out = []
     for f in files:
-        dest = _UPLOADS / f"{uuid.uuid4().hex}_{Path(f.filename or 'config').name}"
+        dest = _STORE.new_upload_path(f.filename or "config", uuid.uuid4().hex)
         size = 0
         with dest.open("wb") as fh:
             while chunk := await f.read(1 << 20):
@@ -138,9 +140,7 @@ def _ingest(dest: Path, name: str, redact: bool, fws, notes: list | None = None)
                               notes=[f"{type(exc).__name__}: {exc}"])
     if notes and isinstance(da.notes, list):
         da.notes[0:0] = list(notes)
-    _STORE[aid] = (da, dest)
-    _REDACT[aid] = redact
-    _FRAMEWORKS[aid] = fws
+    _STORE.put(aid, da, dest, name=name, redact=redact, frameworks=fws)
     return aid, da
 
 
@@ -198,12 +198,9 @@ def get_assessment(aid: str):
 
 @app.get("/assessments", tags=["assess"])
 def list_assessments():
-    return [{"assessment_id": k,
-             "device": v[0].identity.hostname or v[0].identity.source_file,
-             "vendor": v[0].identity.vendor,
-             "score_pct": v[0].coverage()["score_pct"],
-             "assessed_pct": v[0].coverage()["assessed_pct"]}
-            for k, v in _STORE.items()]
+    # From the database, so assessments from before a restart are listed
+    # without re-running any of them.
+    return _STORE.summaries()
 
 
 # ------------------------------------------------------------- remediation
@@ -237,25 +234,44 @@ def get_baseline(aid: str):
 
 
 @app.get("/assessment/{aid}/report", tags=["report"])
-def get_report(aid: str, format: str = Query("pdf", pattern="^(pdf|html)$")):
+def get_report(aid: str, format: str = Query("pdf", pattern="^(pdf|html)$"),
+               framework: str | None = Query(None)):
     """The formal assessment report: device details and every result.
 
     Monochrome and typeset for print, because this is the artefact an auditor
     signs against. Every figure is computed from the assessment when the
     report is rendered -- nothing is cached, and nothing is written by hand.
+
+    `framework` (cis, nist_800_53, stig, iso_27001) produces the report for
+    ONE framework: the same configuration re-assessed with only that
+    framework selected -- exactly what selecting it at upload does, so the
+    scoped report cannot disagree with a scoped assessment.
     """
     from fastapi.responses import HTMLResponse
 
+    from ..frameworks.selection import normalise
     from ..report import build_report, write_pdf
 
-    da, _ = _get(aid)
+    da, path = _get(aid)
+    suffix = ""
+    if framework:
+        try:
+            key = normalise([framework])[0]
+        except (ValueError, TypeError, IndexError) as exc:
+            raise HTTPException(422, str(exc) or "unknown framework") from None
+        from ..pipeline import assess
+
+        meta = _STORE.meta(aid) or {}
+        da = assess(path, redact=meta.get("redact", True), assessment_id=aid,
+                    frameworks=[key])
+        suffix = f"_{key}"
     device = (da.identity.hostname or da.identity.source_file or aid)
     safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in device)
 
     if format == "html":
         return HTMLResponse(build_report(da, aid))
 
-    out = _UPLOADS / f"NCSA_Report_{safe}_{aid}.pdf"
+    out = _UPLOADS / f"NCSA_Report_{safe}_{aid}{suffix}.pdf"
     try:
         write_pdf(da, out, aid)
     except RuntimeError as exc:
@@ -694,13 +710,13 @@ def reassess(aid: str):
     from ..pipeline import assess
 
     _old, dest = _get(aid)
+    meta = _STORE.meta(aid) or {}
     new_aid = uuid.uuid4().hex[:12]
-    redact = _REDACT.get(aid, True)
-    fws = _FRAMEWORKS.get(aid)
+    redact = meta.get("redact", True)
+    fws = meta.get("frameworks")
     da = assess(dest, redact=redact, assessment_id=new_aid, frameworks=fws)
-    _STORE[new_aid] = (da, dest)
-    _REDACT[new_aid] = redact
-    _FRAMEWORKS[new_aid] = fws
+    _STORE.put(new_aid, da, dest, name=meta.get("name") or Path(dest).name,
+               redact=redact, frameworks=fws)
     return assessment_out(da, new_aid)
 
 
@@ -810,6 +826,26 @@ def get_diff(aid: str):
     # first, so they travel with the raw delta rather than being recomputed.
     return {**asdict(report), "summary": report.summary(),
             "explain": report.explain()}
+
+
+@app.get("/assessment/{aid}/history", tags=["change"])
+def get_history(aid: str):
+    """Every recorded snapshot of THIS device, oldest first: the overall
+    score, coverage and each framework's own score over time.
+
+    Recording is explicit (POST .../snapshot or GET .../diff); viewing the
+    history never writes one.
+    """
+    from ..diff.compare import _device_key, history
+
+    da, _ = _get(aid)
+    return [{"taken_at": s.taken_at,
+             "score_pct": (s.coverage or {}).get("score_pct"),
+             "assessed_pct": (s.coverage or {}).get("assessed_pct"),
+             "frameworks": s.frameworks or {},
+             "config_sha256": (s.config_sha256 or "")[:12],
+             "analysis_version": s.analysis_version}
+            for s in history(_device_key(da.identity))]
 
 
 # ----------------------------------------------------- recertification

@@ -24,6 +24,12 @@ CIS_CROSSWALK = Path(__file__).resolve().parents[2] / "crosswalks" / "cis.yaml"
 #: Platforms that share another platform's benchmark.
 _CIS_ALIASES = {"juniper_srx_xml": "juniper_srx"}
 
+#: Pack platform -> the key rules use under `stig_by_platform`. STIG IDs are
+#: filed by the STIG's product; the PAN-OS pack's platform is `panos`, and a
+#: Junos XML export is the same device as a text one. Without this the PAN-OS
+#: and Junos-XML findings silently carried no STIG IDs at all.
+_STIG_ALIASES = {"juniper_srx_xml": "juniper_srx", "panos": "paloalto_panos"}
+
 
 @lru_cache(maxsize=1)
 def _cis_crosswalk() -> dict:
@@ -53,8 +59,9 @@ def load_rule(path: str | Path, *, platform: str | None = None) -> Control:
     fw = d.get("frameworks", {}) or {}
     stig_ids: list[str] = list(fw.get("stig", []) or [])
     by_platform = fw.get("stig_by_platform", {}) or {}
-    if platform and platform in by_platform:
-        stig_ids += [v for v in by_platform[platform] if v not in stig_ids]
+    stig_key = _STIG_ALIASES.get(platform or "", platform or "")
+    if stig_key and stig_key in by_platform:
+        stig_ids += [v for v in by_platform[stig_key] if v not in stig_ids]
 
     # CIS numbers are per platform too: "2.1.1" in the IOS XE benchmark is a
     # different recommendation from "2.1.1" in the Junos one.

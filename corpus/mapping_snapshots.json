@@ -6,8 +6,8 @@
    "MANUAL_REVIEW": 0,
    "NOT_APPLICABLE": 4,
    "PARTIAL": 0,
-   "PASS": 14,
-   "UNKNOWN": 26
+   "PASS": 12,
+   "UNKNOWN": 28
   },
   "fields": {
    "authentication.aaa_authentication": [
@@ -20,7 +20,6 @@
    ],
    "authentication.password_encryption": true,
    "authorization.role_based": true,
-   "crypto.weak_ciphers": [],
    "firewall.default_action": "deny",
    "management.ssh.enabled": true,
    "management.ssh.version": 2,
@@ -88,8 +87,8 @@
    "MANUAL_REVIEW": 0,
    "NOT_APPLICABLE": 4,
    "PARTIAL": 2,
-   "PASS": 16,
-   "UNKNOWN": 22
+   "PASS": 14,
+   "UNKNOWN": 24
   },
   "fields": {
    "authentication.aaa_enabled": false,
@@ -101,7 +100,6 @@
    "authentication.min_password_length": 8,
    "authentication.password_encryption": true,
    "authorization.role_based": true,
-   "crypto.weak_ciphers": [],
    "firewall.default_action": "deny",
    "interfaces.description": "WAN to ISP",
    "interfaces.shutdown": false,
@@ -397,18 +395,19 @@
  "srx-combined.conf": {
   "counts": {
    "ERROR": 0,
-   "FAIL": 13,
+   "FAIL": 19,
    "MANUAL_REVIEW": 0,
-   "NOT_APPLICABLE": 2,
+   "NOT_APPLICABLE": 4,
    "PARTIAL": 2,
-   "PASS": 12,
-   "UNKNOWN": 59
+   "PASS": 13,
+   "UNKNOWN": 50
   },
   "fields": {
    "authentication.local_accounts": [
     "2001"
    ],
    "authentication.min_password_length": 8,
+   "authentication.password_encryption": true,
    "authorization.role_based": true,
    "banner.login": "Unauthorized access prohibited",
    "exposure.admin_ports_open_to_internet": [
@@ -425,9 +424,11 @@
    "firewall.rules_unevaluable": [
     "allow-db-broken: BROKEN_SET [UNRESOLVED]"
    ],
+   "logging.remote_syslog": true,
    "logging.servers": [
     "notice"
    ],
+   "logging.severity": "notice",
    "management.ssh.enabled": true,
    "management.ssh.version": 2,
    "management.telnet.enabled": true,
@@ -443,19 +444,19 @@
   },
   "platform": "juniper_srx",
   "records": {
-   "PARSED": 13,
-   "UNKNOWN": 36
+   "PARSED": 14,
+   "UNKNOWN": 35
   }
  },
  "srx-display-xml-weak.xml": {
   "counts": {
    "ERROR": 0,
-   "FAIL": 9,
+   "FAIL": 18,
    "MANUAL_REVIEW": 0,
-   "NOT_APPLICABLE": 4,
+   "NOT_APPLICABLE": 6,
    "PARTIAL": 0,
-   "PASS": 7,
-   "UNKNOWN": 68
+   "PASS": 8,
+   "UNKNOWN": 56
   },
   "fields": {
    "authentication.local_accounts": [
@@ -477,12 +478,14 @@
    "management.ssh.enabled": true,
    "management.ssh.version": 1,
    "management.telnet.enabled": true,
+   "platform.firmware.version": "12.1X44-D10",
    "snmp.communities": [
     "private",
     "public"
    ],
    "snmp.v3_auth": false,
    "snmp.v3_priv": false,
+   "snmp.version": "2c",
    "time.authenticated": false,
    "time.ntp_enabled": false
   },
@@ -496,17 +499,18 @@
  "srx-display-xml.xml": {
   "counts": {
    "ERROR": 0,
-   "FAIL": 1,
+   "FAIL": 7,
    "MANUAL_REVIEW": 0,
-   "NOT_APPLICABLE": 4,
+   "NOT_APPLICABLE": 6,
    "PARTIAL": 0,
-   "PASS": 21,
-   "UNKNOWN": 62
+   "PASS": 24,
+   "UNKNOWN": 51
   },
   "fields": {
    "authentication.local_accounts": [
     "netadmin"
    ],
+   "authentication.password_encryption": true,
    "authorization.role_based": true,
    "banner.login": "Authorised access only. Activity is monitored and logged.",
    "firewall.default_action": "deny",
@@ -522,6 +526,7 @@
     "untrust"
    ],
    "logging.enabled": true,
+   "logging.remote_syslog": true,
    "logging.servers": [
     "10.20.0.50",
     "10.20.0.51"
@@ -534,6 +539,7 @@
    "management.vty.exec_timeout": [
     "10"
    ],
+   "platform.firmware.version": "21.4R3-S4.9",
    "snmp.v3_auth": true,
    "snmp.v3_priv": true,
    "time.authenticated": true,
@@ -546,35 +552,38 @@
   },
   "platform": "juniper_srx_xml",
   "records": {
-   "MAPPED": 22,
-   "PARSED": 21,
+   "MAPPED": 24,
+   "PARSED": 19,
    "UNKNOWN": 0
   }
  },
  "srx-fw-01.conf": {
   "counts": {
    "ERROR": 0,
-   "FAIL": 10,
+   "FAIL": 16,
    "MANUAL_REVIEW": 0,
-   "NOT_APPLICABLE": 2,
+   "NOT_APPLICABLE": 4,
    "PARTIAL": 2,
-   "PASS": 14,
-   "UNKNOWN": 60
+   "PASS": 15,
+   "UNKNOWN": 51
   },
   "fields": {
    "authentication.local_accounts": [
     "2001"
    ],
    "authentication.min_password_length": 8,
+   "authentication.password_encryption": true,
    "authorization.role_based": true,
    "banner.login": "Unauthorized access prohibited",
    "exposure.admin_ports_open_to_internet": [],
    "exposure.any_any_rules": [],
    "exposure.unrestricted_ingress": [],
    "firewall.default_action": "deny",
+   "logging.remote_syslog": true,
    "logging.servers": [
     "notice"
    ],
+   "logging.severity": "notice",
    "management.ssh.enabled": true,
    "management.ssh.version": 2,
    "management.telnet.enabled": true,
@@ -590,8 +599,8 @@
   },
   "platform": "juniper_srx",
   "records": {
-   "PARSED": 13,
-   "UNKNOWN": 4
+   "PARSED": 14,
+   "UNKNOWN": 3
   }
  },
  "srx-policy-01.conf": {

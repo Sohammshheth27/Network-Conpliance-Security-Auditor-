@@ -307,7 +307,9 @@ def learned_fingerprint(*, text: str | None = None, data=None,
     """
     import yaml
 
-    for p in sorted(Path(packs_dir).glob("*.learned.yaml")):
+    from ..paths import resolve_packs_dir
+
+    for p in sorted(resolve_packs_dir(packs_dir).glob("*.learned.yaml")):
         try:
             doc = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
         except Exception:                              # noqa: BLE001

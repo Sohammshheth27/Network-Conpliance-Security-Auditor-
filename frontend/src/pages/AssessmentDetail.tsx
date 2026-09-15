@@ -26,6 +26,7 @@ import {
 } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { AnalysisTabs } from '../components/analysis/AnalysisTabs';
+import ReportAndHistory from '../components/analysis/ReportAndHistory';
 
 type Tab = 'findings' | 'analysis' | 'records' | 'remediation';
 
@@ -451,6 +452,11 @@ const AssessmentDetail: FC = () => {
           ))}
         </div>
       </Card>
+
+      {/* The formal report (whole or one framework) and the framework
+          scores over time. Its own component: it needs its own data hooks,
+          which cannot follow this page's early returns. */}
+      <ReportAndHistory aid={data.assessment_id} />
 
       {/* ------------------------------------------------------------ tabs */}
       <div className="flex gap-1 overflow-x-auto border-b border-[rgba(100,150,220,0.12)]">

@@ -10,13 +10,9 @@ rationale: >-
 frameworks:
   nist_800_53: [AC-17(2), SC-8(1), IA-5]
   iso_27001_2022: [A.5.10, A.5.14, A.5.16, A.5.17, A.5.33, A.6.7, A.8.20, A.8.26]
-  # STIG Vuln IDs are per-platform. Derived from the downloaded
-  # XCCDF files, not recalled -- a control may map to several.
-  stig_by_platform:
-    cisco_iosxe_router: [V-215844]
-    cisco_iosxe_switch: [V-220555]
-    juniper_srx: [V-223209]
-  # CIS recommendation numbers live in the vendor pack (plan 6.1).
+  # STIG: Junos V-223209 was cited here and withdrawn -- it audits telnet,
+  # FTP, SNMPv1/v2c and SSHv1 together, so no single control covers it.
+  # CIS recommendation numbers live in crosswalks/cis.yaml.
 
 remediation:
   cisco_iosxe_router:

@@ -156,7 +156,16 @@ class SonicOsExport:
         return out[:500]          # cap: 90k unread keys is not a useful report
 
 
+# A switch, not a secret. `encUsernamePassword=on` says stored credentials ARE
+# encrypted; it matches the secret-key pattern by name, and redacting it turned
+# NCSA-PLT-002 from FAIL into UNKNOWN -- turning privacy on changed a verdict.
+# A value from this set cannot disclose a credential, so it is never redacted.
+_FLAG_VALUE = re.compile(r"^(on|off|true|false|yes|no|enabled?|disabled?|0|1)$", re.I)
+
+
 def _redact_value(key: str, val: str) -> str:
+    if _FLAG_VALUE.match(val):
+        return val
     if SECRET_KEY.search(key) or SECRET_VAL.match(val):
         return "<REDACTED>"
     return _IPV4.sub(lambda m: f"10.{m.group(2)}.{m.group(3)}.x", val)

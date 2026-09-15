@@ -8,6 +8,7 @@ that stop that.
 """
 from pathlib import Path
 
+from ncsa.paths import resolve_packs_dir
 import pytest
 
 from ncsa.training import apply as ap
@@ -18,7 +19,7 @@ from ncsa.training.apply import (ApprovalResult, _mapping_entry, approve,
 @pytest.fixture(autouse=True)
 def _clean():
     yield
-    for p in Path("packs").glob("*.learned.yaml"):
+    for p in resolve_packs_dir().glob("*.learned.yaml"):
         p.unlink(missing_ok=True)
 
 

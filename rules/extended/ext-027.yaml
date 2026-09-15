@@ -10,6 +10,11 @@ rationale: >-
 frameworks:
   nist_800_53: ["AU-8"]
   iso_27001_2022: ["A.8.17"]
+  stig_by_platform:
+    cisco_iosxe_router: [V-215838]
+    cisco_iosxe_switch: [V-220549]
+    paloalto_panos: [V-228665]
+    cisco_asa: [V-239924]
   # STIG/CIS ids intentionally omitted: they are per-platform and
   # belong in the vendor pack (plan 6.1). An invented id is worse
   # than none -- see the v1.4 6.4 caveat.

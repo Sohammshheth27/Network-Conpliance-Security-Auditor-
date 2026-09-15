@@ -15,6 +15,9 @@ frameworks:
   stig_by_platform:
     cisco_iosxe_router: [V-215826]
     cisco_iosxe_switch: [V-220537]
+    juniper_srx: [V-223217]
+    paloalto_panos: [V-228648]
+    cisco_asa: [V-239914]
   # CIS recommendation numbers live in the vendor pack (plan 6.1).
 
 remediation:

@@ -10,6 +10,8 @@ rationale: >-
 frameworks:
   nist_800_53: ["AU-4", "AU-9"]
   iso_27001_2022: ["A.5.33", "A.8.15", "A.8.6"]
+  stig_by_platform:
+    cisco_asa: [V-239862]
   # STIG/CIS ids intentionally omitted: they are per-platform and
   # belong in the vendor pack (plan 6.1). An invented id is worse
   # than none -- see the v1.4 6.4 caveat.

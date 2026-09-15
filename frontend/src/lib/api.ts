@@ -746,6 +746,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+export interface HistoryPoint {
+  taken_at: string;
+  score_pct: number | null;
+  assessed_pct: number | null;
+  frameworks: Record<string, number | null>;
+  config_sha256: string;
+  analysis_version: string;
+}
+
 /** A platform live collection supports, and the exact commands it sends. */
 export interface CollectProfile {
   platform: string;
@@ -785,6 +794,15 @@ export const api = {
       body: form,
     });
   },
+
+  /** Snapshots of this device over time, with each framework's score. */
+  history: (id: string) => request<HistoryPoint[]>(`/assessment/${id}/history`),
+  recordSnapshot: (id: string) =>
+    request<unknown>(`/assessment/${id}/snapshot`, { method: "POST" }),
+  /** Browser URL of the report; `framework` scopes it to one framework. */
+  reportUrl: (id: string, framework?: string, format: "pdf" | "html" = "pdf") =>
+    `${BASE}/assessment/${id}/report?format=${format}` +
+    (framework ? `&framework=${encodeURIComponent(framework)}` : ""),
 
   /** Live SSH collection: read-only commands, credentials used once. */
   collectProfiles: () => request<CollectProfile[]>("/collect/profiles"),

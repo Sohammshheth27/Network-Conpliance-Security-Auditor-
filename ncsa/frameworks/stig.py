@@ -141,6 +141,8 @@ def _platform_of(filename: str) -> str | None:
         return "cisco_iosxe_switch"
     if "juniper_srx" in f:
         return "juniper_srx"
+    if "cisco_asa" in f:
+        return "cisco_asa"
     if f.startswith("u_pan_") or "_pan_" in f:
         return "paloalto_panos"
     return None

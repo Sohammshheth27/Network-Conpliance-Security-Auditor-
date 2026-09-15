@@ -15,5 +15,7 @@ rationale: >-
 frameworks:
   nist_800_53: [AC-4, SC-7(5)]
   iso_27001_2022: [A.5.14, A.8.16, A.8.20, A.8.22, A.8.23]
+  stig_by_platform:
+    juniper_srx: [V-214535]
   # AWS has no DISA STIG. CIS Foundations recommendation numbers
   # belong in the vendor pack, not here (plan 6.1).

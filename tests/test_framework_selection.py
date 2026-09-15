@@ -12,6 +12,7 @@ The contract, in order of importance:
      platform it claims. A wrong CIS number is worse than none: an auditor
      will look it up.
 """
+from functools import lru_cache
 import os
 
 import pytest
@@ -25,6 +26,14 @@ from ncsa.pipeline import assess
 SW = r"E:\sonicwall config file.txt"
 RTR = "samples/cisco/edge-rtr-01.cfg"
 sw_only = pytest.mark.skipif(not os.path.exists(SW), reason="SonicWall sample absent")
+
+
+@lru_cache(maxsize=None)
+def _sw(redact=False, frameworks=None):
+    """One SonicWall assessment per distinct input for the whole file: each
+    run of this 2.7 MB export costs ~40 s, and these tests only read it."""
+    return assess(SW, redact=redact, assessment_id="TEST-SW",
+                  frameworks=list(frameworks) if frameworks else None)
 
 
 # ------------------------------------------------------------- selection
@@ -44,22 +53,21 @@ def test_selection_is_validated_not_ignored():
 
 @sw_only
 def test_the_default_assessment_is_unchanged():
-    cov = assess(SW, redact=False, assessment_id="TEST-FW-DEF").coverage()
+    cov = _sw(False).coverage()
     assert (cov["score_pct"], cov["assessed_pct"]) == (36.2, 53.4)
 
 
 @sw_only
 def test_selecting_every_framework_matches_the_default():
     """All 88 controls cite NIST 800-53, so NIST alone is the full set."""
-    base = assess(SW, redact=False, assessment_id="TEST-FW-A").coverage()
-    nist = assess(SW, redact=False, assessment_id="TEST-FW-N",
-                  frameworks=["nist_800_53"]).coverage()
+    base = _sw(False).coverage()
+    nist = _sw(False, ("nist_800_53",)).coverage()
     assert nist == base
 
 
 @sw_only
 def test_cis_on_a_sonicwall_explains_why_it_is_empty():
-    da = assess(SW, redact=False, assessment_id="TEST-FW-CIS", frameworks=["cis"])
+    da = _sw(False, ("cis",))
     assert da.coverage()["controls_total"] == 0
     notes = " ".join(da.notes)
     assert "CIS publishes no benchmark for this platform" in notes
@@ -131,7 +139,7 @@ def test_undecided_checks_are_not_counted_as_passes():
 
 @sw_only
 def test_sonicwall_frameworks_score_differently_and_the_overall_is_unchanged():
-    da = assess(SW, redact=False, assessment_id="TEST-FW-REQ")
+    da = _sw(False)
     assert (da.coverage()["score_pct"], da.coverage()["assessed_pct"]) == (36.2, 53.4)
     rows = {r["framework"]: r for r in framework_coverage(da.assessment.findings)}
     for r in rows.values():
@@ -194,17 +202,40 @@ def test_every_crosswalk_entry_names_a_real_control_and_platform():
 
 
 def _benchmark_ids(titles: set[str]) -> dict[str, set[str]]:
-    """Parse ONLY the cited benchmarks -- the whole catalogue is 89 PDFs."""
+    """Parse ONLY the cited benchmarks -- the whole catalogue is 89 PDFs --
+    and cache the recommendation numbers locally (git-ignored). Parsing ten
+    PDFs cost two minutes of every run. The cache key is each PDF's size and
+    mtime plus the parser's own mtime, so a new PDF or a parser change
+    re-parses; a stale answer is never served."""
+    import json
     from pathlib import Path
 
-    from ncsa.frameworks.cis import _parse_pdf
+    import ncsa.frameworks.cis as cis_mod
 
     root = Path("reference/cis_benchmarks")
+    cache_file = Path("reference/.framework_cache_cis_ids.json")
+    parser_stamp = Path(cis_mod.__file__).stat().st_mtime_ns
+    try:
+        cache = json.loads(cache_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        cache = {}
     ids: dict[str, set[str]] = {}
+    dirty = False
     for p in root.rglob("*.pdf") if root.exists() else []:
         t = p.stem.replace("_", " ")
-        if t in titles:
-            ids[t] = {e.id for e in _parse_pdf(p, p.parent.name)}
+        if t not in titles:
+            continue
+        st = p.stat()
+        key = f"{p.name}|{st.st_size}|{st.st_mtime_ns}|{parser_stamp}"
+        if key not in cache:
+            cache[key] = sorted(e.id for e in cis_mod._parse_pdf(p, p.parent.name))
+            dirty = True
+        ids[t] = set(cache[key])
+    if dirty:
+        try:
+            cache_file.write_text(json.dumps(cache), encoding="utf-8")
+        except OSError:
+            pass
     return ids
 
 

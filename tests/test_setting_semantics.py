@@ -101,6 +101,42 @@ def test_junos_idle_timeout_is_judged_per_class(tmp_path: Path):
     assert [int(v) for v in f.observed] == [5, 60], "every class is collected"
 
 
+def test_a_one_line_junos_block_is_read_not_dropped():
+    """`class ops { idle-timeout 5; }` is valid Junos on one line."""
+    from ncsa.readers.braces import loads
+
+    cfg = loads("""system {
+    login {
+        class ops { idle-timeout 5; permissions all; }
+        message "keep out; { really }";
+    }
+}
+""")
+    hits = {p: v for p, v, _ln, _raw in cfg.glob("system/login/class/*/idle-timeout")}
+    assert hits == {"system/login/class/ops/idle-timeout": "5"}
+    assert cfg.get("system/login/class/ops/idle-timeout")[1] == 3, "evidence keeps its line"
+    assert cfg.get("system/login/message")[0] == "keep out; { really }", \
+        "a quoted string is never split"
+
+
+def test_junos_secret_annotations_do_not_hide_the_statement():
+    """Junos appends `## SECRET-DATA` to every secret it prints."""
+    from ncsa.readers.braces import loads
+
+    cfg = loads("""system {
+    root-authentication {
+        encrypted-password "$6$abc##def"; ## SECRET-DATA
+    }
+    ntp {
+        authentication-key 1 type md5 value "$9$xyz"; ## SECRET-DATA
+    }
+}
+""")
+    assert cfg.get("system/root-authentication/encrypted-password")[0] == "$6$abc##def", \
+        "a ## inside quotes is data, not a comment"
+    assert cfg.get("system/ntp/authentication-key") is not None
+
+
 def test_junos_retry_options_decide_the_lockout_control(tmp_path: Path):
     p = tmp_path / "srx.conf"
     p.write_text(JUNOS.format(login="""        retry-options {

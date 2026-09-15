@@ -28,6 +28,12 @@
 #           EXT-013 (CIS also bounds threshold and duration)
 #   PAN-OS  PWD-001 (CIS 12)  HTTP-001/TEL-001 vs 1.2.4 (CIS audits interface
 #           management profiles; our pack reads the device service setting)
+#   Cloud   CLD-001 vs AWS 6.3/6.4, Azure 7.1/7.2, GCP 3.6/3.7 -- CLD-001 fails
+#           on ANY of ten ports open to the world (SSH, RDP, telnet, FTP and
+#           database/cache ports); each CIS recommendation audits SSH and/or
+#           RDP. A FAIL on an open MySQL port would have been reported as a
+#           CIS failure CIS would not recognise. (Azure/GCP were mapped in an
+#           earlier revision and withdrawn for this reason.)
 #
 # CIS publishes no SonicWall benchmark, so sonicwall_sonicos has no entry and
 # selecting CIS on a SonicWall reports exactly that. The AWS benchmark's
@@ -63,9 +69,6 @@ map:
   NCSA-CAT-011:
     cisco_asa: ["1.2.4"]
     juniper_srx: ["3.3"]
-  NCSA-CLD-001:
-    network_security_groups: ["7.1", "7.2"]
-    gcp_firewall: ["3.6", "3.7"]
   NCSA-EXT-001:
     juniper_srx: ["6.10.1.6", "6.10.1.9"]
   NCSA-EXT-005:
@@ -104,6 +107,7 @@ map:
     panos: ["1.6.2"]
   NCSA-EXT-028:
     cisco_asa: ["1.9.2"]
+    fortios: ["2.1.3"]
   NCSA-EXT-030:
     cisco_iosxe_router: ["1.3.3"]
     cisco_asa: ["1.5.4"]

@@ -20,6 +20,7 @@ from ..schema.observation import Observation
 from ..schema.sbm import FIELD_TYPES, SecurityBaselineModel, _unscope
 from .indented import IndentedConfig
 from .pack import Pack, _scope_field
+from .path_pack import UNEVALUATED
 
 
 def _extract(mo, spec: dict, text: str) -> Any:
@@ -147,6 +148,11 @@ def apply_indented_pack(
         if fn is None:
             continue
         value, ev = fn(cfg, d.params)
+        if value is UNEVALUATED:
+            # The config does not address the setting and its default cannot
+            # be read from it. An ASSUMED empty list here passed "no weak
+            # ciphers" on a device that never stated its ciphers.
+            continue
         sbm.set(
             d.field,
             Observation.observed(value, ev, field_path=d.field)
@@ -191,8 +197,9 @@ def derive_ios_weak_ssh_crypto(cfg, params: dict):
     """
     WEAK = ("sha1", "-cbc", "3des", "arcfour", "md5", "group1",
             "diffie-hellman-group14-sha1")
-    found, ev = [], []
+    found, ev, ssh_lines = [], [], []
     for lineno, text in cfg.find(r"^ip ssh server algorithm"):
+        ssh_lines.append(cfg.evidence(lineno, text))
         for tok in text.split()[4:]:
             if any(w in tok.lower() for w in WEAK):
                 found.append(tok)
@@ -224,7 +231,15 @@ def derive_ios_weak_ssh_crypto(cfg, params: dict):
                      "ah-md5-hmac", "esp-null"):
                 found.append(tok)
                 ev.append(cfg.evidence(lineno, text))
-    return found, ev
+    if found:
+        return found, ev
+    if ssh_lines:
+        # The algorithms ARE stated and none is weak: a pass with the lines
+        # that prove it.
+        return [], ssh_lines
+    # Nothing weak, but the SSH algorithm set is not stated either, and the
+    # IOS default depends on the release. Undecided, not "no weak ciphers".
+    return UNEVALUATED, []
 
 
 INDENTED_DERIVATIONS = {
