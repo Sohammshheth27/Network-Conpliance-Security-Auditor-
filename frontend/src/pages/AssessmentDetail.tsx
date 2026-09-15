@@ -253,6 +253,59 @@ const AssessmentDetail: FC = () => {
   const { identity, coverage, counts, records } = data;
   const bySeverity = failuresBySeverity(data.findings);
 
+  // No mapping pack for this device: nothing was decided, so there is no
+  // score to show. Rendering the gauges anyway printed a blank score beside
+  // "null% of 0 decided" -- a number-shaped statement about nothing.
+  if (!data.supported) {
+    return (
+      <div className="space-y-6">
+        <button
+          onClick={() => navigate('/assessments')}
+          className="flex items-center gap-2 text-xs font-medium text-[#AAB8D0] transition-colors hover:text-[#F5F8FF]"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to assessments
+        </button>
+        <Card variant="default" className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-[rgba(100,150,220,0.2)] bg-[rgba(16,33,59,0.9)] text-[#2D8CFF]">
+              <Server className="h-7 w-7" />
+            </div>
+            <div className="min-w-0">
+              <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-[#F5A623]">
+                Not yet assessable
+              </span>
+              <h1 className="text-2xl font-bold tracking-tight text-[#F5F8FF]">
+                {identity.hostname || identity.source_file}
+              </h1>
+              <p className="mt-1 text-[12px] text-[#AAB8D0]">
+                Recognised as {vendorLabel(identity.vendor)}
+                {identity.platform ? ` (${identity.platform})` : ''}. No mapping pack
+                exists for it, so no control was evaluated and no compliance score is
+                shown — a score over zero decided controls would be invented.
+              </p>
+            </div>
+          </div>
+          {data.notes?.length > 0 && (
+            <ul className="mt-5 space-y-1.5 border-t border-[rgba(100,150,220,0.12)] pt-4 text-[12.5px] text-[#AAB8D0]">
+              {data.notes.map((n, i) => (
+                <li key={i}>• {n}</li>
+              ))}
+            </ul>
+          )}
+          <div className="mt-5">
+            <button
+              onClick={() => navigate('/training')}
+              className="ncsa-btn-primary rounded-full px-5 py-2.5 text-xs font-semibold"
+            >
+              Teach this device in the Training page
+            </button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <button
