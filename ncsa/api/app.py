@@ -274,6 +274,31 @@ def what_if(aid: str, req: WhatIfRequest):
         raise HTTPException(status_code=409, detail=str(exc))
 
 
+@app.get("/assessment/{aid}/topology-map", tags=["analyse"])
+def get_topology_map(aid: str, redact: bool = Query(True)):
+    """Zones, LANs, WLANs, uplinks and tunnels as data for a 2-D figure.
+
+    Derived from the configuration, not live discovery. Public addresses, site
+    names and the hostname are redacted unless `redact=false`.
+    """
+    from ..topology.map import build_map
+
+    da, _ = _get(aid)
+    return build_map(da, redact=redact)
+
+
+@app.get("/assessment/{aid}/topology-map.svg", tags=["analyse"])
+def get_topology_svg(aid: str, redact: bool = Query(True)):
+    """The same figure, rendered. One layout serves the UI and the export."""
+    from fastapi.responses import Response
+
+    from ..topology.map import build_map, render_svg
+
+    da, _ = _get(aid)
+    return Response(render_svg(build_map(da, redact=redact)),
+                    media_type="image/svg+xml")
+
+
 @app.get("/assessment/{aid}/graph", tags=["analyse"])
 def get_graph(aid: str, limit: int = Query(500, le=5000)):
     """The policy object graph itself -- objects, rules and how they resolve.

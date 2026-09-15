@@ -685,6 +685,14 @@ export const api = {
   extended: (id: string) =>
     request<ExtendedResponse>(`/assessment/${id}/extended`),
   zones: (id: string) => request<ZonesResponse>(`/assessment/${id}/zones`),
+  /** SVG text of the topology figure. Rendered server-side, shown via <img>. */
+  topologySvg: async (id: string, redact: boolean): Promise<string> => {
+    const res = await fetch(
+      `${BASE}/assessment/${id}/topology-map.svg?redact=${redact}`,
+    );
+    if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText}`);
+    return res.text();
+  },
   blastRadius: (id: string, originZone: string) =>
     request<BlastResponse>(
       `/assessment/${id}/blast-radius?origin_zone=${encodeURIComponent(originZone)}`,

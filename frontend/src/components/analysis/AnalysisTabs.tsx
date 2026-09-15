@@ -6,6 +6,7 @@ import {
   Crosshair,
   FlaskConical,
   GitCompare,
+  Map as MapIcon,
   ShieldAlert,
   Network,
   Route,
@@ -21,6 +22,7 @@ import { GraphPanel } from './GraphPanel';
 import { BlastPanel } from './BlastPanel';
 import { ExtendedPanel } from './ExtendedPanel';
 import { WhatIfPanel } from './WhatIfPanel';
+import { TopologyMapPanel } from './TopologyMapPanel';
 
 /**
  * The eight capabilities that were built, tested, and callable from nowhere.
@@ -34,6 +36,7 @@ import { WhatIfPanel } from './WhatIfPanel';
 
 type Panel =
   | 'graph'
+  | 'topomap'
   | 'blast'
   | 'whatif'
   | 'extended'
@@ -48,6 +51,7 @@ type Panel =
 const PANELS: { id: Panel; label: string; icon: typeof Activity }[] = [
   // The graph leads, because everything after it is a conclusion drawn from it.
   { id: 'graph', label: 'Policy graph', icon: Boxes },
+  { id: 'topomap', label: 'Topology map', icon: MapIcon },
   // Blast radius and what-if are conclusions drawn from the graph, so they sit
   // straight after it. Extended checks are reported beside the score.
   { id: 'blast', label: 'Blast radius', icon: Crosshair },
@@ -91,6 +95,7 @@ export const AnalysisTabs: FC<{ assessmentId: string }> = ({ assessmentId }) => 
       {panel === 'hygiene' && <HygienePanel id={assessmentId} />}
       {panel === 'reach' && <ReachPanel id={assessmentId} />}
       {panel === 'recert' && <RecertPanel id={assessmentId} />}
+      {panel === 'topomap' && <TopologyMapPanel id={assessmentId} />}
       {panel === 'blast' && <BlastPanel id={assessmentId} />}
       {panel === 'whatif' && <WhatIfPanel id={assessmentId} />}
       {panel === 'extended' && <ExtendedPanel id={assessmentId} />}
