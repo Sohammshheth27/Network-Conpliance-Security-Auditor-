@@ -185,13 +185,17 @@ export interface FrameworkCoverage {
   decided: number;
   passed: number;
   score_pct: number | null;
+  /** "average": each requirement scored by the share of its checks passed. */
+  score_method: string;
+  /** This framework's own score, averaged over its requirements. */
+  framework_score_pct: number | null;
   /** The framework's own requirements (NIST controls, ISO Annex A, STIG IDs). */
   requirements: number;
+  /** Requirements with at least one decided check. */
   requirements_decided: number;
+  /** Requirements where every citing check passed. */
   requirements_met: number;
   requirements_not_met: number;
-  /** Met / decided requirements -- this framework's own score. */
-  requirement_score_pct: number | null;
   not_met_ids: string[];
 }
 

@@ -387,8 +387,8 @@ const AssessmentDetail: FC = () => {
                 <tr>
                   <th className="py-1 pr-4">Framework</th>
                   <th className="py-1 pr-4 text-right">Framework score</th>
-                  <th className="py-1 pr-4 text-right">Requirements met</th>
-                  <th className="py-1 pr-4 text-right">Not met</th>
+                  <th className="py-1 pr-4 text-right">Requirements assessed</th>
+                  <th className="py-1 pr-4 text-right">Fully met</th>
                   <th className="py-1 pr-4 text-right">Undecided</th>
                   <th className="py-1 text-right">Checks passed</th>
                 </tr>
@@ -398,16 +398,18 @@ const AssessmentDetail: FC = () => {
                   <tr key={f.framework} className="border-t border-[rgba(100,150,220,0.1)]">
                     <td className="py-1.5 pr-4">{f.name}</td>
                     <td className="py-1.5 pr-4 text-right font-semibold">
-                      {f.requirement_score_pct === null ? '—' : `${f.requirement_score_pct}%`}
+                      {f.framework_score_pct === null ? '—' : `${f.framework_score_pct}%`}
                     </td>
-                    <td className="py-1.5 pr-4 text-right">
-                      {f.requirements_met} / {f.requirements_decided}
-                    </td>
+                    <td className="py-1.5 pr-4 text-right">{f.requirements_decided}</td>
                     <td
-                      className="py-1.5 pr-4 text-right text-[#E5484D]"
-                      title={f.not_met_ids.join(', ')}
+                      className="py-1.5 pr-4 text-right"
+                      title={
+                        f.not_met_ids.length
+                          ? `Not fully met: ${f.not_met_ids.join(', ')}`
+                          : undefined
+                      }
                     >
-                      {f.requirements_not_met}
+                      {f.requirements_met} / {f.requirements_decided}
                     </td>
                     <td className="py-1.5 pr-4 text-right text-[#8FA0BC]">
                       {f.requirements - f.requirements_decided}
@@ -421,10 +423,11 @@ const AssessmentDetail: FC = () => {
             </table>
             <p className="mt-2 text-[11.5px] leading-relaxed text-[#8FA0BC]">
               Each framework is scored over its own requirements — NIST controls,
-              ISO/IEC 27001 Annex A controls, STIG IDs. A requirement is met only
-              when every check citing it passes; one failing check fails every
-              requirement that cites it, and an undecided check leaves it
-              undecided. Hover a “Not met” count for the requirement IDs.
+              ISO/IEC 27001 Annex A controls, STIG IDs. Each requirement scores the
+              share of its checks that passed (3 of 4 = 75%), and the framework
+              score is the average across its requirements. Undecided checks are
+              never counted as passes. “Fully met” counts requirements where every
+              check passed; hover it for the ones that are not.
             </p>
           </div>
         )}

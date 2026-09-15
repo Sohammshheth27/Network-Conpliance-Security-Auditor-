@@ -112,12 +112,21 @@ def test_each_framework_is_scored_over_its_own_requirements():
     nist, iso = rows["nist_800_53"], rows["iso_27001"]
     # checks: 2 of 3 decided passed, for both frameworks
     assert nist["score_pct"] == iso["score_pct"] == 66.7
-    # requirements: NIST AC-2 and AC-17 not met, AU-6 met -> 1/3
+    # NIST requirements: AC-2 = 1/2, AC-17 = 0/1, AU-6 = 1/1 -> average 50%
+    assert nist["score_method"] == "average"
+    assert nist["framework_score_pct"] == 50.0
     assert (nist["requirements_met"], nist["requirements_not_met"]) == (1, 2)
-    assert nist["requirement_score_pct"] == 33.3
     assert nist["not_met_ids"] == ["AC-17", "AC-2"]
-    # ISO: A.5.15 met, A.8.20 not met -> 1/2; N/A requirement excluded
-    assert iso["requirement_score_pct"] == 50.0 and iso["requirements"] == 2
+    # ISO: A.5.15 = 1/1, A.8.20 = 1/2 -> 75%; the N/A requirement is excluded
+    assert iso["framework_score_pct"] == 75.0 and iso["requirements"] == 2
+
+
+def test_undecided_checks_are_not_counted_as_passes():
+    from ncsa.frameworks.selection import requirement_satisfaction as sat
+
+    assert sat(["PASS", "UNKNOWN"]) == 1.0, "scored on the decided check only"
+    assert sat(["PASS", "PARTIAL"]) == 0.5, "partial is not a pass"
+    assert sat(["UNKNOWN", "MANUAL_REVIEW"]) is None, "nothing decided, no score"
 
 
 @sw_only
@@ -126,9 +135,9 @@ def test_sonicwall_frameworks_score_differently_and_the_overall_is_unchanged():
     assert (da.coverage()["score_pct"], da.coverage()["assessed_pct"]) == (36.2, 53.4)
     rows = {r["framework"]: r for r in framework_coverage(da.assessment.findings)}
     for r in rows.values():
-        assert r["requirements_met"] + r["requirements_not_met"] == r["requirements_decided"]
-        assert r["requirements_decided"] <= r["requirements"]
-    scores = {k: rows[k]["requirement_score_pct"] for k in ("nist_800_53", "iso_27001")}
+        assert r["requirements_met"] <= r["requirements_decided"] <= r["requirements"]
+    scores = {k: rows[k]["framework_score_pct"] for k in ("nist_800_53", "iso_27001")}
+    assert None not in scores.values()
     assert scores["nist_800_53"] != scores["iso_27001"], scores
 
 

@@ -260,16 +260,17 @@ reports are not comparable.</p>
 
 <h3>Result by framework</h3>
 <table>
-  <tr><th>Framework</th><th class="num">Framework score</th><th class="num">Requirements met</th><th class="num">Not met</th><th class="num">Undecided</th><th class="num">Checks passed</th></tr>
-  {''.join(f"<tr><td>{_e(r['name'])}</td><td class='num'><b>{'&mdash;' if r['requirement_score_pct'] is None else str(r['requirement_score_pct']) + '%'}</b></td><td class='num'>{r['requirements_met']} / {r['requirements_decided']}</td><td class='num'>{r['requirements_not_met']}</td><td class='num'>{r['requirements'] - r['requirements_decided']}</td><td class='num'>{r['passed']} / {r['decided']}</td></tr>" for r in d['framework_coverage'])}
+  <tr><th>Framework</th><th class="num">Framework score</th><th class="num">Requirements assessed</th><th class="num">Fully met</th><th class="num">Undecided</th><th class="num">Checks passed</th></tr>
+  {''.join(f"<tr><td>{_e(r['name'])}</td><td class='num'><b>{'&mdash;' if r['framework_score_pct'] is None else str(r['framework_score_pct']) + '%'}</b></td><td class='num'>{r['requirements_decided']}</td><td class='num'>{r['requirements_met']} / {r['requirements_decided']}</td><td class='num'>{r['requirements'] - r['requirements_decided']}</td><td class='num'>{r['passed']} / {r['decided']}</td></tr>" for r in d['framework_coverage'])}
 </table>
 <p class="footnote">Each framework is scored over its own requirements (NIST
-SP 800-53 controls, ISO/IEC 27001 Annex A controls, STIG IDs). A requirement
-is met only when every check citing it passes; one failing check fails every
-requirement that cites it, and an undecided check leaves it undecided. A
-framework citing no control on this platform is shown with no score rather
-than omitted.</p>
-{''.join(f"<p class='footnote'><b>{_e(r['name'])} requirements not met:</b> {_e(', '.join(r['not_met_ids']))}</p>" for r in d['framework_coverage'] if r['not_met_ids'])}
+SP 800-53 controls, ISO/IEC 27001 Annex A controls, STIG IDs). Each requirement
+scores the share of its checks that passed -- three of four is 75% -- and the
+framework score is the average across its requirements. Undecided checks are
+never counted as passes. "Fully met" counts requirements where every check
+passed. A framework citing no control on this platform is shown with no score
+rather than omitted.</p>
+{''.join(f"<p class='footnote'><b>{_e(r['name'])} requirements not fully met:</b> {_e(', '.join(r['not_met_ids']))}</p>" for r in d['framework_coverage'] if r['not_met_ids'])}
 
 <div class="note">
 <strong>How to read the score.</strong> The compliance score is calculated over

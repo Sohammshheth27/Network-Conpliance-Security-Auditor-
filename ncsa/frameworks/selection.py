@@ -86,20 +86,40 @@ def _requirements(findings, attr: str) -> dict[str, list[str]]:
     return req
 
 
+_DECIDED = ("PASS", "FAIL", "PARTIAL")
+
+
+def requirement_satisfaction(states: list[str]) -> float | None:
+    """Share of a requirement's DECIDED checks that passed; None if none decided.
+
+    PARTIAL counts as not passing, exactly as in the overall score. Undecided
+    checks are left out rather than counted as passes or failures.
+    """
+    decided = [s for s in states if s in _DECIDED]
+    if not decided:
+        return None
+    return sum(1 for s in decided if s == "PASS") / len(decided)
+
+
 def framework_coverage(findings) -> list[dict]:
     """Per framework: its own score, over its own requirements.
 
-    Two levels are reported, and they answer different questions:
+    THE FRAMEWORK SCORE (`framework_score_pct`, method "average"): each of the
+    framework's own requirements -- NIST controls such as AC-17(2), ISO/IEC
+    27001 Annex A controls such as A.8.20, STIG Vuln IDs -- is scored by the
+    share of its decided checks that passed, and the framework's score is the
+    average over its requirements. Because each framework groups the checks
+    into different requirements, each gets its own number; a requirement with
+    three of four checks passing contributes 75%, not zero.
 
-    * CHECK level (`controls`, `decided`, `passed`, `score_pct`): how the NCSA
-      checks citing the framework came out. Every check cites NIST 800-53, so
+    Reported beside it, so nothing is hidden:
+
+    * `requirements_met` / `requirements_not_met` / undecided -- how many
+      requirements are FULLY satisfied (every citing check passed), the view
+      an auditor signs off against. `not_met_ids` names the rest.
+    * CHECK level (`controls`, `decided`, `passed`, `score_pct`) -- how the
+      NCSA checks citing the framework came out. Every check cites NIST, so
       at this level NIST equals the overall score.
-    * REQUIREMENT level (`requirements*`, `requirement_score_pct`): how the
-      FRAMEWORK'S OWN requirements came out -- NIST controls such as AC-17(2),
-      ISO/IEC 27001 Annex A controls such as A.8.20, STIG Vuln IDs. This is how
-      an auditor of that framework scores it, and it is why the frameworks
-      differ: one failing check fails every requirement that cites it, and a
-      requirement needing five checks must pass all five.
 
     Always reported for every framework, so a reader sees at a glance that a
     platform has, say, 50 CIS-cited controls but no STIG ones.
@@ -107,24 +127,26 @@ def framework_coverage(findings) -> list[dict]:
     out = []
     for key, (name, attr) in FRAMEWORKS.items():
         fs = [f for f in findings if getattr(f.frameworks, attr, None)]
-        decided = [f for f in fs if f.state.value in ("PASS", "FAIL", "PARTIAL")]
+        decided = [f for f in fs if f.state.value in _DECIDED]
         passed = sum(1 for f in decided if f.state.value == "PASS")
 
         req = _requirements(findings, attr)
+        shares = [s for s in (requirement_satisfaction(v) for v in req.values())
+                  if s is not None]
         states = {rid: requirement_state(v) for rid, v in req.items()}
         met = sum(1 for s in states.values() if s == "MET")
         not_met = sorted(rid for rid, s in states.items() if s == "NOT_MET")
-        req_decided = met + len(not_met)
         out.append({
             "framework": key, "name": name, "controls": len(fs),
             "decided": len(decided), "passed": passed,
             "score_pct": round(100 * passed / len(decided), 1) if decided else None,
+            "score_method": "average",
+            "framework_score_pct": (round(100 * sum(shares) / len(shares), 1)
+                                    if shares else None),
             "requirements": len(states),
-            "requirements_decided": req_decided,
+            "requirements_decided": len(shares),
             "requirements_met": met,
             "requirements_not_met": len(not_met),
-            "requirement_score_pct": (round(100 * met / req_decided, 1)
-                                      if req_decided else None),
             "not_met_ids": not_met,
         })
     return out
