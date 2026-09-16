@@ -314,10 +314,9 @@ mappings:
     value: {group: 1, as: str}
 
   # --- remaining documented hardening commands ----------------------------
-  - field: crypto.weak_ciphers
-    regex: "^(?:no )?service password-encryption"
-    value: {group: 0, as: str}
-    collect: true
+  # (A mapping here once collected `service password-encryption` into
+  # crypto.weak_ciphers -- not a cipher at all. The derivation below owns that
+  # field and overwrote it, so it never changed a result; it is gone.)
   - field: services.unused_enabled
     regex: "^(?:no )?(service password-recovery|ip http server|ip scp server)"
     value: {group: 1, as: str}
@@ -349,8 +348,10 @@ mappings:
   - field: l2.dhcp_snooping
     regex: "^ip dhcp snooping"
     value: {const: true}
+  # IP Source Guard is `ip verify source` on an access port. `ip verify
+  # unicast ...` is uRPF -- a different control -- and used to satisfy this one.
   - field: l2.ip_source_guard
-    regex: "^ip verify (?:source|unicast)"
+    regex: "^\\s*ip verify source\\b"
     value: {const: true}
   - field: routing.prefix_filtering
     regex: "^ip (?:prefix-list|as-path access-list) (\\S+)"

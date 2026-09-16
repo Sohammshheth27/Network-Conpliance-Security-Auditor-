@@ -84,12 +84,34 @@ def merge(sbm: SecurityBaselineModel, graph: ObjectGraph, cfg=None) -> SecurityB
     # plan 7.3 then forbids from carrying a FAIL. Either way it is never a
     # silent assumption presented as fact.
     if graph.default_action_observed:
-        ev_dp = [e for r in graph.rules for e in r.evidence][:1]
+        # The default policy's OWN line, not a rule's.
+        #
+        # This used to borrow evidence from an arbitrary rule, which cited
+        # `allow-web-out` as the proof that the default is permit-all. On a
+        # device with a permit-all default and NO rules there was nothing to
+        # borrow, so the observation degraded to an assumption and the control
+        # went UNKNOWN -- losing the finding on precisely the configuration
+        # that most needs it.
+        ev_dp = list(getattr(graph, "default_action_evidence", []) or [])
+
+        # The graph's word for this is "allow"; the SBM field's is "permit",
+        # which is what every pack writes and what NCSA-CLD-004 compares
+        # against. Translating between the two is this adapter's job.
+        #
+        # It never showed until a permit-all device appeared: every builder
+        # before that set "deny", which is spelled the same on both sides.
+        action = {"allow": "permit", "accept": "permit"}.get(
+            graph.default_action, graph.default_action)
+
         sbm.set("firewall.default_action",
-                Observation.observed(graph.default_action, ev_dp,
+                Observation.observed(action, ev_dp,
                                      field_path="firewall.default_action")
                 if ev_dp else
-                Observation.default_assumed(graph.default_action,
+                # A builder may know the default from a platform invariant
+                # rather than from a line -- an AWS security group cannot be
+                # configured to default-allow. That is still not something we
+                # READ, so it stays an assumption here and cannot carry a FAIL.
+                Observation.default_assumed(action,
                                             field_path="firewall.default_action"))
 
     # ---------------------------------------------------------------- zones
@@ -154,12 +176,24 @@ def merge(sbm: SecurityBaselineModel, graph: ObjectGraph, cfg=None) -> SecurityB
 
 
 def _skip_evidence(sbm: SecurityBaselineModel, skipped):
+    """Evidence for "this rule could not be evaluated".
+
+    The REASON is derived, but the rule it concerns sits on a real line, and
+    that line is carried through from the rule itself. Reporting a problem
+    rule with no position told an administrator a rule was unevaluable and
+    gave them no way to find it.
+    """
     from ..schema.evidence import EvidenceRef
     s = skipped[0]
+    origin = next(iter(getattr(s, "evidence", []) or []), None)
     return EvidenceRef(
-        file=sbm.source_file, line=None,
+        file=(origin.file if origin else sbm.source_file),
+        line=(origin.line if origin else None),
         raw=f"rule {s.rule} not evaluable: {s.reason}",
-        record_id=str(s.rule),
+        # Prefer the rule's own record id where it has one -- on a key-value
+        # export that is the setting ordinal, which is the real locator.
+        record_id=(origin.record_id if origin and origin.record_id
+                   else str(s.rule)),
     )
 
 

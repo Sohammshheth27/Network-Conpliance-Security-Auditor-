@@ -2,21 +2,29 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Home, 
+  Home, 
   LayoutGrid, 
   CalendarCheck, 
   Server, 
   FileText, 
   Settings,
-  LogOut
+  LogOut,
+  Layers, 
+  Plus, 
+  BarChart3, 
+  ShieldCheck,
+  GraduationCap
+
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 const primaryNav = [
   { name: 'Dashboard', to: '/', icon: Home },
-  { name: 'Findings', to: '/analysis', icon: LayoutGrid },
-  { name: 'Assessments', to: '/assessments', icon: CalendarCheck },
-  { name: 'New Audit', to: '/new-audit', icon: Server },
-  { name: 'Frameworks', to: '/frameworks', icon: FileText },
+  { name: 'Assessments', to: '/assessments', icon: Layers },
+  { name: 'New Audit', to: '/new-audit', icon: Plus, isAction: true },
+  { name: 'Training', to: '/training', icon: GraduationCap },
+  { name: 'Analysis', to: '/analysis', icon: BarChart3 },
+  { name: 'Frameworks', to: '/frameworks', icon: ShieldCheck },
   { name: 'Settings', to: '/settings', icon: Settings },
 ];
 

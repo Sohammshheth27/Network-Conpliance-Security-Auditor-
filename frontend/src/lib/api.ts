@@ -103,6 +103,9 @@ export interface Identity {
  */
 export interface Coverage {
   controls_total: number;
+  /** Controls that apply to this platform: total minus not-applicable.
+   *  assessed_pct is decided / applicable. */
+  controls_applicable: number;
   controls_decided: number;
   controls_undecided: number;
   not_applicable: number;
@@ -147,6 +150,7 @@ export interface Finding {
   evidence: EvidenceRef[];
   frameworks: FrameworkRefs;
   risk: number | null;
+  attack?: AttackTag[];
 }
 
 export interface ConsensusSummary {
@@ -172,14 +176,43 @@ export interface Assessment {
   objects: number;
   relationships: number;
   notes: string[];
+  /** Frameworks the user selected; null means all of them. */
+  frameworks: string[] | null;
+  framework_coverage: FrameworkCoverage[];
+}
+
+export interface FrameworkCoverage {
+  framework: string;
+  name: string;
+  controls: number;
+  decided: number;
+  passed: number;
+  score_pct: number | null;
+  /** "average": each requirement scored by the share of its checks passed. */
+  score_method: string;
+  /** This framework's own score, averaged over its requirements. */
+  framework_score_pct: number | null;
+  /** The framework's own requirements (NIST controls, ISO Annex A, STIG IDs). */
+  requirements: number;
+  /** Requirements with at least one decided check. */
+  requirements_decided: number;
+  /** Requirements where every citing check passed. */
+  requirements_met: number;
+  requirements_not_met: number;
+  not_met_ids: string[];
 }
 
 export interface AssessmentSummary {
   assessment_id: string;
   device: string;
   vendor: string;
+  platform?: string;
+  supported?: boolean;
   score_pct: number;
   assessed_pct: number;
+  /** Each framework's own score; null where it has nothing to evaluate. */
+  frameworks?: Record<string, number | null>;
+  assessed_at?: string;
 }
 
 export interface PlatformInfo {
@@ -291,6 +324,8 @@ export interface TrainingCandidate {
   suggestion_score: number;
   suggested_from: string;
   status: string;
+  /** "keys": a table whose keys are the values (SONiC NTP_SERVER). */
+  kind: string;
 }
 
 export interface RecertResponse {
@@ -394,6 +429,270 @@ export interface DiffResponse {
   note?: string;
 }
 
+
+// ------------------------------------------------------- policy object graph
+
+export interface ResolvedRef {
+  name: string;
+  /** RESOLVED / UNRESOLVED / CYCLIC / UNSUPPORTED / AMBIGUOUS */
+  state: string;
+  values: string[];
+  path: string[];
+  detail: string;
+}
+
+export interface GraphRule {
+  id: string;
+  name: string;
+  order: number;
+  enabled: boolean;
+  action: string;
+  source_zones: string[];
+  destination_zones: string[];
+  source: ResolvedRef[];
+  destination: ResolvedRef[];
+  services: ResolvedRef[];
+  logging: boolean | null;
+  hit_count: number | null;
+  /** Why a port question cannot be decided by this rule alone. */
+  undecidable_for_ports: string | null;
+  evidence: EvidenceRef[];
+}
+
+export interface GraphObject {
+  name: string;
+  kind: string;
+  values: string[];
+  members: string[];
+  attrs: Record<string, unknown>;
+  evidence: EvidenceRef[];
+}
+
+export interface GraphResponse {
+  summary: {
+    objects: number;
+    rules: number;
+    by_kind: Record<string, number>;
+    zones: string[];
+    untrusted_zones: string[];
+    interfaces: Record<string, string>;
+  };
+  /** False means the platform does not evaluate top-to-bottom, so shadow
+   *  analysis is suppressed -- and the absence of shadow findings must not be
+   *  read as a tidy policy. */
+  ordered: boolean;
+  default_action: string;
+  default_action_observed: boolean;
+  objects_shown: GraphObject[];
+  rules_shown: GraphRule[];
+}
+
+
+// ------------------------------------------------- AI governance (our AI)
+
+/** Governs the model INSIDE NCSA, not the audited device. See /ai-governance. */
+export interface AiGovernanceResponse {
+  scope: string;
+  atlas: {
+    techniques: number;
+    mitigations: number;
+    identifier_check: { claimed: number; resolve_in_atlas: number } | null;
+  };
+  ai_rmf_functions: Record<string, string[]>;
+  guardrails: {
+    guardrail: string;
+    atlas: string[];
+    owasp_llm: string;
+    ai_rmf: string;
+  }[];
+  injection_signatures: number;
+  corpus_isolation: string;
+}
+
+// ------------------------------------------ extended checks, blast, what-if
+
+/** A MITRE ATT&CK technique a control stands in front of. Presentation only. */
+export interface AttackTag {
+  id: string;
+  name: string;
+  tactics: string[];
+  why: string;
+}
+
+export interface ExtendedEvidence {
+  file: string;
+  line: number | null;
+  record: string | null;
+  raw: string;
+}
+
+export interface ExtendedFinding {
+  check_id: string;
+  title: string;
+  domain: string;
+  state: ResultState;
+  severity: Severity | "info";
+  scope: string;
+  reason: string;
+  observed: unknown;
+  expected: unknown;
+  rationale: string;
+  nist_800_53: string[];
+  attack: AttackTag[];
+  evidence: ExtendedEvidence[];
+}
+
+/** One extended domain. `present: null` means we could not tell -- not "none". */
+export interface ExtendedDomain {
+  domain: string;
+  present: boolean | null;
+  summary: string;
+  counts: Partial<Record<ResultState, number>>;
+  validated_on: string;
+  inventory: Record<string, unknown>[];
+  notes: string[];
+  findings: ExtendedFinding[];
+  error?: boolean;
+}
+
+export interface ExtendedResponse {
+  scope: string;
+  domains: Record<string, ExtendedDomain>;
+}
+
+export interface BlastStep {
+  to_zone: string;
+  port: number;
+  protocol: string;
+  service: string;
+  permitted: boolean;
+  decided_by: string;
+  reason: string;
+  uncertain: boolean;
+  zone_assumed: boolean;
+  administrative: boolean;
+}
+
+export interface BlastSummary {
+  origin: string;
+  zones_reachable: number;
+  zones_considered: number;
+  paths_open: number;
+  administrative_paths: number;
+  uncertain_paths: number;
+  blocked: number;
+  undecidable: number;
+  undecidable_by_zone: Record<string, number>;
+  zones_fully_undecidable: string[];
+  origin_populated: boolean | null;
+  origin_members: string[];
+  latent: boolean;
+}
+
+export interface BlastResponse {
+  summary: BlastSummary;
+  origin: string;
+  origin_address: string;
+  reachable: BlastStep[];
+  zones_considered: string[];
+  notes: string[];
+  explain: string;
+}
+
+export interface ZonesResponse {
+  source_zones: string[];
+  destination_zones: string[];
+  untrusted: string[];
+}
+
+export interface WhatIfRequest {
+  fix_controls?: string[];
+  disable_rules?: string[];
+  origin_zone?: string;
+}
+
+export interface WhatIfChange {
+  control_id: string;
+  title: string;
+  severity: Severity;
+  before: ResultState;
+  after: ResultState;
+  targeted: boolean;
+}
+
+export interface WhatIfResponse {
+  simulated: true;
+  label: string;
+  applied: Record<string, unknown>[];
+  rejected: { item: string; reason: string; suggest_disable_rules?: string[] }[];
+  warnings: string[];
+  before: Coverage;
+  after: Coverage;
+  delta: { score_pct: number | null; assessed_pct: number | null };
+  changes: WhatIfChange[];
+  caveats: string[];
+  blast_radius?: { origin_zone: string; before: BlastSummary; after: BlastSummary };
+}
+
+// ------------------------------------------------------------ training loop
+
+export interface TrainingContext {
+  supported: boolean;
+  has_pack: boolean;
+  vendor: string;
+  platform: string;
+  platform_known: boolean;
+  reader: string;
+  suggested_signature: string[];
+  source_file: string;
+  coverage: Coverage | null;
+}
+
+export interface SchemaField {
+  field: string;
+  type: string;
+  domain: string;
+  controls: string[];
+}
+
+export interface ApprovalRequest {
+  setting_name: string;
+  field: string;
+  platform: string;
+  approved_by: string;
+  kind?: string;
+  assessment_id?: string;
+  vendor?: string;
+  reader?: string;
+  signature?: string[];
+}
+
+export interface ApprovalResult {
+  accepted: boolean;
+  reason: string;
+  registry_version: string;
+  regression: {
+    broken?: string[];
+    detail?: string[];
+    pass_rate_before?: number;
+    pass_rate_after?: number;
+    direction_alert?: boolean;
+  };
+}
+
+export interface LearnedSummary {
+  total: number;
+  platforms: {
+    platform: string;
+    vendor: string;
+    new_vendor: boolean;
+    reader: string;
+    signature: string[];
+    count: number;
+    mappings: { setting: string; field: string; approved_by: string }[];
+  }[];
+}
+
 // --------------------------------------------------------------- the client
 
 /**
@@ -425,10 +724,40 @@ export class ApiError extends Error {
   }
 }
 
+/** The API token, when the engine requires one (NCSA_API_TOKEN). Kept in this
+ *  browser only; storage can be unavailable, so every access is guarded. */
+export function apiToken(): string {
+  try {
+    return localStorage.getItem("ncsa_api_token") || "";
+  } catch {
+    return "";
+  }
+}
+
+function withAuth(init?: RequestInit): RequestInit | undefined {
+  const token = apiToken();
+  if (!token) return init;
+  const headers = new Headers(init?.headers);
+  headers.set("Authorization", `Bearer ${token}`);
+  return { ...init, headers };
+}
+
+/** Download a file the API produces, sending the token (a plain link cannot). */
+export async function download(path: string, filename: string): Promise<void> {
+  const res = await fetch(path.startsWith(BASE) ? path : `${BASE}${path}`, withAuth());
+  if (!res.ok) throw new ApiError(res.status, `download failed (${res.status})`);
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}`, init);
+    res = await fetch(`${BASE}${path}`, withAuth(init));
   } catch {
     throw new ApiError(
       0,
@@ -455,29 +784,159 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+export interface MonitorJob {
+  job_id: string;
+  host: string;
+  platform: string;
+  username: string;
+  interval_minutes: number;
+  last_run: string | null;
+  last_status: string | null;
+  last_score: number | null;
+  last_aid: string | null;
+}
+
+export interface MonitorAlert {
+  alert_id: string;
+  job_id: string;
+  at: string;
+  kind: string;
+  detail: string;
+  aid: string | null;
+}
+
+export interface HistoryPoint {
+  taken_at: string;
+  score_pct: number | null;
+  assessed_pct: number | null;
+  frameworks: Record<string, number | null>;
+  config_sha256: string;
+  analysis_version: string;
+}
+
+/** A platform live collection supports, and the exact commands it sends. */
+export interface CollectProfile {
+  platform: string;
+  netmiko: string;
+  napalm: string | null;
+  commands: string[];
+}
+
+export interface CollectRequest {
+  host: string;
+  platform: string;
+  username: string;
+  password: string;
+  secret?: string;
+  port?: number;
+  driver?: string;
+  redact?: boolean;
+  frameworks?: string[] | null;
+}
+
 export const api = {
   health: () => request<HealthResponse>("/health"),
   platforms: () => request<PlatformInfo[]>("/platforms"),
   frameworks: () => request<FrameworksResponse>("/frameworks"),
+  aiGovernance: () => request<AiGovernanceResponse>("/ai-governance"),
 
   assessments: () => request<AssessmentSummary[]>("/assessments"),
   assessment: (id: string) => request<Assessment>(`/assessment/${id}`),
 
   /** Bulk ingestion is a deliverable, so this takes many files by design. */
-  assess: (files: File[], redact: boolean) => {
+  assess: (files: File[], redact: boolean, frameworks: string[] = []) => {
     const form = new FormData();
     for (const f of files) form.append("files", f);
-    return request<Assessment[]>(`/assess?redact=${redact}`, {
+    const fw = frameworks.map((k) => `&frameworks=${encodeURIComponent(k)}`).join("");
+    return request<Assessment[]>(`/assess?redact=${redact}${fw}`, {
       method: "POST",
       body: form,
     });
   },
 
+  /** Snapshots of this device over time, with each framework's score. */
+  history: (id: string) => request<HistoryPoint[]>(`/assessment/${id}/history`),
+  recordSnapshot: (id: string) =>
+    request<unknown>(`/assessment/${id}/snapshot`, { method: "POST" }),
+  /** Browser URL of the report; `framework` scopes it to one framework. */
+  reportUrl: (id: string, framework?: string, format: "pdf" | "html" = "pdf") =>
+    `${BASE}/assessment/${id}/report?format=${format}` +
+    (framework ? `&framework=${encodeURIComponent(framework)}` : ""),
+
+  /** Scheduled re-collection and drift alerts. Credentials never come back. */
+  monitors: () => request<{ jobs: MonitorJob[]; alerts: MonitorAlert[] }>("/monitor"),
+  createMonitor: (body: CollectRequest & { interval_minutes: number }) =>
+    request<MonitorJob>("/monitor", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  runMonitor: (id: string) =>
+    request<{ status: string; alerts: number; detail?: string[] | string }>(
+      `/monitor/${id}/run`, { method: "POST" }),
+  deleteMonitor: (id: string) =>
+    request<unknown>(`/monitor/${id}`, { method: "DELETE" }),
+
+  /** Live SSH collection: read-only commands, credentials used once. */
+  collectProfiles: () => request<CollectProfile[]>("/collect/profiles"),
+  collect: (body: CollectRequest) =>
+    request<Assessment[]>("/collect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+
   hygiene: (id: string) => request<HygieneResponse>(`/assessment/${id}/hygiene`),
+  graph: (id: string) => request<GraphResponse>(`/assessment/${id}/graph`),
+  extended: (id: string) =>
+    request<ExtendedResponse>(`/assessment/${id}/extended`),
+  zones: (id: string) => request<ZonesResponse>(`/assessment/${id}/zones`),
+  /** SVG text of the topology figure. Rendered server-side, shown via <img>. */
+  topologySvg: async (id: string, redact: boolean): Promise<string> => {
+    const res = await fetch(
+      `${BASE}/assessment/${id}/topology-map.svg?redact=${redact}`,
+    );
+    if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText}`);
+    return res.text();
+  },
+  blastRadius: (id: string, originZone: string) =>
+    request<BlastResponse>(
+      `/assessment/${id}/blast-radius?origin_zone=${encodeURIComponent(originZone)}`,
+      { method: "POST" },
+    ),
+  whatIf: (id: string, body: WhatIfRequest) =>
+    request<WhatIfResponse>(`/assessment/${id}/what-if`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
   remediation: (id: string) =>
     request<RemediationResponse>(`/assessment/${id}/remediation`),
   training: (id: string) =>
     request<TrainingCandidate[]>(`/assessment/${id}/training`),
+  trainingContext: (id: string) =>
+    request<TrainingContext>(`/assessment/${id}/training/context`),
+  schemaFields: () => request<SchemaField[]>("/schema/fields"),
+  learnedSummary: () => request<LearnedSummary>("/training/learned"),
+  approveMapping: (body: ApprovalRequest) =>
+    request<ApprovalResult>("/training/approve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  rejectMapping: (body: {
+    setting_name: string;
+    platform: string;
+    rejected_by: string;
+    reason?: string;
+  }) =>
+    request<unknown>("/training/reject", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  reassess: (id: string) =>
+    request<Assessment>(`/assessment/${id}/reassess`, { method: "POST" }),
   recertification: (id: string) =>
     request<RecertResponse>(`/assessment/${id}/recertification`),
   consensus: (id: string) =>
@@ -524,7 +983,7 @@ export function failuresBySeverity(findings: Finding[]): Record<Severity, number
  * Written once, here, so no page can render the score alone by forgetting.
  */
 export function coverageCaption(c: Coverage): string {
-  return `${c.score_pct}% of ${c.controls_decided} decided controls · ${c.assessed_pct}% of the device assessed`;
+  return `${c.score_pct}% of ${c.controls_decided} decided controls · ${c.assessed_pct}% of applicable controls decided`;
 }
 
 export function vendorLabel(v: string): string {

@@ -13,3 +13,14 @@ frameworks:
   # STIG/CIS ids intentionally omitted: they are per-platform and
   # belong in the vendor pack (plan 6.1). An invented id is worse
   # than none -- see the v1.4 6.4 caveat.
+
+remediation:
+  fortios:
+    commands:
+    - config firewall policy
+    - edit <POLICY-ID>
+    - set logtraffic all
+    - next
+    - end
+    phase: 30
+    verify: show firewall policy <POLICY-ID>

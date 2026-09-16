@@ -5,6 +5,7 @@ engine cannot: rendering UNKNOWN as green, showing a score without its
 coverage, or dropping the evidence that lets a reviewer check us. The schema
 is where that is prevented, so the schema is what is tested.
 """
+from ncsa.paths import resolve_packs_dir
 import html as html_mod
 import os
 import tempfile
@@ -132,7 +133,7 @@ def test_approval_runs_the_regression_gate():
         if r["accepted"]:
             assert "corpus still holds" in r["reason"]
     finally:
-        for p in Path("packs").glob("*.learned.yaml"):
+        for p in resolve_packs_dir().glob("*.learned.yaml"):
             p.unlink(missing_ok=True)
 
 

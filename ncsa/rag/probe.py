@@ -170,10 +170,11 @@ def _literalise(rx):
 
 def probes_from_packs(packs_dir="packs", sbm=None):
     """Build one probe per SBM field, pooling vendor syntax across all packs."""
+    from ..paths import resolve_packs_dir
     from ..readers.pack import load_pack
 
     by_field = {}
-    for p in sorted(Path(packs_dir).glob("*.yaml")):
+    for p in sorted(resolve_packs_dir(packs_dir).glob("*.yaml")):
         try:
             pack = load_pack(p)
         except Exception:                              # noqa: BLE001

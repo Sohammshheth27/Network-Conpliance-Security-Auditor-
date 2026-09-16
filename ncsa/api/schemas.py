@@ -8,7 +8,8 @@ THREE INVARIANTS THE UI MUST NOT UNDO. They are the product's credibility, and
 a dashboard can erase them by accident in a way the engine cannot:
 
  1. `score_pct` is the pass rate over controls we could DECIDE. It is not
-    compliance. `assessed_pct` says how much of the control set that was, and
+    compliance. `assessed_pct` says how much of the APPLICABLE control set
+    that was (controls the platform cannot have are excluded), and
     the two must always appear together. A tool that shows 60% without saying
     it assessed 46% of the device is claiming something it did not measure.
 
@@ -24,7 +25,31 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
+
+
+class CollectIn(BaseModel):
+    """Live collection request (ncsa/collect/live.py).
+
+    Credentials are SecretStr so they never appear in a repr, a log line or a
+    validation error. They are used for one SSH session and not stored.
+    """
+    host: str = Field(description="IP address or DNS name")
+    platform: str = Field(description="Selects the SSH driver; the fingerprint "
+                                      "still decides which pack applies")
+    username: str
+    password: SecretStr
+    secret: SecretStr | None = Field(default=None, description="Enable secret, Cisco only")
+    port: int = 22
+    driver: str = Field(default="netmiko", description="netmiko | napalm")
+    redact: bool = True
+    frameworks: list[str] | None = None
+
+
+class MonitorIn(CollectIn):
+    """A scheduled re-collection job (ncsa/collect/monitor.py). The password
+    is stored encrypted and never returned."""
+    interval_minutes: int = Field(default=60, description="At least 15")
 
 
 class EvidenceOut(BaseModel):
@@ -71,6 +96,11 @@ class FindingOut(BaseModel):
         default=None,
         description="Present only for FAIL/PARTIAL. UNKNOWN carries no risk "
                     "score: a number there would imply we knew.")
+    attack: list[dict] = Field(
+        default_factory=list,
+        description="MITRE ATT&CK techniques this control stands in front of, "
+                    "resolved against the bundle on disk. Empty for controls "
+                    "that prevent no specific technique.")
 
 
 class IdentityOut(BaseModel):
@@ -105,11 +135,17 @@ class RecordAccountingOut(BaseModel):
 
 class CoverageOut(BaseModel):
     controls_total: int
+    controls_applicable: int = Field(
+        default=0,
+        description="Controls that apply to this platform: total minus "
+                    "NOT_APPLICABLE (each of which carries its reason).")
     controls_decided: int
     controls_undecided: int
     not_applicable: int
     assessed_pct: float = Field(
-        description="How much of the control set we could decide. ALWAYS show "
+        description="Decided controls as a share of the APPLICABLE ones. "
+                    "Undecided controls stay in the denominator; controls "
+                    "that cannot exist on this platform do not. ALWAYS show "
                     "this next to score_pct.")
     score_pct: float | None = Field(
         default=None,
@@ -143,6 +179,12 @@ class AssessmentOut(BaseModel):
     objects: int = 0
     relationships: int = 0
     notes: list[str] = Field(default_factory=list)
+    frameworks: list[str] | None = Field(
+        default=None,
+        description="Frameworks the user selected; null means all of them.")
+    framework_coverage: list[dict] = Field(
+        default_factory=list,
+        description="Per framework: controls citing it, decided, passed, score.")
 
 
 class TrainingCandidateOut(BaseModel):
@@ -156,6 +198,8 @@ class TrainingCandidateOut(BaseModel):
     suggestion_score: float = 0.0
     suggested_from: str = ""
     status: str = "PENDING"
+    kind: str = Field(default="value",
+                      description="value | keys (a table whose keys are the values)")
 
 
 class ApprovalIn(BaseModel):
@@ -166,6 +210,14 @@ class ApprovalIn(BaseModel):
     platform: str
     approved_by: str
     value_hint: Any = None
+    kind: str = "value"
+    #: Set only when teaching a vendor that has no pack yet.
+    vendor: str | None = None
+    reader: str | None = None
+    signature: list[str] = Field(default_factory=list)
+    #: The assessment the approval came from, so a new vendor's signature can
+    #: be checked against that device's own file before anything is written.
+    assessment_id: str | None = None
 
 
 class ApprovalOut(BaseModel):

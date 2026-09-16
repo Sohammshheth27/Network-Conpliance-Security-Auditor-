@@ -73,10 +73,10 @@ things, and collapsing them would overstate what a demo can show.
 | # | Capability | Built | Tests | API endpoint | Console UI |
 |---|---|---|---|---|---|
 | 1 | Multi-vendor parsing (6 grammar families) | 11 packs | 35 | `POST /assess` | ✅ Yes |
-| 2 | Compliance evaluation (81 rules) | 308 lines | 35 | `GET /assessment/{id}` | ✅ Yes |
+| 2 | Compliance evaluation (88 controls) | 308 lines | 35 | `GET /assessment/{id}` | ✅ Yes |
 | 3 | Rule hygiene — dead / shadowed / over-broad | 322 lines | 14 | `GET .../hygiene` | ✅ Yes |
 | 4 | Remediation generation | 202 lines | ✓ | `GET .../remediation` | ✅ Yes |
-| 5 | Training queue + approval loop | 477 lines | 12 | `GET .../training`, `POST /training/approve` | ✅ Yes |
+| 5 | Training queue + approve / reject loop, unseen-vendor bootstrap | 477 lines | 34 | `GET .../training`, `POST /training/approve`, `POST /training/reject`, `GET /training/learned`, `POST .../reassess` | ✅ Yes — Training page |
 | 6 | Risk scoring | 156 lines | ✓ | inside `/assessment/{id}` | ✅ Internal |
 | 7 | Framework provenance (8 catalogues) | 1,082 lines | ✓ | `GET /frameworks` | ✅ Yes |
 | 8 | **Reachability** — would this traffic pass? | 289 lines | 15 | `POST .../reach` | ⚠️ **API only** |
@@ -88,37 +88,75 @@ things, and collapsing them would overstate what a demo can show.
 | 14 | **Host firewall audit** (Windows / iptables) | 329 lines | 14 | `POST /hostfw/iptables`, `POST /hostfw/local` | ⚠️ **API only** |
 | 15 | **Golden corpus / regression gate** | 187 lines | 6 | *internal* | ❌ CI only |
 | 16 | Capability boundary self-report | — | ✓ | `GET /health` | ⚠️ API only |
+| 17 | **Framework selection** — score against CIS / NIST / STIG / ISO only | selection + CIS crosswalk | 16 | `POST /assess?frameworks=` | ✅ Yes — New Audit chips, per-framework table |
+| 18 | **Live SSH collection** — read-only, credentials never stored | 170 lines | 17 | `POST /collect`, `GET /collect/profiles` | ✅ Yes — New Audit |
+| 19 | **Version awareness** — unverified OS release noted | 70 lines | 11 | inside `/assessment/{id}` notes | ✅ Internal |
+| 20 | **Monitoring** — scheduled re-collection, drift alerts, credentials Fernet-encrypted | monitor.py | 4 | `POST/GET /monitor`, `POST /monitor/{id}/run`, `DELETE /monitor/{id}` | ✅ Yes — New Audit + Settings |
+| 21 | **Fleet view** — every device, per-framework scores, CSV export | store + app | ✓ | `GET /assessments`, `GET /fleet.csv` | ✅ Yes — Assessments |
+| 22 | **Tamper-evident reports** — SHA-256 + Ed25519 signature on every PDF | signing.py | ✓ | `GET /report-signing-key`, `POST /verify-report` | ✅ Yes — report download |
+| 23 | **API access control** — Bearer token or loopback-only; CORS allow-list | app.py middleware | ✓ | all routes | ✅ Yes — Settings |
 
 **Nothing in this table is unreachable any more.** In the version of the table
 you pasted, seven capabilities were built, tested, and callable from nowhere.
 All seven now have endpoints. What remains is that eight of them have **no
 button in the console** — the work in §5.
 
-### The 22 live API routes
+### The 48 live API routes
+
+Counted from `ncsa/api/app.py`, not maintained by hand.
 
 ```
-GET   /                                  landing page
-GET   /app                               audit console
-POST  /assess                            upload one or many configs
-GET   /assessments                       everything assessed this session
-GET   /assessment/{id}                   findings, coverage, evidence
-GET   /assessment/{id}/hygiene           dead / shadowed / over-broad rules
-GET   /assessment/{id}/remediation       fix commands, lockout-checked
-GET   /assessment/{id}/training          unrecognised settings queue
-POST  /training/approve                  approve a learned mapping
-POST  /assessment/{id}/reach             would this traffic be permitted?
-POST  /topology                          build a fabric from several devices
-GET   /assessment/{id}/interfaces        the addressing topology infers from
-POST  /assessment/{id}/snapshot          record state for later comparison
-GET   /assessment/{id}/diff              what changed since last snapshot
-GET   /assessment/{id}/recertification   rules due for review / deletion
-POST  /assessment/{id}/logs              correlate syslog against rules
-GET   /assessment/{id}/consensus         independent-parser agreement
-POST  /hostfw/iptables                   audit an uploaded iptables ruleset
-POST  /hostfw/local                      audit the API host's own firewall
-GET   /frameworks                        catalogue sizes + licence note
-GET   /platforms                         supported platforms
-GET   /health                            liveness + capability boundary
+GET   /                                   landing page
+GET   /app                                audit console
+POST  /assess?frameworks=                 upload one or many configs; optional
+                                          framework selection (cis, nist_800_53,
+                                          stig, iso_27001) -- none means all
+GET   /collect/profiles                   live-collection platforms + exact commands
+POST  /collect                            SSH read-only collection, then assess
+POST  /monitor                            schedule re-collection (>= 15 min)
+GET   /monitor                            monitoring jobs + drift alerts
+POST  /monitor/{job_id}/run               re-collect now, compare, alert
+DELETE /monitor/{job_id}                  stop monitoring a device
+GET   /assessments                        every stored assessment (fleet view)
+GET   /fleet.csv                          fleet view as CSV, per-framework scores
+GET   /assessment/{id}                    findings, coverage, per-framework result
+GET   /assessment/{id}/remediation        fix commands, lockout-checked
+GET   /assessment/{id}/baseline           the device's security baseline model
+GET   /assessment/{id}/report             PDF report; ?framework= scopes it to one;
+                                          signed (X-Report-SHA256, X-Report-Signature)
+GET   /report-signing-key                 public Ed25519 key to verify reports offline
+POST  /verify-report                      is this PDF unaltered and signed by us?
+POST  /assessment/{id}/blast-radius       what a compromise here reaches
+GET   /assessment/{id}/zones              zone model
+GET   /assessment/{id}/extended           VPN / wireless / CVE (beside the score)
+POST  /assessment/{id}/what-if            effect of a proposed rule change
+GET   /assessment/{id}/topology-map       2D topology (JSON)
+GET   /assessment/{id}/topology-map.svg   2D topology (image)
+GET   /assessment/{id}/graph              object and relationship graph
+GET   /assessment/{id}/hygiene            dead / shadowed / over-broad rules
+GET   /assessment/{id}/training           unrecognised settings queue
+POST  /training/approve                   approve a mapping (regression-gated)
+POST  /training/reject                    reject a suggestion, recorded
+GET   /training/learned                   the learned-mappings counter
+GET   /schema/fields                      SBM fields the approver can map to
+GET   /assessment/{id}/training/context   vendor, reader, suggested fingerprint
+POST  /assessment/{id}/reassess           re-run after training, same options
+POST  /assessment/{id}/reach              would this traffic be permitted?
+POST  /topology                           build a fabric from several devices
+GET   /assessment/{id}/interfaces         the addressing topology infers from
+POST  /assessment/{id}/snapshot           record state for later comparison
+GET   /assessment/{id}/diff               what changed since last snapshot
+GET   /assessment/{id}/history            framework scores over time (snapshots)
+GET   /assessment/{id}/recertification    rules due for review / deletion
+POST  /assessment/{id}/logs               correlate syslog against rules
+GET   /assessment/{id}/consensus          independent-parser agreement
+POST  /hostfw/iptables                    audit an uploaded iptables ruleset
+POST  /hostfw/local                       audit the API host's own firewall
+GET   /ai-governance                      AI RMF / ATLAS controls and evidence
+GET   /attack-coverage                    ATT&CK techniques the controls address
+GET   /frameworks                         catalogue sizes + licence note
+GET   /platforms                          supported platforms
+GET   /health                             liveness + capability boundary
 ```
 
 ---

@@ -120,6 +120,12 @@ def apply_path_pack(
         if fn is None:
             continue
         value, ev = fn(cfg, d.params)
+        if value is UNEVALUATED:
+            # The configuration does not speak to this setting at all, and the
+            # default is not knowable from it: leave the field unevaluated
+            # (UNKNOWN) rather than record an absence that an operator could
+            # turn into a PASS.
+            continue
         if value is None and not ev:
             sbm.set(d.field, Observation.not_observed(field_path=d.field))
         elif ev:
@@ -180,6 +186,106 @@ def _wildcard_index(path: str) -> int:
 # ---------------------------------------------------------------------------
 # Allow-listed derivations for path readers (plan 13.2).
 # ---------------------------------------------------------------------------
+
+#: Returned by a derivation when the configuration does not address the
+#: setting and the platform default cannot be known from it.
+UNEVALUATED = object()
+
+
+def _tokens(val) -> list[str]:
+    """`[ aes256-ctr arcfour ]` or `aes256-ctr` -> individual names."""
+    return [t for t in str(val).replace("[", " ").replace("]", " ").split() if t]
+
+
+def derive_path_weak_tokens(cfg, params: dict):
+    """Values that FAIL a "strong" pattern, across one or more settings.
+
+    For algorithm lists, where the benchmark defines weakness by exclusion --
+    CIS Junos 6.10.1.6 counts any cipher not matching `aes|3des` as weak, and
+    6.10.1.9 any key exchange not matching `sha2|ecdh|curve`. Copying the
+    whole list into a "weak" field (what the Junos pack used to do) failed a
+    device configured with only strong algorithms.
+
+    Params:
+        rules -- [{path, strong}] ; `strong` is a regex a good value matches.
+    With none of the paths present the result is UNEVALUATED: the default set
+    depends on the release, so absence proves nothing in either direction.
+    """
+    import re as _re
+
+    weak, evidence, seen = [], [], False
+    for rule in params.get("rules") or []:
+        path, strong = rule.get("path"), rule.get("strong")
+        if not path or not strong:
+            continue
+        hits = cfg.get_all(path) if hasattr(cfg, "get_all") else []
+        for val, ln, raw in hits:
+            seen = True
+            evidence.append(cfg.evidence(ln, raw))
+            weak += [t for t in _tokens(val) if not _re.search(strong, t, _re.I)]
+    if not seen:
+        return UNEVALUATED, []
+    return weak, evidence
+
+
+def derive_path_token_any(cfg, params: dict):
+    """True when `token` appears in any of several settings, in either form.
+
+    Junos writes one setting two ways: `auxiliary disable;` (a leaf whose VALUE
+    is the token, path `.../auxiliary`) and `auxiliary { disable; }` (a flag
+    whose PATH ends in the token). A single path mapping reads one form and
+    reports the other as absent. False, with evidence, when a setting is there
+    without the token; None when none of them is present -- an absence the
+    control's operator then judges, as for any other mapping.
+
+    Params:
+        paths -- exact paths or globs (required); token -- the word to find
+    """
+    token = str(params.get("token", "")).lower()
+    hits = []
+    for pattern in params.get("paths") or []:
+        hits += (cfg.glob(pattern) if "*" in pattern
+                 else [(pattern, *h) for h in cfg.get_all(pattern)])
+    if not token or not hits:
+        return None, []
+    found = [(ln, raw) for p, val, ln, raw in hits
+             if token in str(val).lower().split() or p.rsplit("/", 1)[-1].lower() == token]
+    if found:
+        return True, [cfg.evidence(ln, raw) for ln, raw in found]
+    return False, [cfg.evidence(ln, raw) for _p, _v, ln, raw in hits]
+
+
+def derive_path_present(cfg, params: dict):
+    """True, with evidence, when anything matches `glob`; otherwise False
+    WITHOUT evidence, which the applier records as a platform default.
+
+    For a service that is off unless configured -- Junos REST exists only
+    under `system services rest`. The default can then pass a control but
+    never fail one (an assumption cannot carry a FAIL).
+    """
+    pattern = params.get("glob")
+    hits = cfg.glob(pattern) if pattern else []
+    if hits:
+        _p, _v, ln, raw = hits[0]
+        return True, [cfg.evidence(ln, raw)]
+    return False, []
+
+
+def derive_path_any_present(cfg, params: dict):
+    """`value` when anything matches `glob`; otherwise UNEVALUATED.
+
+    For a fact established by presence alone: a Junos SNMP community in the
+    configuration IS SNMP v1/v2c in use, whatever else is configured.
+    """
+    pattern, value = params.get("glob"), params.get("value")
+    if not pattern:
+        return UNEVALUATED, []
+    hits = (cfg.glob(pattern) if "*" in pattern
+            else [(pattern, *h) for h in cfg.get_all(pattern)])
+    if not hits:
+        return UNEVALUATED, []
+    _p, _v, ln, raw = hits[0]
+    return value, [cfg.evidence(ln, raw)]
 
 def derive_junos_telnet_enabled(cfg, params: dict):
     """Junos enables telnet by declaring the service; absence means off."""
@@ -378,4 +484,8 @@ PATH_DERIVATIONS = {
     "junos_ssh_enabled": derive_junos_ssh_enabled,
     "sonicos_admin_ports": derive_sonicos_admin_ports,
     "path_glob_contains": derive_path_glob_contains,
+    "path_weak_tokens": derive_path_weak_tokens,
+    "path_any_present": derive_path_any_present,
+    "path_token_any": derive_path_token_any,
+    "path_present": derive_path_present,
 }

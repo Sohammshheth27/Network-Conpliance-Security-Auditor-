@@ -1,0 +1,41 @@
+{
+  "_comment": "FIXTURE -- constructed in the documented SONiC config_db.json shape (SONiC Configuration wiki; sonic-snmp.yang). Not exported from a real switch.",
+  "DEVICE_METADATA": {
+    "localhost": {
+      "hwsku": "Force10-S6100",
+      "hostname": "sonic-lab-01",
+      "platform": "x86_64-dell_s6100_c2538-r0",
+      "mac": "4c:76:25:f4:70:82",
+      "type": "ToRRouter",
+      "bgp_asn": "65100"
+    }
+  },
+  "NTP_SERVER": {
+    "0.debian.pool.ntp.org": {},
+    "1.debian.pool.ntp.org": {}
+  },
+  "SYSLOG_SERVER": {
+    "10.0.0.5": {}
+  },
+  "SNMP_COMMUNITY": {
+    "public": {
+      "TYPE": "RO"
+    }
+  },
+  "SNMP": {
+    "LOCATION": {
+      "Location": "Lab rack 4"
+    }
+  },
+  "TACPLUS_SERVER": {
+    "10.0.0.8": {
+      "priority": "1",
+      "tcp_port": "49"
+    }
+  },
+  "MGMT_INTERFACE": {
+    "eth0|10.11.150.11/16": {
+      "gwaddr": "10.11.0.1"
+    }
+  }
+}

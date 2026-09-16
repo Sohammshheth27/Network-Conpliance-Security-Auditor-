@@ -176,10 +176,21 @@ def fingerprint_json(data) -> Fingerprint:
             return Fingerprint(vendor="aws", platform="security_groups",
                                reader="json", os="AWS EC2", confidence=1.0,
                                matched=["GroupId+IpPermissions"])
-        if "securityRules" in data[0] or "properties" in data[0]:
+        first = data[0]
+        # Azure NSGs: rules at the top level (az CLI) or under `properties`
+        # (ARM/REST). The old test accepted any object with `properties`,
+        # which is half the Azure resource model.
+        if "securityRules" in first or "securityRules" in (first.get("properties") or {}):
             return Fingerprint(vendor="azure", platform="network_security_groups",
-                               reader="json", os="Azure", confidence=0.8,
+                               reader="json", os="Azure", confidence=1.0,
                                matched=["securityRules"])
+        # GCP VPC firewall rules, from `gcloud compute firewall-rules list`.
+        if first.get("kind") == "compute#firewall" or (
+                "direction" in first and "network" in first
+                and ("allowed" in first or "denied" in first)):
+            return Fingerprint(vendor="gcp", platform="gcp_firewall",
+                               reader="json", os="Google Cloud VPC",
+                               confidence=1.0, matched=["compute#firewall"])
     if isinstance(data, dict):
         if "DEVICE_METADATA" in data:
             return Fingerprint(vendor="sonic", platform="sonic", reader="json",
@@ -187,6 +198,10 @@ def fingerprint_json(data) -> Fingerprint:
         if "SecurityGroups" in data:
             return Fingerprint(vendor="aws", platform="security_groups", reader="json",
                                os="AWS EC2", confidence=1.0, matched=["SecurityGroups"])
+        if "securityRules" in data or "securityRules" in (data.get("properties") or {}):
+            return Fingerprint(vendor="azure", platform="network_security_groups",
+                               reader="json", os="Azure", confidence=1.0,
+                               matched=["securityRules"])
     return Fingerprint()
 
 
@@ -226,9 +241,14 @@ def fingerprint_file(path: str | Path) -> Fingerprint:
     stripped = raw.lstrip()[:1]
     if stripped in (b"{", b"["):
         try:
-            return fingerprint_json(json.loads(raw.decode("utf-8", errors="replace")))
+            data = json.loads(raw.decode("utf-8", errors="replace"))
         except json.JSONDecodeError:
-            pass
+            data = None
+        if data is not None:
+            fp = fingerprint_json(data)
+            if _is_unknown(fp):
+                return learned_fingerprint(data=data) or fp
+            return fp
 
     if stripped == b"<":
         xml_fp = fingerprint_xml(raw.decode("utf-8", errors="replace"))
@@ -266,7 +286,59 @@ def fingerprint_file(path: str | Path) -> Fingerprint:
             exp.matched = exp.matched + ["base64-encoded export"]
             return exp
 
-    return fingerprint_text(text)
+    fp = fingerprint_text(text)
+    if _is_unknown(fp):
+        return learned_fingerprint(text=text) or fp
+    return fp
+
+
+def _is_unknown(fp) -> bool:
+    return not fp.platform or str(fp.platform).upper() == "UNKNOWN"
+
+
+def learned_fingerprint(*, text: str | None = None, data=None,
+                        packs_dir: str = "packs"):
+    """Recognise a vendor the training interface taught, by its signature.
+
+    Consulted only after every built-in signature has failed, so a taught
+    signature can never capture a vendor the tool already knows. EVERY
+    signature of a taught pack must match -- one loose regex must not be
+    enough to hand a stranger's file to the wrong pack.
+    """
+    import yaml
+
+    from ..paths import resolve_packs_dir
+
+    for p in sorted(resolve_packs_dir(packs_dir).glob("*.learned.yaml")):
+        try:
+            doc = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+        except Exception:                              # noqa: BLE001
+            continue
+        if doc.get("version") != "learned-bootstrap":
+            continue
+        sigs = [str(s) for s in (doc.get("fingerprint") or []) if str(s).strip()]
+        if not sigs or not doc.get("platform"):
+            continue
+        reader = doc.get("reader")
+        try:
+            if reader == "json":
+                if data is None:
+                    continue
+                from jsonpath_ng.ext import parse
+                ok = all(parse(s).find(data) for s in sigs)
+            else:
+                if text is None:
+                    continue
+                head = "\n".join(text.splitlines()[:400])
+                ok = all(re.search(s, head, re.M) for s in sigs)
+        except Exception:                              # noqa: BLE001
+            continue
+        if ok:
+            return Fingerprint(
+                vendor=doc.get("vendor") or "learned", platform=doc["platform"],
+                reader=reader, os=doc.get("vendor"), confidence=1.0,
+                matched=["taught signature: " + "; ".join(sigs)])
+    return None
 
 
 _EXP_MARKERS = ("shortProdName=", "buildNum=", "allowHttpMgmt=", "serialNumber=")

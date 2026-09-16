@@ -19,3 +19,12 @@ requires:
   - field: management.https.enabled
     equals: true
     because: "HTTPS management is disabled, so its TLS version is moot"
+
+remediation:
+  fortios:
+    commands:
+    - config system global
+    - set admin-https-ssl-versions tlsv1-3
+    - end
+    phase: 30
+    verify: show system global

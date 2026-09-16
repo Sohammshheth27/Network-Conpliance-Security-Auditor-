@@ -36,6 +36,9 @@ class TrainingCandidate:
     evidence_raw: str = ""
     vendor: str = ""
     platform: str = ""
+    #: "value" -- the setting carries a value; "keys" -- the setting is a
+    #: table whose KEYS are the values (SONiC's NTP_SERVER, SYSLOG_SERVER).
+    kind: str = "value"
     # Filled by the NLP matcher when a known vendor expresses the same idea.
     suggested_field: str | None = None
     suggestion_score: float = 0.0
@@ -67,15 +70,21 @@ def build_queue(device_assessment, doc=None, *, only_security=True,
     # graph consumption. A freshly parsed copy knows only what the graph read.
     doc = doc or getattr(device_assessment, "document", None)
     records = _unmapped_records(device_assessment, doc)
-    for key, value, line, raw in records:
-        if only_security and classify(key, value) != CAT_SECURITY:
+    # A vendor with no pack at all has NOTHING mapped, identity included, so
+    # the security filter would hide the very settings (hostname, servers)
+    # that make its first pack useful. Everything is shown for such a device.
+    security_only = only_security and device_assessment.supported
+    for rec in records:
+        key, value, line, raw = rec[:4]
+        kind = rec[4] if len(rec) > 4 else "value"
+        if security_only and classify(key, value) != CAT_SECURITY:
             continue
-        name = base_name(key)
+        name = base_name(key) if kind == "value" and "." not in key else key
         c = cands.get(name)
         if c is None:
             c = cands[name] = TrainingCandidate(
                 name=name, evidence_line=line, evidence_raw=raw,
-                vendor=ident.vendor, platform=ident.platform)
+                vendor=ident.vendor, platform=ident.platform, kind=kind)
         c.occurrences += 1
         if value not in c.sample_values and len(c.sample_values) < 5:
             c.sample_values.append(value)
@@ -85,7 +94,32 @@ def build_queue(device_assessment, doc=None, *, only_security=True,
         _suggest(out)
         # A proposable mapping outranks one we would have to ask about.
         out.sort(key=lambda c: (-c.suggestion_score, -c.occurrences))
+    out = _apply_decisions(out, ident.platform)
     return out[:limit] if limit else out
+
+
+def _apply_decisions(cands: list, platform: str) -> list:
+    """Mark what a human already decided, and drop what they rejected.
+
+    APPROVED stays visible until the device is re-assessed -- the mapping is
+    written, but this assessment was produced before it existed. A REJECTED
+    setting leaves the queue for good: asking again is how reviewers learn to
+    click without reading.
+    """
+    try:
+        from .apply import decisions, learned_settings
+        rejected = decisions().get(platform, set())
+        approved = learned_settings(platform)
+    except Exception:                                  # noqa: BLE001
+        return cands
+    out = []
+    for c in cands:
+        if c.name in rejected:
+            continue
+        if c.name in approved:
+            c.status = "APPROVED"
+        out.append(c)
+    return out
 
 
 def _unmapped_records(device_assessment, doc):
@@ -94,6 +128,9 @@ def _unmapped_records(device_assessment, doc):
         consumed = doc._consumed
         return [(k, v[0], v[1], v[2]) for k, v in doc.values.items()
                 if v[1] - 1 not in consumed]
+    if (doc is not None and hasattr(doc, "data") and hasattr(doc, "unread_paths")
+            and not device_assessment.supported):
+        return json_table_records(doc.data)
     if doc is not None and hasattr(doc, "unrecognised"):
         out = []
         for e in doc.unrecognised():
@@ -112,6 +149,45 @@ def _unmapped_records(device_assessment, doc):
         # `service password-encryption` is the whole signal. Marking it empty
         # would drop exactly the directives that matter most.
         out.append((name, value if value else "<present>", i + 1, l))
+    return out
+
+
+def json_table_records(data) -> list:
+    """(name, value, line, raw, kind) for a JSON config no pack covers.
+
+    Walked as TABLES, not dotted leaf paths. SONiC writes NTP and syslog
+    servers as the KEYS of a table -- "NTP_SERVER": {"0.pool.ntp.org": {}} --
+    and a key containing dots turned the dotted path into nonsense. So:
+
+      * a table of objects contributes one "keys" record per key, and
+      * each field inside its objects becomes `TABLE.*.field`, with the
+        instance key generalised to `*` so one approval covers every
+        instance (every server, every port).
+
+    Keys beginning with `_` are comments by convention and are skipped.
+    """
+    out: list = []
+    if not isinstance(data, dict):
+        return out
+    for table, body in data.items():
+        if str(table).startswith("_"):
+            continue
+        if isinstance(body, dict) and body and all(isinstance(v, dict) for v in body.values()):
+            for key, child in body.items():
+                out.append((table, str(key), 0,
+                            f'"{table}": {{"{key}": ...}}', "keys"))
+                for f, v in child.items():
+                    if isinstance(v, (str, int, float, bool)):
+                        out.append((f"{table}.*.{f}", v, 0,
+                                    f'"{table}" / "{key}" / "{f}": {json.dumps(v)}',
+                                    "value"))
+        elif isinstance(body, dict):
+            for f, v in body.items():
+                if isinstance(v, (str, int, float, bool)):
+                    out.append((f"{table}.{f}", v, 0,
+                                f'"{table}" / "{f}": {json.dumps(v)}', "value"))
+        elif isinstance(body, (str, int, float, bool)):
+            out.append((str(table), body, 0, f'"{table}": {json.dumps(body)}', "value"))
     return out
 
 
@@ -179,7 +255,8 @@ def _suggest(candidates) -> None:
     try:
         from ..nlp.matcher import NlpMatcher, corpus_from_packs
         from ..nlp.semantic import SemanticMatcher
-        lex = NlpMatcher(corpus_from_packs("packs", "samples")).fit()
+        from ..paths import resolve_packs_dir
+        lex = NlpMatcher(corpus_from_packs(str(resolve_packs_dir()), "samples")).fit()
         sem = SemanticMatcher(lexical=lex).fit()
     except Exception:                                  # noqa: BLE001
         return

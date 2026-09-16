@@ -1,8 +1,13 @@
 import { useState, type FC } from 'react';
 import {
   Activity,
+  Boxes,
   Camera,
+  Crosshair,
+  FlaskConical,
   GitCompare,
+  Map as MapIcon,
+  ShieldAlert,
   Network,
   Route,
   ScrollText,
@@ -13,6 +18,12 @@ import { Badge } from '../ui/Badge';
 import { Empty, ErrorPanel, Loading, NotRun } from '../ui/States';
 import { api, ApiError, type ReachResponse } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { GraphPanel } from './GraphPanel';
+import { BlastPanel } from './BlastPanel';
+import { ExtendedPanel } from './ExtendedPanel';
+import { WhatIfPanel } from './WhatIfPanel';
+import { TopologyMapPanel } from './TopologyMapPanel';
+import { TrainingWorkbench } from '../training/TrainingWorkbench';
 
 /**
  * The eight capabilities that were built, tested, and callable from nowhere.
@@ -25,6 +36,11 @@ import { useApi } from '../../lib/useApi';
  */
 
 type Panel =
+  | 'graph'
+  | 'topomap'
+  | 'blast'
+  | 'whatif'
+  | 'extended'
   | 'hygiene'
   | 'reach'
   | 'recert'
@@ -34,6 +50,14 @@ type Panel =
   | 'training';
 
 const PANELS: { id: Panel; label: string; icon: typeof Activity }[] = [
+  // The graph leads, because everything after it is a conclusion drawn from it.
+  { id: 'graph', label: 'Policy graph', icon: Boxes },
+  { id: 'topomap', label: 'Topology map', icon: MapIcon },
+  // Blast radius and what-if are conclusions drawn from the graph, so they sit
+  // straight after it. Extended checks are reported beside the score.
+  { id: 'blast', label: 'Blast radius', icon: Crosshair },
+  { id: 'whatif', label: 'What-if', icon: FlaskConical },
+  { id: 'extended', label: 'VPN · Wireless · CVE', icon: ShieldAlert },
   { id: 'hygiene', label: 'Rule hygiene', icon: Activity },
   { id: 'reach', label: 'Reachability', icon: Route },
   { id: 'recert', label: 'Recertification', icon: Stamp },
@@ -68,13 +92,18 @@ export const AnalysisTabs: FC<{ assessmentId: string }> = ({ assessmentId }) => 
         })}
       </div>
 
+      {panel === 'graph' && <GraphPanel id={assessmentId} />}
       {panel === 'hygiene' && <HygienePanel id={assessmentId} />}
       {panel === 'reach' && <ReachPanel id={assessmentId} />}
       {panel === 'recert' && <RecertPanel id={assessmentId} />}
+      {panel === 'topomap' && <TopologyMapPanel id={assessmentId} />}
+      {panel === 'blast' && <BlastPanel id={assessmentId} />}
+      {panel === 'whatif' && <WhatIfPanel id={assessmentId} />}
+      {panel === 'extended' && <ExtendedPanel id={assessmentId} />}
       {panel === 'change' && <ChangePanel id={assessmentId} />}
       {panel === 'topology' && <InterfacesPanel id={assessmentId} />}
       {panel === 'consensus' && <ConsensusPanel id={assessmentId} />}
-      {panel === 'training' && <TrainingPanel id={assessmentId} />}
+      {panel === 'training' && <TrainingWorkbench id={assessmentId} />}
     </div>
   );
 };
@@ -701,6 +730,7 @@ const ConsensusPanel: FC<{ id: string }> = ({ id }) => {
 };
 
 // ----------------------------------------------------------- training queue
+
 
 const TrainingPanel: FC<{ id: string }> = ({ id }) => {
   const { data, loading, error, reload } = useApi(() => api.training(id), [id], { cacheKey: `training-${id}` });

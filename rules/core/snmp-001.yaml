@@ -13,8 +13,8 @@ frameworks:
   # STIG Vuln IDs are per-platform. Derived from the downloaded
   # XCCDF files, not recalled -- a control may map to several.
   stig_by_platform:
-    cisco_iosxe_router: [V-215841, V-215842]
-    cisco_iosxe_switch: [V-220552]
+    juniper_srx: [V-223211]
+    paloalto_panos: [V-228670]
   # CIS recommendation numbers live in the vendor pack (plan 6.1).
 
 remediation:
@@ -31,3 +31,19 @@ remediation:
     - set snmp v3 usm local-engine user <user> authentication-sha authentication-key <AUTHKEY>
     phase: 20
     verify: show configuration snmp
+
+  sonicwall_sonicos:
+    commands:
+    - configure
+    - administration snmp
+    - version v3-only
+    - commit
+    phase: 40
+    verify: show administration snmp
+  fortios:
+    commands:
+    - config system snmp community
+    - delete <COMMUNITY-ID>
+    - end
+    phase: 40
+    verify: show system snmp community

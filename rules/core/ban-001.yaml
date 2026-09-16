@@ -11,10 +11,6 @@ frameworks:
   iso_27001_2022: [A.8.5]
   # STIG Vuln IDs are per-platform. Derived from the downloaded
   # XCCDF files, not recalled -- a control may map to several.
-  stig_by_platform:
-    cisco_iosxe_router: [V-215814]
-    cisco_iosxe_switch: [V-220525]
-    juniper_srx: [V-223189]
   # CIS recommendation numbers live in the vendor pack (plan 6.1).
 
 remediation:
@@ -30,3 +26,24 @@ remediation:
     - set system login message "Authorised access only. Activity is monitored and logged."
     phase: 30
     verify: show configuration system login message
+
+  sonicwall_sonicos:
+    commands:
+    - configure
+    - administration
+    - login-banner "Authorised access only. Activity is monitored."
+    - commit
+    phase: 10
+    verify: show administration | grep banner
+  cisco_asa:
+    commands:
+    - banner login <LEGAL NOTICE>
+    phase: 30
+    verify: show running-config banner
+  fortios:
+    commands:
+    - config system global
+    - set pre-login-banner enable
+    - end
+    phase: 30
+    verify: show system global

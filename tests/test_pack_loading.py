@@ -15,21 +15,31 @@ to say so.
 """
 import io
 import shutil
+from pathlib import Path
 
 import pytest
 
+from ncsa.paths import resolve_packs_dir
 from ncsa.pipeline import PACK_LOAD_ERRORS, load_packs
 
-PACK = "packs/sonicwall_exp.yaml"
+
+def _pack() -> Path:
+    """The pack the loader actually reads.
+
+    Tests run against a private copy of packs/ (NCSA_PACKS_DIR, set by
+    conftest for the session), so breaking the repo's own file would test
+    nothing. Resolved per call: the variable is set after this module loads.
+    """
+    return Path(resolve_packs_dir("packs")) / "sonicwall_exp.yaml"
 
 
 @pytest.fixture
 def restore_pack(tmp_path):
     """Break the pack, then always put it back."""
     backup = tmp_path / "pack_ok.yaml"
-    shutil.copy(PACK, backup)
+    shutil.copy(_pack(), backup)
     yield backup
-    shutil.copy(backup, PACK)
+    shutil.copy(backup, _pack())
     load_packs()          # leave the module state clean for other tests
 
 
@@ -43,7 +53,7 @@ def test_a_healthy_packs_directory_reports_no_errors():
 def test_a_broken_pack_is_reported_rather_than_swallowed(restore_pack):
     before = len(load_packs())
 
-    with io.open(PACK, "a", encoding="utf-8") as fh:
+    with io.open(_pack(), "a", encoding="utf-8") as fh:
         fh.write("\n  this is: [not valid yaml at all\n")
 
     after = len(load_packs())
@@ -63,12 +73,12 @@ def test_the_error_list_is_rebuilt_on_every_call(restore_pack):
 
     The list describes the packs directory as it is now, not as it once was.
     """
-    with io.open(PACK, "a", encoding="utf-8") as fh:
+    with io.open(_pack(), "a", encoding="utf-8") as fh:
         fh.write("\n  broken: [\n")
     load_packs()
     assert PACK_LOAD_ERRORS
 
-    shutil.copy(restore_pack, PACK)
+    shutil.copy(restore_pack, _pack())
     load_packs()
     assert PACK_LOAD_ERRORS == [], "errors must clear once the pack is fixed"
 
@@ -88,7 +98,7 @@ def test_health_reports_pack_failures(restore_pack):
     assert healthy["ok"] is True
     assert healthy["pack_load_errors"] == []
 
-    with io.open(PACK, "a", encoding="utf-8") as fh:
+    with io.open(_pack(), "a", encoding="utf-8") as fh:
         fh.write("\n  broken: [\n")
 
     sick = client.get("/health").json()

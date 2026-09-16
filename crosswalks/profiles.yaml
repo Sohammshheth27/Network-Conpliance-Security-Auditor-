@@ -1,0 +1,31 @@
+# Framework-native thresholds, per platform.
+#
+# NCSA applies ONE threshold per control -- its own. Several frameworks ask
+# for the same setting with a different value (DISA STIG wants a 5-minute idle
+# timeout on IOS-XE where NCSA accepts 10). A framework's own score should be
+# judged by that framework's rule, so here each override re-scores a DECIDED
+# finding inside that framework's score only. The overall NCSA score, and the
+# finding itself, are never changed. UNKNOWN stays UNKNOWN: a profile changes
+# a threshold, it cannot manufacture an observation.
+#
+# Every entry cites the text it comes from, read in the local copy of that
+# benchmark or STIG. Keys: framework -> control -> platform -> override.
+#   expected: replaces the control's threshold (same operator)
+
+stig:
+  NCSA-TIME-001:
+    cisco_iosxe_router: {expected: 5}   # V-215833 "five minutes or less"
+    cisco_iosxe_switch: {expected: 5}   # V-220544 (switch NDM, same text)
+    cisco_asa: {expected: 5}            # V-239920 "ssh timeout 5"
+  NCSA-EXT-006:
+    cisco_asa: {expected: 300}          # V-239920; field is seconds, ASA scaled x60
+
+cis:
+  NCSA-EXT-006:
+    cisco_iosxe_router: {expected: 60}  # IOS XE 2.1.1.1.4 "60 seconds or less"
+    cisco_asa: {expected: 300}          # ASA 1.8.2 "SSH session timeout <= 5 minutes"
+  NCSA-TIME-001:
+    cisco_asa: {expected: 5}            # ASA 1.8.2 (TIME-001 reads `ssh timeout` on ASA)
+  NCSA-PWD-001:
+    juniper_srx: {expected: 10}         # Junos 6.6.11 "at least 10 characters"
+    panos: {expected: 12}               # PAN-OS 1.3.2 "Minimum Length >= 12"

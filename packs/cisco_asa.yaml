@@ -57,9 +57,11 @@ mappings:
   - field: management.ssh.enabled
     regex: "^ssh (?:\\d+\\.\\d+\\.\\d+\\.\\d+|timeout|stricthostkeycheck|key-exchange)"
     value: {const: true}
+  # ASA `ssh timeout` is MINUTES (1-60); the SBM field is seconds, as IOS
+  # `ip ssh time-out` writes it. Unscaled, `ssh timeout 5` read as 5 seconds.
   - field: management.ssh.timeout
     regex: "^ssh timeout (\\d+)"
-    value: {group: 1, as: int}
+    value: {group: 1, as: int, scale: 60}
   - field: management.ssh.strict_host_key
     regex: "^ssh stricthostkeycheck\\s*$"
     value: {const: true}
@@ -218,10 +220,11 @@ mappings:
     value: {group: 1, as: str}
 
   # --- appliance security services -----------------------------------------
-  - field: security.ips.enabled
-    regex: "^threat-detection basic-threat\\s*$"
-    value: {const: true}
-    if_absent: false
+  # NOT MAPPED: `threat-detection basic-threat` was read as "intrusion
+  # prevention enabled". It is DoS/scanning threat detection (the DISA ASA STIG
+  # files it under denial-of-service protection); intrusion prevention needs a
+  # FirePOWER/IPS module, which is why the `security` domain is declared not
+  # applicable above. Mapping it claimed an IPS the device does not have.
 
 # Concepts SonicOS-style or IOS-style configs have that ASA genuinely does not.
 # Verified against Cisco's ASA command reference rather than assumed: reporting
@@ -272,11 +275,62 @@ mappings:
   # dressed as a reading -- and a wrong one here reports a live SNMP agent as
   # switched off. It stays unmapped until a real config shows the form.
 
+  # --- grounded in the CIS ASA 9.x benchmark's audit output -----------------
+  # Each regex matches a command line printed verbatim in that benchmark's
+  # `show running-config` examples. Where the platform default is the weaker
+  # state (no password policy, no lockout, no master key, no remote syslog),
+  # absence is correctly a FAIL.
+  - field: authentication.min_password_length
+    regex: '^password-policy minimum-length (\d+)'
+    value: {group: 1, as: int}
+  - field: authentication.complexity
+    regex: '^password-policy minimum-(?:uppercase|lowercase|numeric|special) [1-9]'
+    value: {const: true}
+  - field: authentication.lockout.enabled
+    regex: '^aaa local authentication attempts max-fail \d+'
+    value: {const: true}
+  # `password encryption aes` protects stored secrets with the master key.
+  - field: platform.stored_credentials_encrypted
+    regex: '^password encryption aes\s*$'
+    value: {const: true}
+  - field: time.timezone
+    regex: '^clock timezone (\S+)'
+    value: {group: 1, as: str}
+  - field: logging.remote_syslog
+    regex: '^logging host \S+ \S+'
+    value: {const: true}
+  - field: firewall.acls
+    regex: '^access-list (\S+) extended '
+    value: {group: 1, as: list}
+    collect: true
+  - field: firewall.acl_applied
+    regex: '^access-group (\S+) (?:in|out) interface '
+    value: {group: 1, as: list}
+    collect: true
+
+  # --- grounded in the reference running-config ---------------------------
+  # `nameif` names the interface's security boundary -- ASA's zone construct.
+  - field: firewall.zones
+    regex: '^\s*nameif (\S+)'
+    value: {group: 1, as: list}
+    collect: true
+  - field: management.icmp_ratelimit
+    regex: '^icmp unreachable rate-limit \d+'
+    value: {const: true}
+
+  # NOT MAPPED, deliberately:
+  #  * `ssh version` -- the command exists (CIS ASA 1.6.2 audits `ssh version
+  #    2`), but a config WITHOUT the line would fail SSH-002, and whether that
+  #    image still permits SSHv1 cannot be read from the config. UNKNOWN is the
+  #    honest answer; the earlier "no selector exists" exclusion was wrong.
+  #  * SNMPv3 group -- a device with no SNMP configured would fail the v3
+  #    controls, since their precondition only excuses SNMP explicitly off.
+
 not_applicable_fields:
   # {field: reason}. The reason is published as the finding's justification --
   # an auditor asked to accept an exclusion needs to know why, and "verified
   # against the setting inventory" asserts a check without stating its result.
-  management.ssh.version: "ASA speaks SSHv2 only; no selector exists"
   management.vty.transport_input: "no `line vty` construct on ASA"
+  management.vty.transport_output: "no `line vty` construct on ASA; there is no outbound session from a management line"
   management.ssh.max_auth_tries: "no equivalent command"
   logging.netflow: "ASA uses NSEL, configured differently"

@@ -19,6 +19,10 @@ vendor: sonicwall
 platform: sonicwall_sonicos
 reader: sonicos_exp
 version: "3.0"
+# The release of the NSA 3700 export this pack was built from (buildNum
+# 7.3.0-7012-R8150). A device on another release gets a note, not a
+# different result.
+verified_versions: ["7.3.0"]
 
 supported_domains: [device, management, authentication, authorization,
                     logging, time, snmp, banner, crypto, interfaces,

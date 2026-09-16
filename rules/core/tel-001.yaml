@@ -13,8 +13,8 @@ frameworks:
   # STIG Vuln IDs are per-platform. Derived from the downloaded
   # XCCDF files, not recalled -- a control may map to several.
   stig_by_platform:
-    juniper_srx: [V-223209]
     paloalto_panos: [V-228655, V-228669]
+    cisco_asa: [V-239911, V-239859]
   # CIS recommendation numbers live in the vendor pack (plan 6.1).
 
 remediation:
@@ -32,3 +32,25 @@ remediation:
     phase: 40
     management_impact: disables_telnet
     verify: show configuration system services
+  cisco_asa:
+    commands:
+    - no telnet <NET> <MASK> <INTERFACE>
+    phase: 40
+    management_impact: disables_telnet
+    verify: show running-config telnet
+  fortios:
+    commands:
+    - config system interface
+    - edit <PORT>
+    - set allowaccess ssh https ping
+    - end
+    phase: 40
+    management_impact: disables_telnet
+    verify: show system interface <PORT>
+  panos:
+    commands:
+    - set deviceconfig system service disable-telnet yes
+    - commit
+    phase: 40
+    management_impact: disables_telnet
+    verify: show deviceconfig system service

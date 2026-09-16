@@ -7,6 +7,7 @@ import NewAudit from './pages/NewAudit';
 import Analysis from './pages/Analysis';
 import Frameworks from './pages/Frameworks';
 import Settings from './pages/Settings';
+import Training from './pages/Training';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
           <Route path="assessments" element={<Assessments />} />
           <Route path="assessments/:id" element={<AssessmentDetail />} />
           <Route path="new-audit" element={<NewAudit />} />
+          <Route path="training" element={<Training />} />
           <Route path="analysis" element={<Analysis />} />
           <Route path="frameworks" element={<Frameworks />} />
           <Route path="settings" element={<Settings />} />

@@ -34,6 +34,41 @@ _LEVEL_RE = re.compile(r"\((L(\d)|Level\s*(\d))\)", re.I)
 _AUTO_RE = re.compile(r"\((Automated|Manual)\)", re.I)
 
 
+_NUMBERED = re.compile(r"^\s*\d+(?:\.\d+){1,4}\s")
+_LEADER_END = re.compile(r"\.{3,}\s*\d+\s*$")
+
+
+def _join_wrapped_toc(text: str) -> str:
+    """Re-join TOC entries whose title wraps onto the next line.
+
+        6.3 Ensure no security groups allow ingress from 0.0.0.0/0 to remote server administration
+        ports (Automated) ..................................... 283
+
+    The TOC pattern needs the number, the title and the dot leader on ONE
+    line, so a wrapped title matched nothing and the recommendation vanished
+    from the catalogue -- in the AWS benchmark, exactly the three networking
+    recommendations (6.2-6.4) a firewall auditor needs. Up to two continuation
+    lines are joined, and only when they do not start a new numbered entry.
+    """
+    lines = text.splitlines()
+    out, i = [], 0
+    while i < len(lines):
+        line = lines[i]
+        if _NUMBERED.match(line) and not _LEADER_END.search(line):
+            j = i + 1
+            while (j < len(lines) and j <= i + 2 and not _NUMBERED.match(lines[j])
+                   and not _LEADER_END.search(line)):
+                line = line.rstrip() + " " + lines[j].strip()
+                j += 1
+            if _LEADER_END.search(line):
+                out.append(line)
+                i = j
+                continue
+        out.append(lines[i])
+        i += 1
+    return "\n".join(out)
+
+
 def _parse_pdf(path: Path, vendor: str) -> list[CatalogEntry]:
     from pypdf import PdfReader
 
@@ -42,7 +77,7 @@ def _parse_pdf(path: Path, vendor: str) -> list[CatalogEntry]:
     except Exception:
         return []
 
-    text = "\n".join((p.extract_text() or "") for p in reader.pages)
+    text = _join_wrapped_toc("\n".join((p.extract_text() or "") for p in reader.pages))
     doc_title = path.stem.replace("_", " ")
 
     entries: list[CatalogEntry] = []

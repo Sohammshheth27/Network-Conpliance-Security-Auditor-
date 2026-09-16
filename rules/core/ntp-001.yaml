@@ -13,8 +13,7 @@ frameworks:
   # STIG Vuln IDs are per-platform. Derived from the downloaded
   # XCCDF files, not recalled -- a control may map to several.
   stig_by_platform:
-    cisco_iosxe_router: [V-215838]
-    cisco_iosxe_switch: [V-220549]
+    juniper_srx: [V-223205]
   # CIS recommendation numbers live in the vendor pack (plan 6.1).
 
 remediation:
@@ -30,3 +29,16 @@ remediation:
     - set system ntp server 10.0.0.21
     phase: 10
     verify: show configuration system ntp
+  fortios:
+    commands:
+    - config system ntp
+    - set ntpsync enable
+    - set type custom
+    - config ntpserver
+    - edit 1
+    - set server <NTP-SERVER>
+    - next
+    - end
+    - end
+    phase: 20
+    verify: diagnose sys ntp status

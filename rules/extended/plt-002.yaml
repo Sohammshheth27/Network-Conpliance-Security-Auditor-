@@ -11,3 +11,13 @@ frameworks:
   nist_800_53: ['IA-5(1)', 'SC-28']
   iso_27001_2022: ['A.5.17', 'A.8.24']
   # STIG/CIS ids are per-platform and belong in the vendor pack.
+
+remediation:
+  sonicwall_sonicos:
+    commands:
+    - configure
+    - administration
+    - enhanced-password-security enable
+    - commit
+    phase: 20
+    verify: show administration | grep password-security

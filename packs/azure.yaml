@@ -1,0 +1,70 @@
+# Azure Network Security Groups mapping pack
+#
+# Source artifact: `az network nsg list --output json`
+# (also `az network nsg show`, and the ARM/REST form with `properties`).
+#
+# A sibling of packs/aws.yaml: a mapping file, not code. The policy semantics
+# that differ from a security group -- priority order, deny rules, service
+# tags, default rules -- live in ncsa/graph/azure_builder.py, and the exposure
+# findings come from the graph, not from keyword matching here.
+#
+# VALIDATED ON A FIXTURE (samples/azure/nsg-list.json), built in the documented
+# CLI output shape. Not yet run against a real subscription export.
+
+vendor: azure
+platform: network_security_groups
+reader: json
+version: "0.9"
+
+supported_domains: [cloud, firewall, exposure, device]
+
+# What an NSG genuinely does not have, each with its reason. As for AWS,
+# `authentication` and `authorization` are NOT listed: they live in Entra ID
+# and Azure RBAC, which this artifact does not contain. Those controls stay
+# UNKNOWN rather than being excluded from the score.
+not_applicable_domains:
+  banner: "an NSG has no console or login surface to display a banner on"
+  time: "clock and NTP are VM-level, not properties of an NSG"
+  snmp: "an NSG runs no SNMP agent"
+  logging: "NSG flow logs are a Network Watcher resource; this artifact is the rule set alone"
+  management: "an NSG has no management plane of its own -- it is configured through Azure Resource Manager"
+  crypto: "an NSG terminates nothing, so it has no cipher or TLS configuration"
+  interfaces: "an NSG is associated with subnets and NICs but does not define them"
+  l2: "layer 2 is not exposed to the tenant in a virtual network"
+  routing: "route tables are a separate virtual-network resource"
+  platform: "there is no appliance here: no firmware, no config archive, no local API"
+  security: "threat inspection is Azure Firewall or a separate service, not the NSG"
+  services: "an NSG runs no services of its own"
+
+fingerprint:
+  - "$[*].securityRules"
+
+mappings:
+  - field: cloud.provider
+    const: azure
+
+  - field: cloud.region
+    jsonpath: "$[0].location"
+
+  - field: cloud.security_groups.id
+    jsonpath: "$[*].id"
+    scope: "$[*].name"
+
+  - field: cloud.security_groups.name
+    jsonpath: "$[*].name"
+    scope: "$[*].name"
+
+  - field: cloud.security_groups.ingress
+    jsonpath: "$[*].securityRules[?(@.direction == 'Inbound')]"
+    scope: "$[*].name"
+
+  # Custom outbound rules only. The built-in AllowInternetOutBound default
+  # permits all internet egress, so counting it as "egress is restricted" would
+  # pass exactly the NSGs that restrict nothing.
+  - field: cloud.security_groups.egress
+    jsonpath: "$[*].securityRules[?(@.direction == 'Outbound')]"
+    scope: "$[*].name"
+
+  - field: firewall.rules.description
+    jsonpath: "$[*].securityRules[*].description"
+    scope: "$[*].name"

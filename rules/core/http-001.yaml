@@ -15,6 +15,7 @@ frameworks:
   stig_by_platform:
     cisco_iosxe_router: [V-215823]
     cisco_iosxe_switch: [V-220534]
+    paloalto_panos: [V-228655, V-228669]
   # CIS recommendation numbers live in the vendor pack (plan 6.1).
 
 remediation:
@@ -30,3 +31,19 @@ remediation:
     phase: 40
     management_impact: disables_http
     verify: show configuration system services web-management
+  fortios:
+    commands:
+    - config system interface
+    - edit <PORT>
+    - set allowaccess ssh https ping
+    - end
+    phase: 40
+    management_impact: disables_http
+    verify: show system interface <PORT>
+  panos:
+    commands:
+    - set deviceconfig system service disable-http yes
+    - commit
+    phase: 40
+    management_impact: disables_http
+    verify: show deviceconfig system service

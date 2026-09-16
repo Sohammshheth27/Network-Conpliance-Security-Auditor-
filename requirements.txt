@@ -113,3 +113,7 @@ websockets==16.1.1
 win32_setctime==1.2.0
 xlsxwriter==3.2.9
 zopfli==0.4.3
+# Optional -- live SSH collection (ncsa/collect/live.py, POST /collect).
+# Without them the endpoint answers 503 with the install command.
+# netmiko>=4.3
+# napalm>=5.0

@@ -63,8 +63,10 @@ mappings:
   - field: management.ssh.version
     path: "configuration/system/services/ssh/protocol-version"
     value: {as: int}
+  # Failed attempts before disconnect -- not `connection-limit`, which caps
+  # concurrent SSH connections (see packs/juniper.yaml).
   - field: management.ssh.max_auth_tries
-    path: "configuration/system/services/ssh/connection-limit"
+    path: "configuration/system/login/retry-options/tries-before-disconnect"
     value: {as: int}
 
   # --- telnet: presence of the element IS the setting ----------------------
@@ -88,9 +90,14 @@ mappings:
     if_absent: false
 
   # --- session / banner ----------------------------------------------------
+  # Junos sets the idle timeout per LOGIN CLASS. The XML reader keys repeated
+  # elements by a `name` attribute, and Junos carries the class name in a
+  # `<name>` child, so classes cannot be scoped here. Collect every class's
+  # timeout instead: `lte` over a list requires every class to comply, so a
+  # lax second class cannot hide behind a strict first one.
   - field: management.vty.exec_timeout
-    path: "configuration/system/login/idle-timeout"
-    value: {as: int}
+    path: "configuration/system/login/class/idle-timeout"
+    as_type: list
   - field: banner.login
     path: "configuration/system/login/message"
   - field: authentication.local_accounts
@@ -159,9 +166,57 @@ mappings:
     path: "configuration/security/zones/security-zone/name"
     value: {as: list}
 
+  # --- parity with the braces pack, and the CIS Junos audit commands --------
+  # The same device must not score differently by export format.
+  - field: authentication.aaa_enabled
+    path: "configuration/system/radius-server/name"
+    value: {const: true}
+  - field: authentication.min_password_length
+    path: "configuration/system/login/password/minimum-length"
+    value: {as: int}
+  - field: authentication.complexity
+    path: "configuration/system/login/password/change-type"
+    value: {const: true}
+  - field: authentication.password_encryption
+    path: "configuration/system/root-authentication/encrypted-password"
+    value: {const: true}
+  - field: authentication.lockout.enabled
+    path: "configuration/system/login/retry-options/lockout-period"
+    value: {const: true}
+  - field: banner.motd
+    path: "configuration/system/login/announcement"
+  - field: management.aux.exec_disabled
+    path: "configuration/system/ports/auxiliary/disable"
+    value: {const: true}
+  - field: logging.remote_syslog
+    path: "configuration/system/syslog/host/name"
+    value: {const: true}
+  # <file><name>x</name><contents><name>interactive-commands</name><any/>
+  - field: logging.command_accounting
+    path: "configuration/system/syslog/*/contents[interactive-commands]/any"
+    value: {const: true}
+  - field: platform.firmware.version
+    path: "configuration/version"
+
+derivations:
+  - field: crypto.weak_ciphers
+    op: path_weak_tokens
+    params:
+      rules:
+        - {path: "configuration/system/services/ssh/ciphers", strong: "aes|3des"}
+        - {path: "configuration/system/services/ssh/key-exchange", strong: "sha2|ecdh|curve"}
+  - field: snmp.version
+    op: path_any_present
+    params: {glob: "configuration/snmp/community/name", value: "2c"}
+  - field: platform.api.enabled
+    op: path_present
+    params: {glob: "configuration/system/services/rest/*"}
+
 not_applicable_fields:
   # {field: reason}. The reason is published as the finding's justification --
   # an auditor asked to accept an exclusion needs to know why, and "verified
   # against the setting inventory" asserts a check without stating its result.
   management.vty.transport_input: "no vty line construct on Junos"
   management.vty.access_class: "no vty line construct on Junos; access is controlled by firewall filters"
+  management.vty.transport_output: "no vty line construct on Junos"
+  authentication.enable_secret: "Junos has no enable or privileged-mode password; privilege comes from the login class"

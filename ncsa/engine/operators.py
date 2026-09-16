@@ -38,18 +38,47 @@ def op_not_in(observed: Any, expected: Any) -> ResultState:
     return ResultState.PASS if observed not in disallowed else ResultState.FAIL
 
 
-def op_gte(observed: Any, expected: Any) -> ResultState:
+def _num(v: Any) -> Any:
+    """A numeric string from a collected list is still a number."""
+    if isinstance(v, str):
+        try:
+            f = float(v.strip())
+            return int(f) if f.is_integer() else f
+        except ValueError:
+            return v
+    return v
+
+
+def _every(observed: Any, expected: Any, ok) -> ResultState:
+    """A threshold over several instances holds only if EVERY one meets it.
+
+    Junos sets the idle timeout per login class, so the observation is a list
+    of timeouts. One class at 60 minutes leaves an unattended session open
+    whatever the other classes say -- the same worst-of rule the engine applies
+    to scoped instances. Comparing the list itself raised TypeError, which
+    made a single compliant class UNKNOWN.
+    """
+    if isinstance(observed, (list, tuple, set)):
+        if not observed:
+            return ResultState.UNKNOWN
+        states = [_every(v, expected, ok) for v in observed]
+        if ResultState.FAIL in states:
+            return ResultState.FAIL
+        if ResultState.UNKNOWN in states:
+            return ResultState.UNKNOWN
+        return ResultState.PASS
     try:
-        return ResultState.PASS if observed >= expected else ResultState.FAIL
+        return ResultState.PASS if ok(_num(observed), expected) else ResultState.FAIL
     except TypeError:
         return ResultState.UNKNOWN
+
+
+def op_gte(observed: Any, expected: Any) -> ResultState:
+    return _every(observed, expected, lambda o, e: o >= e)
 
 
 def op_lte(observed: Any, expected: Any) -> ResultState:
-    try:
-        return ResultState.PASS if observed <= expected else ResultState.FAIL
-    except TypeError:
-        return ResultState.UNKNOWN
+    return _every(observed, expected, lambda o, e: o <= e)
 
 
 def op_contains_all(observed: Any, expected: Any) -> ResultState:
