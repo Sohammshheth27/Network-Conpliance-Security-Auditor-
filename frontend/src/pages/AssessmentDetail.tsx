@@ -11,26 +11,31 @@ import {
   ShieldAlert,
   AlertCircle,
   Play,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Empty, ErrorPanel, Loading } from '../components/ui/States';
 import {
   api,
+  download,
   failuresBySeverity,
   vendorLabel,
   type Assessment,
   type Severity,
 } from '../lib/api';
 import { useApi } from '../lib/useApi';
+import { AnalysisTabs } from '../components/analysis/AnalysisTabs';
 
-type DetailTab = 'overview' | 'execution' | 'findings' | 'compliance' | 'evidence' | 'configuration' | 'remediation' | 'report';
+type DetailTab = 'overview' | 'execution' | 'findings' | 'compliance' | 'analysis';
 
 const AssessmentDetail: FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<DetailTab>('overview');
+  const [pdfError, setPdfError] = useState<any>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [findingFilter, setFindingFilter] = useState<'all' | Severity>('all');
   const [expandedFinding, setExpandedFinding] = useState<string | null>(null);
 
@@ -63,10 +68,7 @@ const AssessmentDetail: FC = () => {
     { id: 'execution', label: 'Execution' },
     { id: 'findings', label: `Findings (${totalFindingsCount})` },
     { id: 'compliance', label: 'Compliance' },
-    { id: 'evidence', label: 'Evidence' },
-    { id: 'configuration', label: 'Configuration' },
-    { id: 'remediation', label: 'Remediation' },
-    { id: 'report', label: 'Report' },
+    { id: 'analysis', label: 'Deep Analysis' },
   ];
 
   return (
@@ -230,12 +232,33 @@ const AssessmentDetail: FC = () => {
               <Button 
                 variant="outline"
                 size="lg"
+                disabled={downloadingPdf}
                 className="flex-1 flex items-center justify-center gap-2 rounded-xl text-sm font-semibold shadow-sm bg-white hover:bg-[var(--color-cloud)]"
-                onClick={() => alert('PDF Generation is pending backend support.')}
+                onClick={async () => {
+                  setPdfError(null);
+                  setDownloadingPdf(true);
+                  try {
+                    await download(api.reportUrl(id!), `NCSA_Report_${id}.pdf`);
+                  } catch (e: any) {
+                    setPdfError(e);
+                  } finally {
+                    setDownloadingPdf(false);
+                  }
+                }}
               >
-                <FileText className="w-4 h-4" />
-                Download PDF Report
+                {downloadingPdf ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FileText className="w-4 h-4" />
+                )}
+                {downloadingPdf ? 'Generating PDF...' : 'Download PDF Report'}
               </Button>
+            </div>
+          )}
+
+          {activeTab === 'overview' && pdfError && (
+            <div className="mt-4">
+              <ErrorPanel error={pdfError} onRetry={() => setPdfError(null)} />
             </div>
           )}
 
@@ -463,10 +486,8 @@ const AssessmentDetail: FC = () => {
             </Card>
           )}
 
-          {['evidence', 'configuration', 'remediation', 'report'].includes(activeTab) && (
-            <Card className="p-6 bg-white border border-[var(--color-hairline)] min-h-[300px] flex items-center justify-center">
-              <Empty label={`${tabs.find(t => t.id === activeTab)?.label} details are currently unavailable or pending backend support.`} />
-            </Card>
+          {activeTab === 'analysis' && (
+            <AnalysisTabs assessmentId={id!} />
           )}
 
         </div>

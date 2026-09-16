@@ -19,7 +19,7 @@ import { api, ApiError, vendorLabel, type PlatformInfo } from '../lib/api';
 import { useApi } from '../lib/useApi';
 
 import { CheckCircle2 } from 'lucide-react';
-
+import LiveCollect from '../components/audit/LiveCollect';
 function humanSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -107,9 +107,10 @@ const NewAudit: FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        {/* LEFT COLUMN: Dropzone */}
-        <Card variant="default" className="p-8 bg-white h-full flex flex-col">
-        <div
+        {/* LEFT COLUMN: Dropzone and Live Collect */}
+        <div className="flex flex-col gap-6 h-full">
+          <Card variant="default" className="p-8 bg-white flex flex-col flex-1">
+          <div
           onDragOver={(e) => {
             e.preventDefault();
             setDragging(true);
@@ -187,6 +188,9 @@ const NewAudit: FC = () => {
           </button>
         </div>
       </Card>
+      
+      <LiveCollect redact={redact} frameworks={[]} />
+      </div>
 
       {/* RIGHT COLUMN: Uploaded Files */}
       <Card variant="default" className="p-6 bg-white min-h-[300px] flex flex-col">

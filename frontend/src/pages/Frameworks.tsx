@@ -4,6 +4,10 @@ import { api } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { ErrorPanel, Loading } from '../components/ui/States';
 
+import { AiGovernance } from '../components/AiGovernance';
+import { SystemStatus } from '../components/SystemStatus';
+import { AttackCoverage } from '../components/frameworks/AttackCoverage';
+
 // Static metadata mapping for UI enhancement of framework items.
 // This is perfectly acceptable as it just maps UI presentation logic (icons, static labels)
 // onto dynamic data keys returned by the backend.
@@ -74,10 +78,10 @@ const Frameworks: FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-slate-gray)]">
-            Docs
+            Frameworks
           </span>
           <h1 className="text-3xl font-semibold tracking-tight text-[var(--color-ink-navy)]">
-            Docs
+            Frameworks
           </h1>
         </div>
 
@@ -160,6 +164,15 @@ const Frameworks: FC = () => {
           </div>
         </div>
       )}
+
+      {/* AiGovernance sits completely separate from the catalogues */}
+      <div className="mt-12">
+        <AiGovernance />
+      </div>
+
+      <AttackCoverage />
+
+      <SystemStatus />
     </div>
   );
 };

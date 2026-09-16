@@ -184,9 +184,9 @@ const HygienePanel: FC<{ id: string }> = ({ id }) => {
           </h4>
         </div>
         <div className="max-h-[520px] overflow-y-auto">
-          {data.findings.map((f, i) => (
+          {data.findings.map((f) => (
             <div
-              key={i}
+              key={`${f.rule}-${f.kind}-${f.severity}-${f.detail.slice(0, 10)}`}
               className="border-b border-[rgba(100,150,220,0.08)] px-4 py-3 last:border-0"
             >
               <div className="flex flex-wrap items-center gap-2">
@@ -224,8 +224,8 @@ const HygienePanel: FC<{ id: string }> = ({ id }) => {
             Unresolved references
           </h4>
           <div className="max-h-56 space-y-1 overflow-y-auto">
-            {data.unevaluable.map((u, i) => (
-              <p key={i} className="font-mono text-[11.5px] text-[#8FA0BC]">
+            {data.unevaluable.map((u) => (
+              <p key={u} className="font-mono text-[11.5px] text-[#8FA0BC]">
                 {u}
               </p>
             ))}
@@ -414,9 +414,9 @@ const RecertPanel: FC<{ id: string }> = ({ id }) => {
           {data.due.length === 0 ? (
             <Empty label="Nothing due." />
           ) : (
-            data.due.slice(0, 200).map((d, i) => (
+            data.due.slice(0, 200).map((d) => (
               <div
-                key={i}
+                key={d.rule_id}
                 className="border-b border-[rgba(100,150,220,0.08)] px-4 py-2.5 last:border-0"
               >
                 <div className="flex flex-wrap items-center gap-2">
@@ -456,9 +456,9 @@ const RecertPanel: FC<{ id: string }> = ({ id }) => {
           </p>
         </div>
         <div className="max-h-96 overflow-y-auto">
-          {data.deletion_candidates.slice(0, 200).map((c, i) => (
+          {data.deletion_candidates.slice(0, 200).map((c) => (
             <div
-              key={i}
+              key={c.rule}
               className="border-b border-[rgba(100,150,220,0.08)] px-4 py-2.5 last:border-0"
             >
               <div className="flex flex-wrap items-center gap-2">
@@ -680,9 +680,9 @@ const ConsensusPanel: FC<{ id: string }> = ({ id }) => {
         <Empty label="No cross-checked items for this device." />
       ) : (
         <Card variant="default" className="overflow-hidden p-0">
-          {items.map((it, i) => (
+          {items.map((it) => (
             <div
-              key={i}
+              key={`${it.field}-${it.detector}`}
               className="border-b border-[rgba(100,150,220,0.08)] p-4 last:border-0"
             >
               <div className="flex flex-wrap items-center gap-2">
@@ -732,7 +732,7 @@ const ConsensusPanel: FC<{ id: string }> = ({ id }) => {
 // ----------------------------------------------------------- training queue
 
 
-const TrainingPanel: FC<{ id: string }> = ({ id }) => {
+export const TrainingPanel: FC<{ id: string }> = ({ id }) => {
   const { data, loading, error, reload } = useApi(() => api.training(id), [id], { cacheKey: `training-${id}` });
 
   if (loading) return <Loading label="Reading the training queue" />;

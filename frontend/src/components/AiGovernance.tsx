@@ -45,14 +45,14 @@ export const AiGovernance: FC = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 pt-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[rgba(155,120,255,0.15)] text-[#9B78FF]">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-pebble)] text-[var(--color-signal-blue)]">
           <Bot className="h-4 w-4" />
         </div>
         <div>
-          <h2 className="text-base font-bold text-[#F5F8FF]">
+          <h2 className="text-base font-bold text-[var(--color-ink-navy)]">
             Governing our own AI
           </h2>
-          <p className="text-[12px] text-[#8FA0BC]">
+          <p className="text-[12px] text-[var(--color-slate-gray)]">
             MITRE ATLAS · NIST AI Risk Management Framework
           </p>
         </div>
@@ -60,33 +60,33 @@ export const AiGovernance: FC = () => {
 
       {/* The scope note is not decoration. Without it a reader will assume
           these sit alongside the device catalogues above. */}
-      <div className="rounded-2xl border border-[rgba(155,120,255,0.25)] bg-[rgba(155,120,255,0.06)] p-4 text-[12.5px] leading-relaxed text-[#AAB8D0]">
-        <strong className="text-[#9B78FF]">Different scope.</strong>{' '}
+      <div className="rounded-2xl border border-[var(--color-hairline)] bg-[var(--color-cloud)] p-4 text-[12.5px] leading-relaxed text-[var(--color-slate-gray)]">
+        <strong className="text-[var(--color-ink-navy)]">Different scope.</strong>{' '}
         {data.scope}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card variant="panel">
-          <span className="block text-xl font-bold text-[#F5F8FF]">
+          <span className="block text-xl font-bold text-[var(--color-ink-navy)]">
             {data.atlas.techniques}
           </span>
-          <span className="text-[11px] text-[#8FA0BC]">
+          <span className="text-[11px] text-[var(--color-slate-gray)]">
             ATLAS techniques loaded
           </span>
         </Card>
         <Card variant="panel">
-          <span className="block text-xl font-bold text-[#F5F8FF]">
+          <span className="block text-xl font-bold text-[var(--color-ink-navy)]">
             {data.guardrails.length}
           </span>
-          <span className="text-[11px] text-[#8FA0BC]">
+          <span className="text-[11px] text-[var(--color-slate-gray)]">
             guardrails, mapped to all four AI RMF functions
           </span>
         </Card>
         <Card variant="panel">
-          <span className="block text-xl font-bold text-[#F5F8FF]">
+          <span className="block text-xl font-bold text-[var(--color-ink-navy)]">
             {data.injection_signatures}
           </span>
-          <span className="text-[11px] text-[#8FA0BC]">
+          <span className="text-[11px] text-[var(--color-slate-gray)]">
             injection signatures, checked on every upload
           </span>
         </Card>
@@ -95,8 +95,8 @@ export const AiGovernance: FC = () => {
       {/* The identifier check is the proof that matters: a fabricated ATLAS id
           would be worse than citing none, exactly as with STIG and CIS. */}
       {check && (
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(100,150,220,0.14)] bg-[rgba(14,27,50,0.4)] p-3 text-[12.5px] text-[#AAB8D0]">
-          <ShieldAlert className="h-4 w-4 shrink-0 text-[#8FA0BC]" />
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--color-hairline)] bg-[var(--color-cloud)] p-3 text-[12.5px] text-[var(--color-slate-gray)]">
+          <ShieldAlert className="h-4 w-4 shrink-0 text-[var(--color-slate-gray)]" />
           <span>
             Every ATLAS identifier cited is checked against MITRE's published
             bundle:
@@ -104,18 +104,18 @@ export const AiGovernance: FC = () => {
           <Badge variant={allResolve ? 'success' : 'critical'}>
             {check.resolve_in_atlas} of {check.claimed} resolve
           </Badge>
-          <span className="text-[#65738B]">
+          <span className="text-[var(--color-mist-gray)]">
             An invented identifier would be worse than citing none.
           </span>
         </div>
       )}
 
       <Card variant="default" className="overflow-hidden p-0">
-        <div className="border-b border-[rgba(100,150,220,0.12)] p-4">
-          <h3 className="text-sm font-bold text-[#F5F8FF]">
+        <div className="border-b border-[var(--color-hairline)] p-4 bg-white">
+          <h3 className="text-sm font-bold text-[var(--color-ink-navy)]">
             Guardrails, by AI RMF function
           </h3>
-          <p className="mt-0.5 text-[12px] text-[#8FA0BC]">
+          <p className="mt-0.5 text-[12px] text-[var(--color-slate-gray)]">
             Each defence, and the ATLAS technique it answers. Process controls
             carry no technique — a two-person rule constrains people, not an
             adversary's method, and inventing a mapping for it would be worse
@@ -128,11 +128,11 @@ export const AiGovernance: FC = () => {
           return (
             <div
               key={fn}
-              className="border-b border-[rgba(100,150,220,0.08)] p-4 last:border-0"
+              className="border-b border-[var(--color-hairline)] p-4 last:border-0 bg-white"
             >
               <div className="mb-2 flex flex-wrap items-baseline gap-2">
                 <Badge variant="info">{fn}</Badge>
-                <span className="text-[12px] text-[#8FA0BC]">
+                <span className="text-[12px] text-[var(--color-slate-gray)]">
                   {FUNCTION_MEANING[fn]}
                 </span>
               </div>
@@ -142,22 +142,22 @@ export const AiGovernance: FC = () => {
                     key={g.guardrail}
                     className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12.5px]"
                   >
-                    <span className="text-[#F5F8FF]">{g.guardrail}</span>
+                    <span className="text-[var(--color-ink-navy)]">{g.guardrail}</span>
                     {g.atlas.length > 0 ? (
                       g.atlas.map((t) => (
                         <span
                           key={t}
-                          className="rounded-full border border-[rgba(100,150,220,0.2)] px-2 py-0.5 font-mono text-[10.5px] text-[#AAB8D0]"
+                          className="rounded-full border border-[var(--color-hairline)] bg-[var(--color-cloud)] px-2 py-0.5 font-mono text-[10.5px] text-[var(--color-slate-gray)]"
                         >
                           {t}
                         </span>
                       ))
                     ) : (
-                      <span className="text-[11px] italic text-[#65738B]">
+                      <span className="text-[11px] italic text-[var(--color-mist-gray)]">
                         process control — no attack technique
                       </span>
                     )}
-                    <span className="text-[11px] text-[#65738B]">
+                    <span className="text-[11px] text-[var(--color-mist-gray)]">
                       {g.owasp_llm}
                     </span>
                   </div>
@@ -168,8 +168,8 @@ export const AiGovernance: FC = () => {
         })}
       </Card>
 
-      <div className="rounded-2xl border border-[rgba(100,150,220,0.14)] bg-[rgba(14,27,50,0.4)] p-4 text-[12px] leading-relaxed text-[#AAB8D0]">
-        <strong className="text-[#F5F8FF]">Corpus isolation.</strong>{' '}
+      <div className="rounded-2xl border border-[var(--color-hairline)] bg-[var(--color-cloud)] p-4 text-[12px] leading-relaxed text-[var(--color-slate-gray)]">
+        <strong className="text-[var(--color-ink-navy)]">Corpus isolation.</strong>{' '}
         {data.corpus_isolation}
       </div>
     </div>

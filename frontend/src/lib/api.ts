@@ -238,6 +238,25 @@ export interface HealthResponse {
   };
 }
 
+export interface VerifyReportResponse {
+  verdict: 'authentic' | 'unknown' | 'invalid';
+  sha256: string;
+  reason?: string;
+  assessment_id?: string;
+  framework?: string;
+  issued_at?: string;
+  signature?: string;
+}
+
+export interface AttackCoverageResponse {
+  attack_version: string | null;
+  techniques_covered: string[];
+  by_tactic: Record<string, string[]>;
+  controls_tagged: number;
+  controls_untagged: number;
+  untagged_reason: string;
+}
+
 // ------------------------------------------------------------- rule hygiene
 
 export interface HygieneFinding {
@@ -742,10 +761,22 @@ function withAuth(init?: RequestInit): RequestInit | undefined {
   return { ...init, headers };
 }
 
-/** Download a file the API produces, sending the token (a plain link cannot). */
 export async function download(path: string, filename: string): Promise<void> {
   const res = await fetch(path.startsWith(BASE) ? path : `${BASE}${path}`, withAuth());
-  if (!res.ok) throw new ApiError(res.status, `download failed (${res.status})`);
+  if (!res.ok) {
+    let message = `download failed (${res.status})`;
+    try {
+      const body = await res.json();
+      const detail = body?.detail ?? body;
+      if (typeof detail === "string") message = detail;
+      else if (detail && typeof detail === "object" && typeof detail.error === "string") {
+        message = detail.error;
+      }
+    } catch {
+      /* non-json body */
+    }
+    throw new ApiError(res.status, message);
+  }
   const url = URL.createObjectURL(await res.blob());
   const a = document.createElement("a");
   a.href = url;
@@ -853,6 +884,32 @@ export const api = {
       body: form,
     });
   },
+
+  exportFleetCsv: () => download('/fleet.csv', 'ncsa_fleet.csv'),
+
+  verifyReport: async (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<VerifyReportResponse>("/verify-report", {
+      method: "POST",
+      body: form,
+    });
+  },
+
+  reportSigningKey: () => request<{ algorithm: string; public_key_pem: string }>("/report-signing-key"),
+
+  assessIptables: async (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<HygieneResponse>("/hostfw/iptables", {
+      method: "POST",
+      body: form,
+    });
+  },
+  assessLocalHostfw: (enable: boolean) => 
+    request<HygieneResponse>(`/hostfw/local?enable=${enable}`, { method: "POST" }),
+
+  attackCoverage: () => request<AttackCoverageResponse>("/attack-coverage"),
 
   /** Snapshots of this device over time, with each framework's score. */
   history: (id: string) => request<HistoryPoint[]>(`/assessment/${id}/history`),

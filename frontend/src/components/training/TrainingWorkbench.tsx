@@ -156,13 +156,15 @@ export const TrainingWorkbench: FC<{
     }
   };
 
+  const inputStyle = "mt-1 w-full rounded-lg border border-[var(--color-hairline)] bg-white px-2 py-1.5 text-sm text-[var(--color-ink-navy)] focus:outline-none focus:border-[var(--color-signal-blue)] focus:ring-1 focus:ring-[var(--color-signal-blue)] shadow-sm";
+
   return (
-    <div className="space-y-4">
-      <Card variant="default" className="space-y-3 p-5">
+    <div className="space-y-6">
+      <Card variant="default" className="space-y-4 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-bold text-[#F5F8FF]">{c.source_file}</h3>
-            <p className="text-[12px] text-[#8FA0BC]">
+            <h3 className="text-base font-bold text-[var(--color-ink-navy)]">{c.source_file}</h3>
+            <p className="text-xs text-[var(--color-slate-gray)] mt-0.5">
               {newVendor
                 ? 'No pack exists for this device yet. The first approval creates it.'
                 : `Known platform (${c.platform}). Approvals extend its pack.`}
@@ -176,49 +178,51 @@ export const TrainingWorkbench: FC<{
           </div>
         </div>
 
-        <label className="block text-[12px] text-[#AAB8D0]">
-          Approving as
-          <input
-            value={approver}
-            onChange={(e) => setApprover(e.target.value)}
-            placeholder="your name -- every decision is attributed"
-            className="mt-1 w-full max-w-sm rounded-xl border border-[rgba(100,150,220,0.2)] bg-[rgba(5,11,24,0.8)] px-3 py-2 text-sm text-[#F5F8FF]"
-          />
-        </label>
+        <div className="pt-2">
+          <label className="block text-xs font-semibold text-[var(--color-slate-gray)] uppercase tracking-wider mb-1">
+            Approving as
+            <input
+              value={approver}
+              onChange={(e) => setApprover(e.target.value)}
+              placeholder="Your name -- every decision is attributed"
+              className={`max-w-sm ${inputStyle} font-normal normal-case tracking-normal`}
+            />
+          </label>
+        </div>
 
         {newVendor && (
-          <div className="grid gap-3 rounded-xl border border-[rgba(245,184,46,0.25)] bg-[rgba(245,184,46,0.05)] p-4 sm:grid-cols-2">
-            <p className="text-[12px] text-[#AAB8D0] sm:col-span-2">
-              <strong className="text-[#F5B82E]">Teaching a new vendor.</strong> The
+          <div className="grid gap-4 rounded-xl border border-[rgba(245,184,46,0.3)] bg-[rgba(245,184,46,0.05)] p-5 sm:grid-cols-2 mt-4">
+            <p className="text-xs text-[var(--color-slate-gray)] sm:col-span-2 leading-relaxed">
+              <strong className="text-amber-700">Teaching a new vendor.</strong> The
               signature is how its next file will be recognised. It must match this
               file and no other vendor's sample, and the engine checks both before
               anything is written.
             </p>
-            <label className="text-[12px] text-[#AAB8D0]">
+            <label className="text-xs font-medium text-[var(--color-slate-gray)]">
               Vendor name
               <input
                 value={vendor}
                 onChange={(e) => setVendor(e.target.value)}
                 placeholder="e.g. SONiC"
-                className="mt-1 w-full rounded-lg border border-[rgba(100,150,220,0.2)] bg-[rgba(5,11,24,0.8)] px-2 py-1.5 text-sm text-[#F5F8FF]"
+                className={inputStyle}
               />
             </label>
-            <label className="text-[12px] text-[#AAB8D0]">
+            <label className="text-xs font-medium text-[var(--color-slate-gray)]">
               Platform id {c.platform_known && '(recognised -- fixed)'}
               <input
                 value={platform}
                 disabled={c.platform_known}
                 onChange={(e) => setPlatform(e.target.value)}
                 placeholder="lower_case_id, e.g. acme_os"
-                className="mt-1 w-full rounded-lg border border-[rgba(100,150,220,0.2)] bg-[rgba(5,11,24,0.8)] px-2 py-1.5 font-mono text-sm text-[#F5F8FF] disabled:opacity-60"
+                className={`${inputStyle} font-mono disabled:opacity-60 disabled:bg-[var(--color-pebble)]`}
               />
             </label>
-            <label className="text-[12px] text-[#AAB8D0]">
+            <label className="text-xs font-medium text-[var(--color-slate-gray)]">
               File format
               <select
                 value={reader}
                 onChange={(e) => setReader(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[rgba(100,150,220,0.2)] bg-[rgba(5,11,24,0.8)] px-2 py-1.5 text-sm text-[#F5F8FF]"
+                className={inputStyle}
               >
                 {['json', 'xml', 'braces', 'indented', 'block'].map((r) => (
                   <option key={r} value={r}>
@@ -227,13 +231,13 @@ export const TrainingWorkbench: FC<{
                 ))}
               </select>
             </label>
-            <label className="text-[12px] text-[#AAB8D0]">
+            <label className="text-xs font-medium text-[var(--color-slate-gray)]">
               Signature ({reader === 'json' ? 'JSONPath' : 'regex'}, one per line)
               <textarea
                 value={signature}
                 onChange={(e) => setSig(e.target.value)}
                 rows={2}
-                className="mt-1 w-full rounded-lg border border-[rgba(100,150,220,0.2)] bg-[rgba(5,11,24,0.8)] px-2 py-1.5 font-mono text-[12px] text-[#F5F8FF]"
+                className={`${inputStyle} font-mono text-xs`}
               />
             </label>
           </div>
@@ -252,11 +256,11 @@ export const TrainingWorkbench: FC<{
         <Empty label="Nothing unrecognised is waiting on this device." />
       ) : (
         <Card variant="default" className="overflow-hidden p-0">
-          <div className="border-b border-[rgba(100,150,220,0.12)] p-4">
-            <h4 className="text-sm font-bold text-[#F5F8FF]">
+          <div className="border-b border-[var(--color-hairline)] bg-[var(--color-cloud)] p-5">
+            <h4 className="text-base font-bold text-[var(--color-ink-navy)]">
               Unrecognised settings — {queue.data.length}
             </h4>
-            <p className="mt-0.5 text-[12px] text-[#8FA0BC]">
+            <p className="mt-1 text-xs text-[var(--color-slate-gray)] leading-relaxed max-w-4xl">
               A high confidence is a reason to look first, never a reason to accept
               unread: measured precision is about 100% above 80, 88% at 60–79, 82% at
               40–59 and 56% below 40.
@@ -271,66 +275,70 @@ export const TrainingWorkbench: FC<{
               return (
                 <div
                   key={cand.name}
-                  className="space-y-2 border-b border-[rgba(100,150,220,0.08)] px-4 py-3 last:border-0"
+                  className="space-y-3 border-b border-[var(--color-hairline)] px-5 py-4 last:border-0 hover:bg-[var(--color-pebble)] transition-colors"
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-[12.5px] text-[#F5F8FF]">{cand.name}</span>
+                    <span className="font-mono text-sm font-semibold text-[var(--color-ink-navy)]">{cand.name}</span>
                     {cand.kind === 'keys' && <Badge variant="info">table keys</Badge>}
-                    <span className="text-[11px] text-[#65738B]">
+                    <span className="text-xs font-medium text-[var(--color-slate-gray)]">
                       {cand.occurrences.toLocaleString()}×
                     </span>
                     {cand.status === 'APPROVED' && <Badge variant="success">approved</Badge>}
                     {cand.sample_values.length > 0 && (
-                      <span className="font-mono text-[11px] text-[#8FA0BC]">
+                      <span className="font-mono text-xs text-[var(--color-slate-gray)] ml-2">
                         e.g. {cand.sample_values.slice(0, 3).join(', ')}
                       </span>
                     )}
                   </div>
+                  
                   {cand.evidence?.raw && (
-                    <code className="block break-all rounded-lg bg-[rgba(5,11,24,0.8)] px-2 py-1 font-mono text-[11.5px] text-[#DDE7F7]">
+                    <code className="block break-all rounded-lg bg-[var(--color-cloud)] border border-[var(--color-hairline)] px-3 py-2 font-mono text-xs text-[var(--color-ink-navy)] shadow-sm">
                       {cand.evidence.raw}
                     </code>
                   )}
+                  
                   {cand.suggested_field && (
-                    <p className="text-[12px] text-[#AAB8D0]">
-                      AI suggests <span className="font-mono text-[#2D8CFF]">{cand.suggested_field}</span>{' '}
-                      <span className="text-[#65738B]">
+                    <p className="text-xs font-medium text-[var(--color-slate-gray)]">
+                      AI suggests <span className="font-mono text-[var(--color-signal-blue)] font-bold">{cand.suggested_field}</span>{' '}
+                      <span>
                         ({cand.suggestion_score.toFixed(0)} confidence, {cand.suggested_from})
                       </span>
                     </p>
                   )}
-                  <div className="flex flex-wrap items-center gap-2">
+                  
+                  <div className="flex flex-wrap items-center gap-3 pt-1">
                     <input
                       list="ncsa-fields"
                       value={picked}
                       onChange={(e) => setChoice((m) => ({ ...m, [cand.name]: e.target.value }))}
                       placeholder="choose the field this setting means"
-                      className="min-w-[18rem] flex-1 rounded-lg border border-[rgba(100,150,220,0.2)] bg-[rgba(5,11,24,0.8)] px-2 py-1.5 font-mono text-[12px] text-[#F5F8FF]"
+                      className="min-w-[18rem] flex-1 rounded-lg border border-[var(--color-hairline)] bg-white px-3 py-2 font-mono text-xs text-[var(--color-ink-navy)] focus:outline-none focus:border-[var(--color-signal-blue)] focus:ring-1 focus:ring-[var(--color-signal-blue)] shadow-sm"
                     />
                     <button
                       onClick={() => approve(cand)}
                       disabled={busy !== null || !picked || !meta || !approver.trim() || !vendorReady}
-                      className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#1677FF] to-[#2D8CFF] px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-40"
+                      className="flex items-center gap-1.5 rounded-lg bg-[var(--color-signal-blue)] px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-40 disabled:hover:opacity-40 transition-opacity"
                     >
-                      <Check className="h-3.5 w-3.5" />
-                      {busy === cand.name ? 'Checking the corpus…' : 'Approve'}
+                      <Check className="h-4 w-4" />
+                      {busy === cand.name ? 'Checking corpus…' : 'Approve'}
                     </button>
                     <button
                       onClick={() => reject(cand)}
                       disabled={busy !== null || !approver.trim()}
-                      className="flex items-center gap-1.5 rounded-lg border border-[rgba(100,150,220,0.25)] px-3 py-1.5 text-[12px] font-semibold text-[#AAB8D0] disabled:opacity-40"
+                      className="flex items-center gap-1.5 rounded-lg border border-[var(--color-hairline)] bg-white px-4 py-2 text-xs font-bold text-[var(--color-slate-gray)] hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 shadow-sm disabled:opacity-40 transition-colors"
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <X className="h-4 w-4" />
                       Reject
                     </button>
                   </div>
+                  
                   {picked && !meta && (
-                    <p className="text-[11.5px] text-[#F5B82E]">
+                    <p className="text-xs font-semibold text-amber-600">
                       Not a schema field. Pick one from the list.
                     </p>
                   )}
                   {meta && (
-                    <p className="text-[11.5px] text-[#65738B]">
+                    <p className="text-xs font-medium text-[var(--color-slate-gray)]">
                       {meta.type} field ·{' '}
                       {meta.controls.length
                         ? `read by ${meta.controls.join(', ')}`
@@ -338,33 +346,38 @@ export const TrainingWorkbench: FC<{
                     </p>
                   )}
                   {keysMismatch && (
-                    <p className="text-[11.5px] text-[#F5B82E]">
+                    <p className="text-xs font-semibold text-amber-600">
                       This setting is a table; its keys will be read as a list. Choose a
                       list-typed field.
                     </p>
                   )}
+                  
                   {verdict && (
                     <div
-                      className={`rounded-lg border p-2 text-[12px] ${
+                      className={`rounded-xl border p-3 text-xs ${
                         verdict.ok
-                          ? 'border-[rgba(50,214,168,0.3)] bg-[rgba(50,214,168,0.07)] text-[#9FE9D3]'
-                          : 'border-[rgba(245,184,46,0.3)] bg-[rgba(245,184,46,0.07)] text-[#F5D58A]'
+                          ? 'border-[rgba(50,214,168,0.4)] bg-[rgba(50,214,168,0.05)] text-emerald-800'
+                          : 'border-[rgba(245,184,46,0.4)] bg-[rgba(245,184,46,0.05)] text-amber-800'
                       }`}
                     >
                       <strong>{verdict.ok ? 'Learned. ' : 'Not learned. '}</strong>
                       {verdict.text}
                       {verdict.ok && ' Re-assess to apply it.'}
                       {verdict.alert && (
-                        <span className="block">
+                        <span className="block mt-1 font-medium">
                           The corpus pass rate rose. That is what a poisoned mapping looks
                           like too -- worth a second look.
                         </span>
                       )}
-                      {verdict.detail?.map((d) => (
-                        <span key={d} className="block font-mono text-[11px]">
-                          {d}
-                        </span>
-                      ))}
+                      {verdict.detail && verdict.detail.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {verdict.detail.map((d) => (
+                            <span key={d} className="block font-mono text-[11px] opacity-80">
+                              {d}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -374,8 +387,8 @@ export const TrainingWorkbench: FC<{
         </Card>
       )}
 
-      <Card variant="default" className="flex flex-wrap items-center justify-between gap-3 p-4">
-        <p className="max-w-2xl text-[12.5px] text-[#AAB8D0]">
+      <Card variant="default" className="flex flex-wrap items-center justify-between gap-4 p-6">
+        <p className="max-w-2xl text-xs text-[var(--color-slate-gray)] leading-relaxed">
           Re-assess runs this same file again with everything learned so far. No
           restart and no redeploy: the next assessment simply reads the learned
           mappings.
@@ -383,24 +396,26 @@ export const TrainingWorkbench: FC<{
         <button
           onClick={runReassess}
           disabled={reBusy}
-          className="flex items-center gap-2 rounded-xl border border-[rgba(80,150,255,0.35)] px-4 py-2 text-sm font-semibold text-[#2D8CFF] disabled:opacity-50"
+          className="flex items-center gap-2 rounded-xl border border-[rgba(0,107,255,0.3)] bg-[rgba(0,107,255,0.05)] px-5 py-2.5 text-sm font-bold text-[var(--color-signal-blue)] hover:bg-[rgba(0,107,255,0.1)] transition-colors disabled:opacity-50"
         >
           <RefreshCw className={`h-4 w-4 ${reBusy ? 'animate-spin' : ''}`} />
           {reBusy ? 'Re-assessing…' : 'Re-assess with what was learned'}
         </button>
-        {reErr && <p className="w-full text-[12px] text-[#F5B82E]">{reErr}</p>}
+        
+        {reErr && <p className="w-full text-sm font-semibold text-rose-600 mt-2">{reErr}</p>}
+        
         {after && (
-          <div className="w-full rounded-xl border border-[rgba(50,214,168,0.3)] bg-[rgba(50,214,168,0.06)] p-3 text-[12.5px] text-[#DDE7F7]">
+          <div className="w-full rounded-xl border border-[rgba(50,214,168,0.4)] bg-[rgba(50,214,168,0.05)] p-4 text-xs text-emerald-800 mt-4">
             <strong>{after.supported ? 'Now assessable. ' : 'Still not assessable. '}</strong>
             Coverage {c.coverage ? `${c.coverage.assessed_pct}%` : 'none'} →{' '}
-            {after.coverage.assessed_pct}% · score{' '}
-            {after.coverage.score_pct === null ? '—' : `${after.coverage.score_pct}%`} ·{' '}
+            <span className="font-bold">{after.coverage.assessed_pct}%</span> · score{' '}
+            {after.coverage.score_pct === null ? '—' : <span className="font-bold">{after.coverage.score_pct}%</span>} ·{' '}
             {after.coverage.controls_decided} controls decided.
             <button
               onClick={() => navigate(`/assessments/${after.assessment_id}`)}
-              className="ml-2 font-semibold text-[#2D8CFF] hover:underline"
+              className="ml-3 font-bold text-[var(--color-signal-blue)] hover:underline inline-flex items-center gap-1"
             >
-              Open the re-assessed device →
+              Open the re-assessed device <span className="text-lg leading-none">→</span>
             </button>
           </div>
         )}

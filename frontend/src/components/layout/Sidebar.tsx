@@ -2,19 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Home, 
-  Home, 
-  LayoutGrid, 
-  CalendarCheck, 
-  Server, 
-  FileText, 
   Settings,
   LogOut,
   Layers, 
   Plus, 
   BarChart3, 
   ShieldCheck,
-  GraduationCap
-
+  GraduationCap,
+  Monitor
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
@@ -24,6 +19,7 @@ const primaryNav = [
   { name: 'New Audit', to: '/new-audit', icon: Plus, isAction: true },
   { name: 'Training', to: '/training', icon: GraduationCap },
   { name: 'Analysis', to: '/analysis', icon: BarChart3 },
+  { name: 'Host Firewall', to: '/hostfw', icon: Monitor },
   { name: 'Frameworks', to: '/frameworks', icon: ShieldCheck },
   { name: 'Settings', to: '/settings', icon: Settings },
 ];

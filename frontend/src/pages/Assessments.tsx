@@ -14,8 +14,9 @@ import {
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Empty, Loading } from '../components/ui/States';
-import { api, vendorLabel, type AssessmentSummary } from '../lib/api';
+import { api, vendorLabel, type AssessmentSummary, type VerifyReportResponse } from '../lib/api';
 import { useApi } from '../lib/useApi';
+import { ShieldCheck } from 'lucide-react';
 
 // Vendor color and brand icon helper
 function VendorBrand({ vendor, platform }: { vendor: string; platform?: string }) {
@@ -111,6 +112,10 @@ const Assessments: FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [vendorFilter, setVendorFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+  
+  const [verifyResult, setVerifyResult] = useState<VerifyReportResponse | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<Error | null>(null);
 
   const { data, loading } = useApi<AssessmentSummary[]>(
     () => api.assessments(),
@@ -149,6 +154,24 @@ const Assessments: FC = () => {
   const inProgressCount = loading ? '...' : rows.filter(r => r.score_pct < 50 && r.score_pct > 0).length;
   const failedCount = loading ? '...' : rows.filter(r => r.score_pct === 0).length;
 
+  const handleVerifyReport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = ''; // reset input
+    
+    setVerifying(true);
+    setVerifyError(null);
+    setVerifyResult(null);
+    try {
+      const result = await api.verifyReport(file);
+      setVerifyResult(result);
+    } catch (err: any) {
+      setVerifyError(err);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-[1440px] mx-auto">
       {/* 1. Header with Page Title and CTA */}
@@ -163,6 +186,19 @@ const Assessments: FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-xs font-semibold py-2.5 px-4 rounded-lg bg-white border border-[var(--color-hairline)] text-[var(--color-ink-navy)] hover:bg-[var(--color-pebble)] shadow-sm transition-all cursor-pointer">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>{verifying ? 'Verifying...' : 'Verify Report'}</span>
+            <input type="file" accept="application/pdf" className="hidden" onChange={handleVerifyReport} disabled={verifying} />
+          </label>
+          <Button
+            variant="outline"
+            className="flex items-center gap-2 text-xs font-semibold py-2.5 px-4 rounded-lg bg-white border border-[var(--color-hairline)] text-[var(--color-ink-navy)] hover:bg-[var(--color-pebble)] shadow-sm transition-all"
+            onClick={() => api.exportFleetCsv().catch(console.error)}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
+          </Button>
           <Button
             className="flex items-center gap-2 text-xs font-semibold py-2.5 px-4 rounded-lg bg-[#0a0a0a] text-white hover:bg-[#222222] shadow-sm transition-all"
             onClick={() => navigate('/new-audit')}
@@ -252,6 +288,35 @@ const Assessments: FC = () => {
           </div>
         </Card>
       </div>
+
+      {/* Verify Report Result */}
+      {(verifyResult || verifyError) && (
+        <Card className={`p-4 border ${verifyError ? 'bg-red-50 border-red-200' : verifyResult?.verdict === 'authentic' ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+          <div className="flex items-start justify-between">
+             <div>
+                <h3 className={`text-sm font-bold ${verifyError ? 'text-red-800' : verifyResult?.verdict === 'authentic' ? 'text-emerald-800' : 'text-amber-800'}`}>
+                   {verifyError ? 'Verification Failed' : `Report Verdict: ${verifyResult?.verdict.toUpperCase()}`}
+                </h3>
+                <p className={`mt-1 text-xs ${verifyError ? 'text-red-600' : verifyResult?.verdict === 'authentic' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                   {verifyError ? verifyError.message : verifyResult?.reason || 'This report is authentic and unmodified.'}
+                </p>
+                {verifyResult?.verdict === 'authentic' && (
+                  <div className="mt-2 text-[11px] text-emerald-700 font-mono">
+                    Assessment ID: {verifyResult.assessment_id} <br />
+                    Issued At: {verifyResult.issued_at} <br />
+                    SHA-256: {verifyResult.sha256}
+                  </div>
+                )}
+             </div>
+             <button 
+               onClick={() => { setVerifyResult(null); setVerifyError(null); }}
+               className={`text-xs font-semibold ${verifyError ? 'text-red-700' : verifyResult?.verdict === 'authentic' ? 'text-emerald-700' : 'text-amber-700'} hover:underline`}
+             >
+               Dismiss
+             </button>
+          </div>
+        </Card>
+      )}
 
       {/* 3. Filters Bar matching reference */}
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
@@ -344,11 +409,7 @@ const Assessments: FC = () => {
                   <th className="px-4 py-3.5 font-semibold">Device / Name</th>
                   <th className="px-4 py-3.5 font-semibold">Vendor / Platform</th>
                   <th className="px-4 py-3.5 font-semibold text-center">Compliance Score</th>
-                  <th className="px-4 py-3.5 font-semibold">Findings</th>
                   <th className="px-4 py-3.5 font-semibold">Status</th>
-                  <th className="px-4 py-3.5 font-semibold flex items-center gap-1">
-                    Date <ChevronDown className="w-3 h-3" />
-                  </th>
                   <th className="px-4 py-3.5 text-right font-semibold">Actions</th>
                 </tr>
               </thead>
@@ -402,24 +463,6 @@ const Assessments: FC = () => {
                         </div>
                       </td>
 
-                      {/* Findings Indicators (4 dots: Critical, High, Medium, Low) */}
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-2 text-[11px] font-semibold">
-                          <span className="flex items-center gap-1 text-rose-600">
-                            <span className="w-2 h-2 rounded-full bg-rose-500"></span> 2
-                          </span>
-                          <span className="flex items-center gap-1 text-orange-600">
-                            <span className="w-2 h-2 rounded-full bg-orange-500"></span> 5
-                          </span>
-                          <span className="flex items-center gap-1 text-amber-600">
-                            <span className="w-2 h-2 rounded-full bg-amber-500"></span> 12
-                          </span>
-                          <span className="flex items-center gap-1 text-slate-500">
-                            <span className="w-2 h-2 rounded-full bg-slate-400"></span> 3
-                          </span>
-                        </div>
-                      </td>
-
                       {/* Status Badge */}
                       <td className="px-4 py-4">
                         <span className={`px-2.5 py-1 text-[11px] font-semibold rounded-full border ${
@@ -429,12 +472,6 @@ const Assessments: FC = () => {
                         }`}>
                           {isCompleted ? 'Completed' : 'In Progress'}
                         </span>
-                      </td>
-
-                      {/* Date */}
-                      <td className="px-4 py-4 text-[11px] text-[var(--color-slate-gray)]">
-                        <div>10 Sep 2026</div>
-                        <div className="text-[10px] text-[var(--color-mist-gray)]">11:42 AM</div>
                       </td>
 
                       {/* Actions */}

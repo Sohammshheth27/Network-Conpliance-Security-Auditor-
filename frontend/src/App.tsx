@@ -8,6 +8,7 @@ import Analysis from './pages/Analysis';
 import Frameworks from './pages/Frameworks';
 import Settings from './pages/Settings';
 import Training from './pages/Training';
+import HostFirewall from './pages/HostFirewall';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="new-audit" element={<NewAudit />} />
           <Route path="training" element={<Training />} />
           <Route path="analysis" element={<Analysis />} />
+          <Route path="hostfw" element={<HostFirewall />} />
           <Route path="frameworks" element={<Frameworks />} />
           <Route path="settings" element={<Settings />} />
         </Route>

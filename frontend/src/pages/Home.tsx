@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Database,
   ArrowRight,
-  AlertTriangle,
   PieChart
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
@@ -21,15 +20,14 @@ const Home: FC = () => {
   const navigate = useNavigate();
 
   const list = useApi<AssessmentSummary[]>(() => api.assessments(), [], { cacheKey: 'assessments' });
+  const health = useApi(() => api.health(), [], { cacheKey: 'health' });
+  const learned = useApi(() => api.learnedSummary(), [], { cacheKey: 'learned' });
 
   const rows = list.data ?? [];
   const recentAssessments = rows.slice().reverse().slice(0, 3);
   
   // Data-aware fallback handling
   const hasData = rows.length > 0;
-  
-  const criticalCount = '—';
-  const totalFindings = '—';
   
   let complianceCoverage: string | number = '...';
   if (!list.loading) {
@@ -259,33 +257,33 @@ const Home: FC = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Insight 1: Critical Findings */}
+              {/* Insight 1: Active Sessions */}
               <button 
-                onClick={() => navigate('/analysis')}
-                className="w-full text-left rounded-xl p-4 flex flex-col justify-between bg-[rgba(239,68,68,0.04)] border border-[rgba(239,68,68,0.12)] cursor-pointer hover:border-[rgba(239,68,68,0.25)] transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                onClick={() => navigate('/settings')}
+                className="w-full text-left rounded-xl p-4 flex flex-col justify-between bg-[var(--color-cloud)] border border-[var(--color-hairline)] cursor-pointer hover:bg-[var(--color-pebble)] transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center text-[#EF4444]">
-                    <AlertTriangle className="w-4 h-4" />
+                  <div className="w-8 h-8 rounded-lg bg-[var(--color-pebble)] flex items-center justify-center text-[var(--color-signal-blue)]">
+                    <Database className="w-4 h-4" />
                   </div>
-                  <ChevronRight className="w-3.5 h-3.5 text-rose-400 group-hover:text-rose-600 transition-colors" />
+                  <ChevronRight className="w-3.5 h-3.5 text-[var(--color-mist-gray)] group-hover:text-[var(--color-ink-navy)] transition-colors" />
                 </div>
                 <div>
                   <span className="text-[11px] font-semibold text-[var(--color-slate-gray)] block">
-                    Critical Findings
+                    Active Sessions
                   </span>
                   <span className="text-2xl font-bold text-[var(--color-ink-navy)] block mt-0.5">
-                    {criticalCount}
+                    {health.loading ? '...' : health.data?.assessments ?? 0}
                   </span>
                   <span className="text-[10.5px] text-[var(--color-slate-gray)] mt-1 block">
-                    {hasData ? "Aggregate unsupported" : "Require immediate attention"}
+                    In engine memory
                   </span>
                 </div>
               </button>
 
-              {/* Insight 2: Total Findings */}
+              {/* Insight 2: Mappings Learned */}
               <button 
-                onClick={() => navigate('/analysis')}
+                onClick={() => navigate('/training')}
                 className="w-full text-left rounded-xl p-4 flex flex-col justify-between bg-[var(--color-cloud)] border border-[var(--color-hairline)] cursor-pointer hover:bg-[var(--color-pebble)] transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal-blue)]"
               >
                 <div className="flex items-center justify-between mb-2">
@@ -296,13 +294,13 @@ const Home: FC = () => {
                 </div>
                 <div>
                   <span className="text-[11px] font-semibold text-[var(--color-slate-gray)] block">
-                    Total Findings
+                    Mappings Learned
                   </span>
                   <span className="text-2xl font-bold text-[var(--color-ink-navy)] block mt-0.5">
-                    {totalFindings}
+                    {learned.loading ? '...' : learned.data?.total ?? 0}
                   </span>
                   <span className="text-[10.5px] text-[var(--color-slate-gray)] mt-1 block">
-                    {hasData ? "Aggregate unsupported" : "Across all assessments"}
+                    From interactive training
                   </span>
                 </div>
               </button>

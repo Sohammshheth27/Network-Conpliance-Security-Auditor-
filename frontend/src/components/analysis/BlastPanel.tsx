@@ -64,13 +64,13 @@ export const BlastPanel: FC<{ id: string }> = ({ id }) => {
       <Card variant="default" className="p-5">
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="mb-1 block text-[11px] uppercase tracking-wider text-[#65738B]">
+            <label className="mb-1 block text-[11px] uppercase tracking-wider text-[var(--color-slate-gray)]">
               Attacker's foothold (origin zone)
             </label>
             <select
               value={selected}
               onChange={(e) => setZone(e.target.value)}
-              className="rounded-xl border border-[rgba(100,150,220,0.2)] bg-[rgba(5,11,24,0.8)] px-3 py-2 text-sm text-[#F5F8FF]"
+              className="rounded-xl border border-[rgba(100,150,220,0.2)] bg-[rgba(5,11,24,0.8)] px-3 py-2 text-sm text-[var(--color-ink-navy)]"
             >
               {zones.data.source_zones.map((z) => (
                 <option key={z} value={z}>
@@ -89,7 +89,7 @@ export const BlastPanel: FC<{ id: string }> = ({ id }) => {
             {busy ? 'Walking the policy…' : 'Compute blast radius'}
           </button>
         </div>
-        <p className="mt-3 text-[12px] text-[#8FA0BC]">
+        <p className="mt-3 text-[12px] text-[var(--color-slate-gray)]">
           Probes every other zone on the ports attackers use to move laterally —
           remote administration first, then data stores — and names the rule that
           permits each path. Reachable is not exploitable: policy permitting a
@@ -142,15 +142,15 @@ const BlastResult: FC<{ id: string; r: BlastResponse }> = ({ id, r }) => {
           ['Undecidable probes', s.undecidable],
         ].map(([label, value]) => (
           <Card key={label as string} variant="panel">
-            <span className="block text-xl font-bold text-[#F5F8FF]">{String(value)}</span>
-            <span className="text-[11px] text-[#8FA0BC]">{label}</span>
+            <span className="block text-xl font-bold text-[var(--color-ink-navy)]">{String(value)}</span>
+            <span className="text-[11px] text-[var(--color-slate-gray)]">{label}</span>
           </Card>
         ))}
       </div>
 
       {s.zones_fully_undecidable.length > 0 && (
         <p className="rounded-xl border border-[rgba(100,150,220,0.16)] p-3 text-[12px] text-[#AAB8D0]">
-          <strong className="text-[#F5F8FF]">Unproven, not absent:</strong> every
+          <strong className="text-[var(--color-ink-navy)]">Unproven, not absent:</strong> every
           probe into {s.zones_fully_undecidable.join(', ')} was undecidable — no
           rule matched and this platform does not state its default policy.
         </p>
@@ -158,9 +158,9 @@ const BlastResult: FC<{ id: string; r: BlastResponse }> = ({ id, r }) => {
 
       {Array.from(byZone.entries()).map(([z, steps]) => (
         <Card key={z} variant="default" className="p-4">
-          <h4 className="mb-2 text-sm font-bold text-[#F5F8FF]">
+          <h4 className="mb-2 text-sm font-bold text-[var(--color-ink-navy)]">
             {s.origin} → {z}{' '}
-            <span className="text-[12px] font-normal text-[#8FA0BC]">
+            <span className="text-[12px] font-normal text-[var(--color-slate-gray)]">
               {steps.length} path(s)
             </span>
           </h4>
@@ -175,15 +175,15 @@ const BlastResult: FC<{ id: string; r: BlastResponse }> = ({ id, r }) => {
                 ) : (
                   <Badge variant="default">data</Badge>
                 )}
-                <span className="font-mono text-[#DDE7F7]">
+                <span className="font-mono text-[var(--color-ink-navy)]">
                   {p.protocol}/{p.port}
                 </span>
-                <span className="truncate text-[#8FA0BC]">{p.service}</span>
+                <span className="truncate text-[var(--color-slate-gray)]">{p.service}</span>
                 {p.uncertain && <Badge variant="warning">uncertain</Badge>}
               </div>
             ))}
           </div>
-          <p className="mt-2 font-mono text-[11px] text-[#65738B]">
+          <p className="mt-2 font-mono text-[11px] text-[var(--color-slate-gray)]">
             permitted by {Array.from(new Set(steps.map((p) => p.decided_by))).join(', ')}
           </p>
         </Card>
@@ -224,15 +224,15 @@ const SimulateClose: FC<{ id: string; zone: string; rules: string[] }> = ({
     <Card variant="default" className="p-5">
       <div className="flex items-center gap-2">
         <FlaskConical className="h-4 w-4 text-[#9B78FF]" />
-        <h4 className="text-sm font-bold text-[#F5F8FF]">Simulate closing these rules</h4>
+        <h4 className="text-sm font-bold text-[var(--color-ink-navy)]">Simulate closing these rules</h4>
       </div>
-      <p className="mt-1 text-[12px] text-[#8FA0BC]">
+      <p className="mt-1 text-[12px] text-[var(--color-slate-gray)]">
         Runs on a copy. Nothing on the device, and nothing in the stored
         assessment, changes.
       </p>
       <div className="mt-3 space-y-1.5">
         {rules.map((r) => (
-          <label key={r} className="flex items-center gap-2 text-[12.5px] text-[#DDE7F7]">
+          <label key={r} className="flex items-center gap-2 text-[12.5px] text-[var(--color-ink-navy)]">
             <input type="checkbox" checked={picked.includes(r)} onChange={() => toggle(r)} />
             <span className="font-mono">{r}</span>
           </label>
@@ -256,7 +256,7 @@ const SimulateClose: FC<{ id: string; zone: string; rules: string[] }> = ({
           {out.warnings.map((w) => (
             <p
               key={w}
-              className="rounded-xl border border-[rgba(229,72,77,0.3)] bg-[rgba(229,72,77,0.06)] p-3 text-[12.5px] text-[#DDE7F7]"
+              className="rounded-xl border border-[rgba(229,72,77,0.3)] bg-[rgba(229,72,77,0.06)] p-3 text-[12.5px] text-[var(--color-ink-navy)]"
             >
               <strong className="text-[#E5484D]">Not closed: </strong>
               {w}
@@ -271,20 +271,20 @@ const SimulateClose: FC<{ id: string; zone: string; rules: string[] }> = ({
                 ] as const
               ).map(([label, before, after]) => (
                 <Card key={label} variant="panel">
-                  <span className="block text-lg font-bold text-[#F5F8FF]">
+                  <span className="block text-lg font-bold text-[var(--color-ink-navy)]">
                     {before} → {after}
                   </span>
-                  <span className="text-[11px] text-[#8FA0BC]">{label}</span>
+                  <span className="text-[11px] text-[var(--color-slate-gray)]">{label}</span>
                 </Card>
               ))}
             </div>
           )}
           <p className="text-[12px] text-[#AAB8D0]">
             Compliance score {out.before.score_pct ?? '—'}% →{' '}
-            <strong className="text-[#F5F8FF]">{out.after.score_pct ?? '—'}%</strong>{' '}
+            <strong className="text-[var(--color-ink-navy)]">{out.after.score_pct ?? '—'}%</strong>{' '}
             on {out.before.assessed_pct}% → {out.after.assessed_pct}% coverage.
           </p>
-          <ul className="space-y-1 text-[11.5px] text-[#8FA0BC]">
+          <ul className="space-y-1 text-[11.5px] text-[var(--color-slate-gray)]">
             {out.caveats.map((c) => (
               <li key={c}>· {c}</li>
             ))}

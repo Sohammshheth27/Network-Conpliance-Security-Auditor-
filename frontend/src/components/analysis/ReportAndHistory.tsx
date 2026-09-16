@@ -1,7 +1,8 @@
 import { useState, type FC } from 'react';
-import { FileDown, History } from 'lucide-react';
+import { FileDown, History, Loader2 } from 'lucide-react';
 
 import { Card } from '../ui/Card';
+import { ErrorPanel } from '../ui/States';
 import { api, download, type HistoryPoint } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 
@@ -22,6 +23,9 @@ const pct = (v: number | null | undefined) => (v === null || v === undefined ? '
 const ReportAndHistory: FC<{ aid: string }> = ({ aid }) => {
   const { data: points, reload } = useApi<HistoryPoint[]>(() => api.history(aid), [aid]);
   const [saving, setSaving] = useState(false);
+  const [pdfError, setPdfError] = useState<any>(null);
+  const [downloadingFull, setDownloadingFull] = useState(false);
+  const [downloadingFramework, setDownloadingFramework] = useState<string | null>(null);
 
   const record = async () => {
     setSaving(true);
@@ -34,41 +38,71 @@ const ReportAndHistory: FC<{ aid: string }> = ({ aid }) => {
   };
 
   const link =
-    'inline-flex items-center gap-1.5 rounded-full border border-[rgba(100,150,220,0.25)] px-3 py-1.5 text-xs font-semibold text-[#DDE7F7] hover:border-[#1677FF]';
+    'inline-flex items-center gap-1.5 rounded-full border border-[var(--color-hairline)] px-3 py-1.5 text-xs font-semibold text-[var(--color-ink-navy)] hover:border-[#1677FF]';
 
   return (
     <Card variant="default" className="p-6 space-y-5">
       <div>
-        <h3 className="flex items-center gap-2 text-sm font-bold text-[#F5F8FF]">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-[var(--color-ink-navy)]">
           <FileDown className="h-4 w-4 text-[#2D8CFF]" /> Assessment report
         </h3>
         <div className="mt-3 flex flex-wrap gap-2">
           {/* Buttons, not links: a link cannot carry the API token. */}
           <button
             className={link}
-            onClick={() => download(api.reportUrl(aid), `NCSA_Report_${aid}.pdf`)}
+            disabled={downloadingFull || downloadingFramework !== null}
+            onClick={async () => {
+              setPdfError(null);
+              setDownloadingFull(true);
+              try {
+                await download(api.reportUrl(aid), `NCSA_Report_${aid}.pdf`);
+              } catch (e: any) {
+                setPdfError(e);
+              } finally {
+                setDownloadingFull(false);
+              }
+            }}
           >
+            {downloadingFull ? <Loader2 className="h-3 w-3 animate-spin inline-block mr-1" /> : null}
             PDF — all frameworks
           </button>
           {FRAMEWORKS.map(([key, label]) => (
             <button
               key={key}
               className={link}
-              onClick={() => download(api.reportUrl(aid, key), `NCSA_Report_${aid}_${key}.pdf`)}
+              disabled={downloadingFull || downloadingFramework !== null}
+              onClick={async () => {
+                setPdfError(null);
+                setDownloadingFramework(key);
+                try {
+                  await download(api.reportUrl(aid, key), `NCSA_Report_${aid}_${key}.pdf`);
+                } catch (e: any) {
+                  setPdfError(e);
+                } finally {
+                  setDownloadingFramework(null);
+                }
+              }}
             >
+              {downloadingFramework === key ? <Loader2 className="h-3 w-3 animate-spin inline-block mr-1" /> : null}
               PDF — {label} only
             </button>
           ))}
         </div>
-        <p className="mt-2 text-[11.5px] text-[#8FA0BC]">
+        <p className="mt-2 text-[11.5px] text-[var(--color-slate-gray)]">
           A single-framework report re-assesses the same configuration with only
           that framework selected, so it always matches a scoped assessment.
         </p>
+        
+        {pdfError && (
+          <div className="mt-4">
+            <ErrorPanel error={pdfError} onRetry={() => setPdfError(null)} />
+          </div>
+        )}
       </div>
 
       <div className="border-t border-[rgba(100,150,220,0.12)] pt-4">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="flex items-center gap-2 text-sm font-bold text-[#F5F8FF]">
+          <h3 className="flex items-center gap-2 text-sm font-bold text-[var(--color-ink-navy)]">
             <History className="h-4 w-4 text-[#2D8CFF]" /> Framework scores over time
           </h3>
           <button onClick={record} disabled={saving} className={link}>
@@ -78,7 +112,7 @@ const ReportAndHistory: FC<{ aid: string }> = ({ aid }) => {
         {points && points.length > 0 ? (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-left text-[12.5px]">
-              <thead className="text-[10.5px] uppercase tracking-wider text-[#65738B]">
+              <thead className="text-[10.5px] uppercase tracking-wider text-[var(--color-slate-gray)]">
                 <tr>
                   <th className="py-1 pr-4">Taken</th>
                   <th className="py-1 pr-4 text-right">Overall</th>
@@ -88,7 +122,7 @@ const ReportAndHistory: FC<{ aid: string }> = ({ aid }) => {
                   <th className="py-1 text-right">Config</th>
                 </tr>
               </thead>
-              <tbody className="text-[#DDE7F7]">
+              <tbody className="text-[var(--color-ink-navy)]">
                 {points.map((p) => (
                   <tr key={p.taken_at} className="border-t border-[rgba(100,150,220,0.1)]">
                     <td className="py-1.5 pr-4 font-mono text-[11.5px]">{p.taken_at}</td>
@@ -98,7 +132,7 @@ const ReportAndHistory: FC<{ aid: string }> = ({ aid }) => {
                         {pct(p.frameworks?.[key])}
                       </td>
                     ))}
-                    <td className="py-1.5 text-right font-mono text-[11px] text-[#8FA0BC]">
+                    <td className="py-1.5 text-right font-mono text-[11px] text-[var(--color-slate-gray)]">
                       {p.config_sha256}
                     </td>
                   </tr>
@@ -107,7 +141,7 @@ const ReportAndHistory: FC<{ aid: string }> = ({ aid }) => {
             </table>
           </div>
         ) : (
-          <p className="mt-2 text-[11.5px] text-[#8FA0BC]">
+          <p className="mt-2 text-[11.5px] text-[var(--color-slate-gray)]">
             No snapshots of this device yet. Record one now and again after a
             change to see each framework's score move.
           </p>
