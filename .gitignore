@@ -82,3 +82,7 @@ reference/training_queue.jsonl
 # committed pack would pre-teach the tool and spoil the live demo.
 packs/*.learned.yaml
 reference/training_decisions.jsonl
+
+# Editor/agent tooling installed per machine (skills, fonts, icon catalogues).
+# It is not part of the product and is large enough to dominate the diff.
+.agents/
