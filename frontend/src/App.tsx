@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import AppShell from './components/layout/AppShell';
 import Home from './pages/Home';
 import Assessments from './pages/Assessments';
@@ -9,21 +8,15 @@ import Analysis from './pages/Analysis';
 import Frameworks from './pages/Frameworks';
 import Settings from './pages/Settings';
 import Training from './pages/Training';
-
-function ScrollToTop() {
-  const { pathname } = useLocation();
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "instant" });
-  }, [pathname]);
-
-  return null;
-}
+import HostFirewall from './pages/HostFirewall';
 
 function App() {
+  // The engine serves this app under a prefix (/dashboard), so the router has
+  // to resolve its URLs against the same base Vite built with. Reading it from
+  // BASE_URL keeps one build working both in dev (base "/") and when served by
+  // the engine, with no second copy of the path to maintain.
   return (
-    <BrowserRouter>
-      <ScrollToTop />
+    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <Routes>
         <Route path="/" element={<AppShell />}>
           <Route index element={<Home />} />
@@ -32,6 +25,7 @@ function App() {
           <Route path="new-audit" element={<NewAudit />} />
           <Route path="training" element={<Training />} />
           <Route path="analysis" element={<Analysis />} />
+          <Route path="hostfw" element={<HostFirewall />} />
           <Route path="frameworks" element={<Frameworks />} />
           <Route path="settings" element={<Settings />} />
         </Route>

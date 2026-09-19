@@ -111,7 +111,7 @@ export const AnalysisTabs: FC<{ assessmentId: string }> = ({ assessmentId }) => 
 // ------------------------------------------------------------- rule hygiene
 
 const HygienePanel: FC<{ id: string }> = ({ id }) => {
-  const { data, loading, error, reload } = useApi(() => api.hygiene(id), [id]);
+  const { data, loading, error, reload } = useApi(() => api.hygiene(id), [id], { cacheKey: `hygiene-${id}` });
 
   if (loading) return <Loading label="Analysing rule hygiene" />;
   if (error) return <ErrorPanel error={error} onRetry={reload} />;
@@ -184,9 +184,9 @@ const HygienePanel: FC<{ id: string }> = ({ id }) => {
           </h4>
         </div>
         <div className="max-h-[520px] overflow-y-auto">
-          {data.findings.map((f, i) => (
+          {data.findings.map((f) => (
             <div
-              key={i}
+              key={`${f.rule}-${f.kind}-${f.severity}-${f.detail.slice(0, 10)}`}
               className="border-b border-[rgba(100,150,220,0.08)] px-4 py-3 last:border-0"
             >
               <div className="flex flex-wrap items-center gap-2">
@@ -224,8 +224,8 @@ const HygienePanel: FC<{ id: string }> = ({ id }) => {
             Unresolved references
           </h4>
           <div className="max-h-56 space-y-1 overflow-y-auto">
-            {data.unevaluable.map((u, i) => (
-              <p key={i} className="font-mono text-[11.5px] text-[#8FA0BC]">
+            {data.unevaluable.map((u) => (
+              <p key={u} className="font-mono text-[11.5px] text-[#8FA0BC]">
                 {u}
               </p>
             ))}
@@ -392,6 +392,7 @@ const RecertPanel: FC<{ id: string }> = ({ id }) => {
   const { data, loading, error, reload } = useApi(
     () => api.recertification(id),
     [id],
+    { cacheKey: `recertification-${id}` }
   );
 
   if (loading) return <Loading label="Reviewing certifications" />;
@@ -413,9 +414,9 @@ const RecertPanel: FC<{ id: string }> = ({ id }) => {
           {data.due.length === 0 ? (
             <Empty label="Nothing due." />
           ) : (
-            data.due.slice(0, 200).map((d, i) => (
+            data.due.slice(0, 200).map((d) => (
               <div
-                key={i}
+                key={d.rule_id}
                 className="border-b border-[rgba(100,150,220,0.08)] px-4 py-2.5 last:border-0"
               >
                 <div className="flex flex-wrap items-center gap-2">
@@ -455,9 +456,9 @@ const RecertPanel: FC<{ id: string }> = ({ id }) => {
           </p>
         </div>
         <div className="max-h-96 overflow-y-auto">
-          {data.deletion_candidates.slice(0, 200).map((c, i) => (
+          {data.deletion_candidates.slice(0, 200).map((c) => (
             <div
-              key={i}
+              key={c.rule}
               className="border-b border-[rgba(100,150,220,0.08)] px-4 py-2.5 last:border-0"
             >
               <div className="flex flex-wrap items-center gap-2">
@@ -484,7 +485,7 @@ const RecertPanel: FC<{ id: string }> = ({ id }) => {
 const ChangePanel: FC<{ id: string }> = ({ id }) => {
   const [busy, setBusy] = useState(false);
   const [snapMsg, setSnapMsg] = useState<string | null>(null);
-  const { data, loading, error, reload } = useApi(() => api.diff(id), [id]);
+  const { data, loading, error, reload } = useApi(() => api.diff(id), [id], { cacheKey: `diff-${id}` });
 
   const takeSnapshot = async () => {
     setBusy(true);
@@ -583,7 +584,7 @@ const ChangePanel: FC<{ id: string }> = ({ id }) => {
 // --------------------------------------------------------------- interfaces
 
 const InterfacesPanel: FC<{ id: string }> = ({ id }) => {
-  const { data, loading, error, reload } = useApi(() => api.interfaces(id), [id]);
+  const { data, loading, error, reload } = useApi(() => api.interfaces(id), [id], { cacheKey: `interfaces-${id}` });
 
   if (loading) return <Loading label="Reading interfaces" />;
   if (error) return <ErrorPanel error={error} onRetry={reload} />;
@@ -648,7 +649,7 @@ const InterfacesPanel: FC<{ id: string }> = ({ id }) => {
 // ---------------------------------------------------------------- consensus
 
 const ConsensusPanel: FC<{ id: string }> = ({ id }) => {
-  const { data, loading, error, reload } = useApi(() => api.consensus(id), [id]);
+  const { data, loading, error, reload } = useApi(() => api.consensus(id), [id], { cacheKey: `consensus-${id}` });
 
   if (loading) return <Loading label="Cross-checking parsers" />;
   if (error) return <ErrorPanel error={error} onRetry={reload} />;
@@ -679,9 +680,9 @@ const ConsensusPanel: FC<{ id: string }> = ({ id }) => {
         <Empty label="No cross-checked items for this device." />
       ) : (
         <Card variant="default" className="overflow-hidden p-0">
-          {items.map((it, i) => (
+          {items.map((it) => (
             <div
-              key={i}
+              key={`${it.field}-${it.detector}`}
               className="border-b border-[rgba(100,150,220,0.08)] p-4 last:border-0"
             >
               <div className="flex flex-wrap items-center gap-2">
@@ -729,3 +730,82 @@ const ConsensusPanel: FC<{ id: string }> = ({ id }) => {
 };
 
 // ----------------------------------------------------------- training queue
+
+
+export const TrainingPanel: FC<{ id: string }> = ({ id }) => {
+  const { data, loading, error, reload } = useApi(() => api.training(id), [id], { cacheKey: `training-${id}` });
+
+  if (loading) return <Loading label="Reading the training queue" />;
+  if (error) return <ErrorPanel error={error} onRetry={reload} />;
+  if (!data) return null;
+  if (!data.length) return <Empty label="Nothing unrecognised on this device." />;
+
+  return (
+    <Card variant="default" className="overflow-hidden p-0">
+      <div className="border-b border-[rgba(100,150,220,0.12)] p-4">
+        <h4 className="text-sm font-bold text-[#F5F8FF]">
+          Unrecognised settings — {data.length}
+        </h4>
+        <p className="mt-0.5 text-[12px] text-[#8FA0BC]">
+          Settings the pack does not map yet, ordered by how likely the proposed
+          field is. Approving one must pass the golden-corpus regression gate
+          before it is accepted — and a high confidence is a reason to look
+          first, never a reason to accept unread.
+        </p>
+      </div>
+      <div className="max-h-[520px] overflow-y-auto">
+        {data.slice(0, 200).map((c, i) => (
+          <div
+            key={i}
+            className="border-b border-[rgba(100,150,220,0.08)] px-4 py-3 last:border-0"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[12px] text-[#F5F8FF]">
+                {c.name}
+              </span>
+              <span className="text-[11px] text-[#65738B]">
+                {c.occurrences.toLocaleString()}×
+              </span>
+              <Badge variant="default">{c.status}</Badge>
+            </div>
+            {c.suggested_field && (
+              <p className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-[#AAB8D0]">
+                <span>
+                  suggests{' '}
+                  <span className="font-mono text-[#2D8CFF]">
+                    {c.suggested_field}
+                  </span>
+                </span>
+                {/* Banded, because the number is an ordering aid rather than a
+                    probability. Measured precision on 378 held-out pairs:
+                    80+ = 100%, 60-79 = 88%, 40-59 = 82%, below 40 = 56%.
+                    Even the top band produces wrong proposals, so nothing here
+                    is styled to suggest it can be accepted unread. */}
+                <span
+                  title={
+                    'Ordering aid, not a probability. Measured precision on ' +
+                    '378 held-out pairs: 80+ ≈ 100%, 60–79 ≈ 88%, 40–59 ≈ 82%, ' +
+                    'below 40 ≈ 56%. Every proposal still needs review.'
+                  }
+                  className={`rounded-full border px-2 py-0.5 text-[10.5px] font-semibold ${
+                    c.suggestion_score >= 60
+                      ? 'border-[rgba(50,214,168,0.3)] bg-[rgba(50,214,168,0.12)] text-[#32D6A8]'
+                      : c.suggestion_score >= 40
+                        ? 'border-[rgba(245,184,46,0.3)] bg-[rgba(245,184,46,0.12)] text-[#F5B82E]'
+                        : 'border-[rgba(140,160,190,0.22)] bg-[rgba(140,160,190,0.10)] text-[#AAB8D0]'
+                  }`}
+                >
+                  {c.suggestion_score.toFixed(0)} confidence
+                </span>
+                <span className="text-[#65738B]">{c.suggested_from}</span>
+              </p>
+            )}
+            <p className="mt-1 font-mono text-[11px] text-[#65738B]">
+              {c.evidence.raw}
+            </p>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+};

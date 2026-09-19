@@ -81,7 +81,10 @@ def _os_env(name: str) -> str:
 async def _require_access(request: Request, call_next):
     path = request.url.path
     if (request.method == "OPTIONS" or path in _PUBLIC
-            or path.startswith("/static/")):
+            or path.startswith("/static/")
+            # The dashboard shell and its assets carry no customer data; every
+            # call the page then makes goes through the checks below.
+            or path.startswith("/dashboard")):
         return await call_next(request)
     token = _os_env("NCSA_API_TOKEN")
     if token:
@@ -105,6 +108,24 @@ app.add_middleware(CORSMiddleware, allow_origins=_origins(),
                    allow_methods=["GET", "POST"],
                    allow_headers=["Authorization", "Content-Type"])
 
+
+# The dashboard calls the engine as /api/<route>. In development Vite proxies
+# that prefix away; this does the same in production, so ONE copy of the client
+# code works in both places and the page never needs to know which it is in.
+# Registered after the CORS middleware, therefore outermost: the path is
+# normalised before the access check and before routing, so /api/assessments is
+# the same request as /assessments -- same auth, same handler, no duplicate
+# route table to keep in step.
+@app.middleware("http")
+async def _strip_api_prefix(request: Request, call_next):
+    path = request.url.path
+    if path == "/api" or path.startswith("/api/"):
+        request.scope["path"] = path[4:] or "/"
+        raw = request.scope.get("raw_path")
+        if raw:
+            request.scope["raw_path"] = raw.replace(b"/api", b"", 1)
+    return await call_next(request)
+
 _STATIC = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")
 
@@ -125,6 +146,37 @@ def console():
     """The operator console. Served by the same process as the API so a demo
     needs one command and no build step."""
     return FileResponse(str(_STATIC / "index.html"))
+
+
+# The React dashboard (frontend/), built into this package by
+# `npm run build` -- see frontend/vite.config.ts for the output path. Built
+# assets are committed so the engine still needs one command at demo time.
+_DASHBOARD = _STATIC / "dashboard"
+
+
+@app.get("/dashboard", include_in_schema=False)
+@app.get("/dashboard/{rest:path}", include_in_schema=False)
+def dashboard(rest: str = ""):
+    """A built file when the path names one, otherwise the app shell.
+
+    The dashboard uses real URLs (/dashboard/assessments/<id>), so a deep link
+    or a plain refresh asks the engine for a path that is not a file on disk.
+    Returning the shell lets the client router resolve it; returning 404 would
+    make every refresh look like a broken link.
+    """
+    index = _DASHBOARD / "index.html"
+    if not index.exists():
+        return JSONResponse(
+            {"detail": "the dashboard is not built -- run `npm install && "
+                       "npm run build` in frontend/, which writes "
+                       "ncsa/api/static/dashboard"},
+            status_code=503)
+    if rest:
+        target = (_DASHBOARD / rest).resolve()
+        # Only inside the build directory: `rest` comes from the URL.
+        if target.is_file() and _DASHBOARD.resolve() in target.parents:
+            return FileResponse(str(target))
+    return FileResponse(str(index))
 
 
 # Assessments survive a restart: SQLite records each one with the file and the
@@ -276,6 +328,27 @@ def _start_monitor():
     # Opt-in: a scheduler is a background thread that logs in to devices.
     if _os_env("NCSA_MONITOR") == "1":
         _monitor().start(_monitor_ingest, _UPLOADS)
+
+
+@app.on_event("startup")
+def _warm_imports():
+    """Import the heavy modules once, here, in the main thread.
+
+    Endpoints declared with `def` run in a threadpool, and a dashboard page
+    calls several of them at once -- the Frameworks page opens with five. Two
+    threads importing the same module for the FIRST time is a real deadlock in
+    CPython's per-module import lock, and it surfaced as `_DeadlockError` and a
+    500 on a page that answered perfectly when called one request at a time.
+    The concurrency was always allowed; nothing had exercised it before.
+
+    Importing them here means no request is ever the first, so the race cannot
+    happen. This is import cost only -- no catalogue is parsed and no file is
+    read; `load_all()` still decides that when a route asks for it.
+    """
+    from ..engine import rules  # noqa: F401
+    from ..extended import cve, wireless  # noqa: F401
+    from ..frameworks import ai_security, attack, selection  # noqa: F401
+    from ..frameworks.registry import load_all  # noqa: F401
 
 
 @app.post("/monitor", tags=["monitor"])
@@ -1247,6 +1320,66 @@ def ai_governance():
     }
 
 
+# ----------------------------------------------------------------- memoising
+# Two answers here are expensive to build and change only when a file on disk
+# changes. The framework registry takes ~2 minutes to load even from its own
+# cache, and ATT&CK coverage recomputes over every rule. Both were rebuilt on
+# EVERY request, so a dashboard page that opens five panels at once paid the
+# full price each time -- and paid it again on the next visit.
+#
+# The stamp is the source files' size and mtime, so a catalogue rebuild or an
+# edited rule is picked up on the next request without restarting the engine.
+# That matters more than the speed: a cache nobody can invalidate would answer
+# from yesterday's catalogue and never say so.
+_MEMO: dict[str, tuple] = {}
+
+
+def _stamp(*paths: Path) -> tuple:
+    """A cheap fingerprint of the files an answer was built from.
+
+    Size and modification time, which is what make and pip settle for. A
+    directory also carries its file count and total size, so a rule added or
+    deleted is caught however fast it happened.
+
+    The remaining limit: a file rewritten IN PLACE to the same size within one
+    filesystem clock tick (~16 ms on Windows) lands on an identical stamp, and
+    the held answer stays. Nothing here changes that fast -- the catalogue
+    cache is rewritten after a ~20 minute parse and rules are edited by hand --
+    so the alternative, hashing several megabytes on every request, would buy
+    nothing real. Stated rather than hidden, because a cache that silently
+    answers from a superseded catalogue is exactly the kind of confident wrong
+    answer this tool exists to prevent.
+    """
+    out = []
+    for p in paths:
+        try:
+            if p.is_dir():
+                # Count and total size, not just the newest mtime: a rule file
+                # added or deleted changes the count even when it lands in the
+                # same clock tick as the last stamp, which mtime alone misses.
+                n = total = newest = 0
+                for f in p.rglob("*.yaml"):
+                    st = f.stat()
+                    n, total = n + 1, total + st.st_size
+                    newest = max(newest, st.st_mtime_ns)
+                out.append((n, total, newest))
+            else:
+                st = p.stat()
+                out.append((st.st_size, st.st_mtime_ns))
+        except OSError:
+            out.append(None)      # absent is a state too, and a stable one
+    return tuple(out)
+
+
+def _memoised(key: str, stamp: tuple, build):
+    hit = _MEMO.get(key)
+    if hit is not None and hit[0] == stamp:
+        return hit[1]
+    value = build()
+    _MEMO[key] = (stamp, value)
+    return value
+
+
 @app.get("/attack-coverage", tags=["meta"])
 def attack_coverage():
     """Which MITRE ATT&CK techniques the control set stands in front of.
@@ -1258,18 +1391,24 @@ def attack_coverage():
     from ..engine.rules import load_rules
     from ..extended.cve import CHECK_ID
     from ..extended.wireless import CHECKS
-    from ..frameworks.attack import coverage
+    from ..frameworks.attack import BUNDLE, coverage
 
-    ids = [c.id for c in load_rules("rules")]
-    ids += sorted(CHECKS) + [f"NCSA-X-VPN-00{i}" for i in range(1, 6)] + [CHECK_ID]
-    return coverage(ids)
+    def build():
+        ids = [c.id for c in load_rules("rules")]
+        ids += (sorted(CHECKS) + [f"NCSA-X-VPN-00{i}" for i in range(1, 6)]
+                + [CHECK_ID])
+        return coverage(ids)
+
+    return _memoised("attack", _stamp(Path("rules"), Path(BUNDLE)), build)
 
 
 @app.get("/frameworks", tags=["meta"])
 def frameworks():
-    from ..frameworks.registry import load_all
+    from ..frameworks.registry import CACHE_PATH, load_all
 
-    reg = load_all("reference")
+    # Held until the catalogue cache file itself changes; see _memoised.
+    reg = _memoised("registry", _stamp(CACHE_PATH),
+                    lambda: load_all("reference"))
     return {"catalogs": {fw.value: len(cat.entries)
                          for fw, cat in reg.catalogs.items()},
             "note": "CIS and ISO entries are cited by identifier only; their "

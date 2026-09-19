@@ -101,13 +101,41 @@ you pasted, seven capabilities were built, tested, and callable from nowhere.
 All seven now have endpoints. What remains is that eight of them have **no
 button in the console** — the work in §5.
 
-### The 48 live API routes
+### The dashboard, and how it is served
+
+`frontend/` (React) builds into `ncsa/api/static/dashboard` and the engine
+serves it at **`/dashboard`**, so one process still answers everything and a
+demo needs no build step on the night:
+
+```
+cd frontend && npm install && npm run build
+python -m uvicorn ncsa.api.app:app --port 8000     # /dashboard is now live
+```
+
+Two things make that work, and both live in the engine rather than in the page:
+
+* **`/api/<route>` is the same request as `/<route>`** -- one route table, one
+  set of access checks. The dev server proxies that prefix away, so the same
+  client code runs unproxied in production without knowing which it is in.
+* **Unknown `/dashboard/...` paths return the app shell**, because the console
+  uses real URLs. A refresh on `/dashboard/assessments/<id>` is a client route,
+  not a file; answering 404 would make every refresh look broken.
+
+The older hand-written console stays at `/app` and the landing page at `/`.
+
+### The 50 live API routes
 
 Counted from `ncsa/api/app.py`, not maintained by hand.
 
 ```
 GET   /                                   landing page
-GET   /app                                audit console
+GET   /app                                audit console (the older static one)
+GET   /dashboard                          the React console, built into the engine
+GET   /dashboard/{path}                   an asset when it names one, else the
+                                          app shell, so deep links and refreshes
+                                          reach the client router
+      /api/<any route below>              the same request as the route itself:
+                                          same handler, same access checks
 POST  /assess?frameworks=                 upload one or many configs; optional
                                           framework selection (cis, nist_800_53,
                                           stig, iso_27001) -- none means all

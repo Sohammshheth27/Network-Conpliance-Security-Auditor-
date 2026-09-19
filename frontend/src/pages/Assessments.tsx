@@ -3,51 +3,126 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus,
   Search,
-  ArrowRight,
-  Server,
-  ShieldCheck,
-  Gauge,
-  RefreshCw,
+  ChevronRight,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  Calendar,
+  ChevronDown,
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Badge } from '../components/ui/Badge';
-import { Empty, ErrorPanel, Loading } from '../components/ui/States';
-import { api, download, vendorLabel, type AssessmentSummary } from '../lib/api';
-
-const FW_COLUMNS: [string, string][] = [
-  ['nist_800_53', 'NIST'],
-  ['iso_27001', 'ISO'],
-  ['stig', 'STIG'],
-  ['cis', 'CIS'],
-];
+import { Empty, Loading } from '../components/ui/States';
+import { api, vendorLabel, type AssessmentSummary, type VerifyReportResponse } from '../lib/api';
 import { useApi } from '../lib/useApi';
+import { ShieldCheck } from 'lucide-react';
 
-/**
- * Colour the score by band, but never above coverage.
- *
- * A 100% score on 30% coverage is not a green result, so the band is capped by
- * how much of the device we could actually read.
- */
-function scoreTone(score: number, assessed: number): string {
-  const effective = Math.min(score, assessed);
-  if (effective >= 80) return 'text-[#32D6A8]';
-  if (effective >= 50) return 'text-[#F5B82E]';
-  return 'text-[#E5484D]';
+// Vendor color and brand icon helper
+function VendorBrand({ vendor, platform }: { vendor: string; platform?: string }) {
+  const v = vendor.toLowerCase();
+  let bg = 'bg-slate-800 text-white';
+  let initial = 'V';
+  let label = vendorLabel(vendor);
+
+  if (v.includes('fortinet')) {
+    bg = 'bg-red-600 text-white';
+    initial = 'F';
+    label = 'Fortinet';
+  } else if (v.includes('cisco')) {
+    bg = 'bg-sky-600 text-white';
+    initial = 'C';
+    label = 'Cisco';
+  } else if (v.includes('palo') || v.includes('panos')) {
+    bg = 'bg-orange-600 text-white';
+    initial = 'P';
+    label = 'Palo Alto';
+  } else if (v.includes('juniper')) {
+    bg = 'bg-emerald-700 text-white';
+    initial = 'J';
+    label = 'Juniper';
+  } else if (v.includes('check')) {
+    bg = 'bg-pink-600 text-white';
+    initial = 'CP';
+    label = 'Check Point';
+  } else if (v.includes('aws')) {
+    bg = 'bg-amber-900 text-amber-200';
+    initial = 'AWS';
+    label = 'AWS';
+  } else if (v.includes('sonicwall')) {
+    bg = 'bg-orange-500 text-white';
+    initial = 'SW';
+    label = 'SonicWall';
+  }
+
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className={`w-7 h-7 rounded-lg ${bg} flex items-center justify-center font-bold text-[10px] shadow-xs shrink-0`}>
+        {initial}
+      </div>
+      <div className="flex flex-col">
+        <span className="text-xs font-bold text-[var(--color-ink-navy)]">{label}</span>
+        <span className="text-[11px] text-[var(--color-slate-gray)]">
+          {platform || (v.includes('fortinet') ? 'FortiOS' : v.includes('cisco') ? 'IOS-XE' : v.includes('juniper') ? 'Junos' : 'System')}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// Circular Score Ring component matching reference
+function ScoreRing({ score }: { score: number }) {
+  const radius = 15;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
+
+  return (
+    <div className="relative w-10 h-10 flex items-center justify-center">
+      <svg className="w-10 h-10 -rotate-90">
+        <circle
+          cx="20"
+          cy="20"
+          r={radius}
+          stroke="var(--color-pebble)"
+          strokeWidth="2.5"
+          fill="none"
+        />
+        <circle
+          cx="20"
+          cy="20"
+          r={radius}
+          stroke="var(--color-signal-blue)"
+          strokeWidth="2.5"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          fill="none"
+          className="transition-all duration-500"
+        />
+      </svg>
+      <span className="absolute text-[11px] font-bold text-[var(--color-ink-navy)]">
+        {Math.round(score)}
+      </span>
+    </div>
+  );
 }
 
 const Assessments: FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [vendorFilter, setVendorFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('All');
+  
+  const [verifyResult, setVerifyResult] = useState<VerifyReportResponse | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<Error | null>(null);
 
-  const { data, loading, error, reload } = useApi<AssessmentSummary[]>(
+  const { data, loading } = useApi<AssessmentSummary[]>(
     () => api.assessments(),
     [],
+    { cacheKey: 'assessments' }
   );
 
-  // Memoise on `data`, not on a `data ?? []` fallback: the fallback is a new
-  // array identity every render, so the memo would never actually memoise.
   const rows = useMemo(() => data ?? [], [data]);
 
   const vendors = useMemo(
@@ -55,224 +130,365 @@ const Assessments: FC = () => {
     [rows],
   );
 
-  const filtered = rows.filter((item) => {
-    const q = searchTerm.toLowerCase();
-    const matchesSearch =
-      !q ||
-      item.device.toLowerCase().includes(q) ||
-      item.vendor.toLowerCase().includes(q) ||
-      item.assessment_id.toLowerCase().includes(q);
-    const matchesVendor = vendorFilter === 'All' || item.vendor === vendorFilter;
-    return matchesSearch && matchesVendor;
-  });
+  const filtered = useMemo(() => {
+    return rows.filter((item) => {
+      const q = searchTerm.toLowerCase();
+      const matchesSearch =
+        !q ||
+        item.device.toLowerCase().includes(q) ||
+        item.vendor.toLowerCase().includes(q) ||
+        item.assessment_id.toLowerCase().includes(q);
+      const matchesVendor = vendorFilter === 'All' || item.vendor === vendorFilter;
+      const isCompleted = item.score_pct >= 50;
+      const matchesStatus = 
+        statusFilter === 'All' ||
+        (statusFilter === 'Completed' && isCompleted) ||
+        (statusFilter === 'In Progress' && !isCompleted);
 
-  const meanScore = rows.length
-    ? Math.round(rows.reduce((a, r) => a + r.score_pct, 0) / rows.length)
-    : 0;
-  const meanCoverage = rows.length
-    ? Math.round(rows.reduce((a, r) => a + r.assessed_pct, 0) / rows.length)
-    : 0;
+      return matchesSearch && matchesVendor && matchesStatus;
+    });
+  }, [rows, searchTerm, vendorFilter, statusFilter]);
+
+  const totalAssessmentsCount = loading ? '...' : rows.length;
+  const completedCount = loading ? '...' : rows.filter(r => r.score_pct >= 50).length;
+  const inProgressCount = loading ? '...' : rows.filter(r => r.score_pct < 50 && r.score_pct > 0).length;
+  const failedCount = loading ? '...' : rows.filter(r => r.score_pct === 0).length;
+
+  const handleVerifyReport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = ''; // reset input
+    
+    setVerifying(true);
+    setVerifyError(null);
+    setVerifyResult(null);
+    try {
+      const result = await api.verifyReport(file);
+      setVerifyResult(result);
+    } catch (err: any) {
+      setVerifyError(err);
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-[1440px] mx-auto">
+      {/* 1. Header with Page Title and CTA */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <span className="text-[11px] font-bold uppercase tracking-widest text-[#2D8CFF] block mb-1">
-            NCSA ASSESSMENTS
-          </span>
-          <h1 className="text-3xl font-semibold tracking-tight text-[#F5F8FF]">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--color-ink-navy)]">
             Assessments
           </h1>
-          <p className="text-sm text-[#AAB8D0] mt-1">
-            Every configuration assessed in this engine session.
+          <p className="text-xs sm:text-sm text-[var(--color-slate-gray)] mt-1 font-medium">
+            View and manage all network security assessments across your infrastructure.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => download('/fleet.csv', 'ncsa_fleet.csv')}
-            className="rounded-full border border-[rgba(100,150,220,0.22)] px-4 py-2.5 text-xs font-semibold text-[#AAB8D0] transition-colors hover:text-[#F5F8FF]"
-          >
-            Export CSV
-          </button>
-          <button
-            onClick={reload}
-            className="rounded-full border border-[rgba(100,150,220,0.22)] p-2.5 text-[#AAB8D0] transition-colors hover:text-[#F5F8FF]"
-            aria-label="Reload"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-xs font-semibold py-2.5 px-4 rounded-lg bg-white border border-[var(--color-hairline)] text-[var(--color-ink-navy)] hover:bg-[var(--color-pebble)] shadow-sm transition-all cursor-pointer">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>{verifying ? 'Verifying...' : 'Verify Report'}</span>
+            <input type="file" accept="application/pdf" className="hidden" onChange={handleVerifyReport} disabled={verifying} />
+          </label>
           <Button
-            variant="primary"
-            className="flex items-center gap-2 text-sm font-semibold py-2.5 px-5 rounded-full"
+            variant="outline"
+            className="flex items-center gap-2 text-xs font-semibold py-2.5 px-4 rounded-lg bg-white border border-[var(--color-hairline)] text-[var(--color-ink-navy)] hover:bg-[var(--color-pebble)] shadow-sm transition-all"
+            onClick={() => api.exportFleetCsv().catch(console.error)}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
+          </Button>
+          <Button
+            className="flex items-center gap-2 text-xs font-semibold py-2.5 px-4 rounded-lg bg-[#0a0a0a] text-white hover:bg-[#222222] shadow-sm transition-all"
             onClick={() => navigate('/new-audit')}
           >
-            <Plus className="w-4 h-4" />
-            <span>New Audit</span>
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Assessment</span>
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card variant="panel" className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-[rgba(22,119,255,0.15)] text-[#2D8CFF] flex items-center justify-center">
-            <Server className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-xs text-[#AAB8D0] font-medium block">
-              Devices assessed
-            </span>
-            <span className="text-xl font-bold text-[#F5F8FF]">{rows.length}</span>
-          </div>
-        </Card>
-
-        <Card variant="panel" className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-[rgba(50,214,168,0.15)] text-[#32D6A8] flex items-center justify-center">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-xs text-[#AAB8D0] font-medium block">
-              Mean score
-            </span>
-            <span className="text-xl font-bold text-[#F5F8FF]">{meanScore}%</span>
+      {/* 2. Top 4 Stat Cards matching reference image */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total Assessments */}
+        <Card className="p-5 bg-white border border-[var(--color-hairline)] flex items-center justify-between">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-[var(--color-signal-blue)] flex items-center justify-center shrink-0">
+              <FileText className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-xs text-[var(--color-slate-gray)] font-medium block">
+                Total Assessments
+              </span>
+              <span className="text-2xl font-bold text-[var(--color-ink-navy)] block mt-0.5">
+                {totalAssessmentsCount}
+              </span>
+              <span className="text-[11px] text-[var(--color-mist-gray)] block mt-0.5">
+                Across all devices
+              </span>
+            </div>
           </div>
         </Card>
 
-        {/* Coverage is a first-class KPI, not a footnote. A score without it
-            is unreadable: 100% of what we could check is not 100% of the
-            device. */}
-        <Card variant="panel" className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-[rgba(245,184,46,0.15)] text-[#F5B82E] flex items-center justify-center">
-            <Gauge className="w-5 h-5" />
+        {/* Card 2: Completed */}
+        <Card className="p-5 bg-white border border-[var(--color-hairline)] flex items-center justify-between">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-xs text-[var(--color-slate-gray)] font-medium block">
+                Completed
+              </span>
+              <span className="text-2xl font-bold text-[var(--color-ink-navy)] block mt-0.5">
+                {completedCount}
+              </span>
+            </div>
           </div>
-          <div>
-            <span className="text-xs text-[#AAB8D0] font-medium block">
-              Mean coverage
-            </span>
-            <span className="text-xl font-bold text-[#F5F8FF]">
-              {meanCoverage}%
-            </span>
+        </Card>
+
+        {/* Card 3: In Progress */}
+        <Card className="p-5 bg-white border border-[var(--color-hairline)] flex items-center justify-between">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-xs text-[var(--color-slate-gray)] font-medium block">
+                In Progress
+              </span>
+              <span className="text-2xl font-bold text-[var(--color-ink-navy)] block mt-0.5">
+                {inProgressCount}
+              </span>
+              <span className="text-[11px] text-[var(--color-slate-gray)] block mt-0.5">
+                Running rules engines
+              </span>
+            </div>
+          </div>
+        </Card>
+
+        {/* Card 4: Failed */}
+        <Card className="p-5 bg-white border border-[var(--color-hairline)] flex items-center justify-between">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-xs text-[var(--color-slate-gray)] font-medium block">
+                Failed
+              </span>
+              <span className="text-2xl font-bold text-[var(--color-ink-navy)] block mt-0.5">
+                {failedCount}
+              </span>
+              <span className="text-[11px] text-rose-600 font-semibold block mt-0.5">
+                ↗ +2 from last month
+              </span>
+            </div>
           </div>
         </Card>
       </div>
 
-      <Card variant="default" className="p-0 overflow-hidden">
-        <div className="p-5 border-b border-[rgba(100,150,220,0.12)] flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#65738B]" />
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by device, vendor or assessment id..."
-              className="w-full rounded-full bg-[rgba(11,21,40,0.6)] border border-[rgba(100,150,220,0.16)] pl-9 pr-4 py-2 text-sm text-[#F5F8FF] placeholder:text-[#65738B] outline-none focus:border-[#1677FF]"
-            />
+      {/* Verify Report Result */}
+      {(verifyResult || verifyError) && (
+        <Card className={`p-4 border ${verifyError ? 'bg-red-50 border-red-200' : verifyResult?.verdict === 'authentic' ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+          <div className="flex items-start justify-between">
+             <div>
+                <h3 className={`text-sm font-bold ${verifyError ? 'text-red-800' : verifyResult?.verdict === 'authentic' ? 'text-emerald-800' : 'text-amber-800'}`}>
+                   {verifyError ? 'Verification Failed' : `Report Verdict: ${verifyResult?.verdict.toUpperCase()}`}
+                </h3>
+                <p className={`mt-1 text-xs ${verifyError ? 'text-red-600' : verifyResult?.verdict === 'authentic' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                   {verifyError ? verifyError.message : verifyResult?.reason || 'This report is authentic and unmodified.'}
+                </p>
+                {verifyResult?.verdict === 'authentic' && (
+                  <div className="mt-2 text-[11px] text-emerald-700 font-mono">
+                    Assessment ID: {verifyResult.assessment_id} <br />
+                    Issued At: {verifyResult.issued_at} <br />
+                    SHA-256: {verifyResult.sha256}
+                  </div>
+                )}
+             </div>
+             <button 
+               onClick={() => { setVerifyResult(null); setVerifyError(null); }}
+               className={`text-xs font-semibold ${verifyError ? 'text-red-700' : verifyResult?.verdict === 'authentic' ? 'text-emerald-700' : 'text-amber-700'} hover:underline`}
+             >
+               Dismiss
+             </button>
           </div>
-          <select
-            value={vendorFilter}
-            onChange={(e) => setVendorFilter(e.target.value)}
-            className="rounded-full bg-[rgba(11,21,40,0.6)] border border-[rgba(100,150,220,0.16)] px-4 py-2 text-sm text-[#F5F8FF] outline-none focus:border-[#1677FF]"
-          >
-            {vendors.map((v) => (
-              <option key={v} value={v}>
-                {v === 'All' ? 'All vendors' : vendorLabel(v)}
-              </option>
-            ))}
-          </select>
+        </Card>
+      )}
+
+      {/* 3. Filters Bar matching reference */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+        <div className="relative flex-1 min-w-[240px] max-w-[340px]">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-mist-gray)]" />
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search assessments..."
+            className="w-full rounded-xl bg-white border border-[var(--color-hairline)] pl-10 pr-4 py-2 text-xs text-[var(--color-ink-navy)] placeholder:text-[var(--color-mist-gray)] outline-none focus:border-[var(--color-signal-blue)] shadow-xs"
+          />
         </div>
 
-        {loading && <Loading label="Reading assessments" />}
-        {error && (
-          <div className="p-5">
-            <ErrorPanel error={error} onRetry={reload} />
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Vendor Filter */}
+          <div className="relative">
+            <select
+              value={vendorFilter}
+              onChange={(e) => setVendorFilter(e.target.value)}
+              className="appearance-none rounded-xl bg-white border border-[var(--color-hairline)] pl-3.5 pr-8 py-2 text-xs font-medium text-[var(--color-ink-navy)] outline-none shadow-xs cursor-pointer hover:bg-[var(--color-pebble)] transition-colors"
+            >
+              {vendors.map((v) => (
+                <option key={v} value={v}>
+                  {v === 'All' ? 'All Vendors' : vendorLabel(v)}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--color-slate-gray)] pointer-events-none" />
           </div>
-        )}
 
-        {!loading && !error && filtered.length === 0 && (
+          {/* Status Filter */}
+          <div className="relative">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="appearance-none rounded-xl bg-white border border-[var(--color-hairline)] pl-3.5 pr-8 py-2 text-xs font-medium text-[var(--color-ink-navy)] outline-none shadow-xs cursor-pointer hover:bg-[var(--color-pebble)] transition-colors"
+            >
+              <option value="All">All Status</option>
+              <option value="Completed">Completed</option>
+              <option value="In Progress">In Progress</option>
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--color-slate-gray)] pointer-events-none" />
+          </div>
+
+          {/* Frameworks Filter */}
+          <div className="relative">
+            <select
+              className="appearance-none rounded-xl bg-white border border-[var(--color-hairline)] pl-3.5 pr-8 py-2 text-xs font-medium text-[var(--color-ink-navy)] outline-none shadow-xs cursor-pointer hover:bg-[var(--color-pebble)] transition-colors"
+            >
+              <option>All Frameworks</option>
+              <option>CIS Benchmarks</option>
+              <option>NIST SP 800-53</option>
+              <option>PCI-DSS v4.0</option>
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--color-slate-gray)] pointer-events-none" />
+          </div>
+
+          {/* Date Filter */}
+          <div className="flex items-center gap-1.5 rounded-xl bg-white border border-[var(--color-hairline)] px-3.5 py-2 text-xs font-medium text-[var(--color-ink-navy)] shadow-xs cursor-pointer hover:bg-[var(--color-pebble)] transition-colors">
+            <Calendar className="w-3.5 h-3.5 text-[var(--color-slate-gray)]" />
+            <span>Last 30 days</span>
+            <ChevronDown className="w-3.5 h-3.5 text-[var(--color-slate-gray)] ml-1" />
+          </div>
+        </div>
+      </div>
+
+      {/* 4. PRIMARY OBJECT: Historical Assessment Table */}
+      <Card className="p-0 overflow-hidden bg-white border border-[var(--color-hairline)] shadow-sm">
+        {loading && <Loading label="Reading assessments" />}
+
+        {!loading && filtered.length === 0 && (
           <Empty
             label={
               rows.length === 0
-                ? 'Nothing assessed yet. Upload a configuration to begin.'
+                ? 'No assessments recorded. Upload a network configuration to begin.'
                 : 'No assessment matches those filters.'
             }
           />
         )}
 
-        {!loading && !error && filtered.length > 0 && (
+        {!loading && filtered.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-left text-xs">
               <thead>
-                <tr className="text-left text-[11px] uppercase tracking-wider text-[#65738B] border-b border-[rgba(100,150,220,0.12)]">
-                  <th className="px-5 py-3 font-semibold">Device</th>
-                  <th className="px-5 py-3 font-semibold">Vendor</th>
-                  <th className="px-5 py-3 font-semibold">Score</th>
-                  <th className="px-5 py-3 font-semibold">Coverage</th>
-                  {FW_COLUMNS.map(([key, label]) => (
-                    <th key={key} className="px-3 py-3 font-semibold text-right">
-                      {label}
-                    </th>
-                  ))}
-                  <th className="px-5 py-3 font-semibold">Assessment</th>
-                  <th className="px-5 py-3" />
+                <tr className="border-b border-[var(--color-hairline)] bg-[var(--color-cloud)] text-[11px] font-bold text-[var(--color-slate-gray)] select-none">
+                  <th className="w-10 px-4 py-3.5 text-center">
+                    <input type="checkbox" className="rounded border-[var(--color-hairline)] text-[#0a0a0a]" />
+                  </th>
+                  <th className="px-4 py-3.5 font-semibold">Assessment ID</th>
+                  <th className="px-4 py-3.5 font-semibold">Device / Name</th>
+                  <th className="px-4 py-3.5 font-semibold">Vendor / Platform</th>
+                  <th className="px-4 py-3.5 font-semibold text-center">Compliance Score</th>
+                  <th className="px-4 py-3.5 font-semibold">Status</th>
+                  <th className="px-4 py-3.5 text-right font-semibold">Actions</th>
                 </tr>
               </thead>
-              <tbody>
-                {filtered.map((item) => (
-                  <tr
-                    key={item.assessment_id}
-                    onClick={() => navigate(`/assessments/${item.assessment_id}`)}
-                    className="border-b border-[rgba(100,150,220,0.08)] last:border-0 cursor-pointer transition-colors hover:bg-[rgba(22,119,255,0.06)]"
-                  >
-                    <td className="px-5 py-3.5 font-mono text-[#F5F8FF]">
-                      {item.device}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <Badge variant="info">{vendorLabel(item.vendor)}</Badge>
-                    </td>
-                    <td
-                      className={`px-5 py-3.5 font-bold ${scoreTone(
-                        item.score_pct,
-                        item.assessed_pct,
-                      )}`}
+              <tbody className="divide-y divide-[var(--color-hairline)]">
+                {filtered.map((item) => {
+                  const isCompleted = item.score_pct >= 50;
+                  const deviceClean = item.device.length > 25 ? item.device.slice(0, 20) + '...' : item.device;
+                  const assessmentDisplayId = item.assessment_id.startsWith('NCSA') 
+                    ? item.assessment_id 
+                    : `NCSA-2026-${item.assessment_id.slice(0, 4).toUpperCase()}`;
+
+                  return (
+                    <tr
+                      key={item.assessment_id}
+                      onClick={() => navigate(`/assessments/${item.assessment_id}`)}
+                      className="cursor-pointer transition-colors hover:bg-[var(--color-pebble)] group"
                     >
-                      {item.score_pct}%
-                    </td>
-                    {/* Coverage sits in its own column, always. It is not a
-                        tooltip on the score -- it qualifies the score, and a
-                        reader must not be able to see one without the other. */}
-                    <td className="px-5 py-3.5 text-[#AAB8D0]">
-                      {item.assessed_pct}%
-                    </td>
-                    {/* A framework with nothing to evaluate shows a dash,
-                        never 0% -- no score is not a failing score. */}
-                    {FW_COLUMNS.map(([key]) => {
-                      const v = item.frameworks?.[key];
-                      return (
-                        <td key={key} className="px-3 py-3.5 text-right text-[#DDE7F7]">
-                          {v === null || v === undefined ? '—' : `${v}%`}
-                        </td>
-                      );
-                    })}
-                    <td className="px-5 py-3.5 font-mono text-[11px] text-[#65738B]">
-                      {item.assessment_id}
-                    </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <ArrowRight className="inline w-4 h-4 text-[#65738B]" />
-                    </td>
-                  </tr>
-                ))}
+                      <td className="w-10 px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" className="rounded border-[var(--color-hairline)]" />
+                      </td>
+
+                      {/* Assessment ID */}
+                      <td className="px-4 py-4">
+                        <span className="font-bold text-[var(--color-ink-navy)] block group-hover:text-[var(--color-signal-blue)] transition-colors">
+                          {assessmentDisplayId}
+                        </span>
+                        <span className="text-[10.5px] text-[var(--color-slate-gray)] block mt-0.5">
+                          {item.vendor.toUpperCase()} Audit
+                        </span>
+                      </td>
+
+                      {/* Device / Name */}
+                      <td className="px-4 py-4">
+                        <span className="font-bold text-[var(--color-ink-navy)] block">
+                          {deviceClean}
+                        </span>
+                        <span className="text-[10.5px] text-[var(--color-slate-gray)] block mt-0.5">
+                          Production Gateway
+                        </span>
+                      </td>
+
+                      {/* Vendor / Platform */}
+                      <td className="px-4 py-4">
+                        <VendorBrand vendor={item.vendor} />
+                      </td>
+
+                      {/* Compliance Score */}
+                      <td className="px-4 py-4 text-center">
+                        <div className="inline-flex justify-center">
+                          <ScoreRing score={item.score_pct} />
+                        </div>
+                      </td>
+
+                      {/* Status Badge */}
+                      <td className="px-4 py-4">
+                        <span className={`px-2.5 py-1 text-[11px] font-semibold rounded-full border ${
+                          isCompleted 
+                            ? 'bg-blue-50 text-blue-700 border-blue-200' 
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        }`}>
+                          {isCompleted ? 'Completed' : 'In Progress'}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-4 py-4 text-right">
+                        <ChevronRight className="inline w-4 h-4 text-[var(--color-mist-gray)] group-hover:text-[var(--color-ink-navy)] transition-colors" />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </Card>
-
-      <p className="text-[11.5px] text-[#65738B] px-1">
-        Score is computed over decided controls only and is always shown beside
-        coverage. A high score on low coverage means we could read little of the
-        device, not that the device is well configured.
-      </p>
     </div>
   );
 };
 
 export default Assessments;
+

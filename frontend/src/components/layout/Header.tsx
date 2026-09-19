@@ -1,6 +1,4 @@
-import { Search, Bell } from 'lucide-react';
-import { api } from '../../lib/api';
-import { useApi } from '../../lib/useApi';
+import { Search, Bell, ChevronDown } from 'lucide-react';
 
 interface HeaderProps {
   searchQuery?: string;
@@ -8,63 +6,56 @@ interface HeaderProps {
 }
 
 export default function Header({ searchQuery = '', onSearchChange }: HeaderProps) {
-  // The status light reports the engine, not a decoration. A hardcoded green
-  // dot saying "online" while the backend is down is the smallest possible
-  // version of the failure this whole product exists to avoid.
-  const { data, error, loading } = useApi(() => api.health(), []);
-
-  const state = loading
-    ? { colour: '#F5B82E', label: 'Connecting to engine' }
-    : error || !data?.ok
-      ? { colour: '#E5484D', label: 'Engine offline' }
-      : { colour: '#32D6A8', label: 'Analysis engine online' };
-
   return (
-    <header className="z-20 flex h-16 select-none items-center justify-between px-6">
-      <div className="relative w-full max-w-[420px]">
-        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#AAB8D0]" />
+    <header className="z-20 flex h-14 select-none items-center justify-between px-6 bg-transparent">
+      {/* Left: Search Bar */}
+      <div className="relative w-full max-w-[360px]">
+        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-mist-gray)]" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange?.(e.target.value)}
-          placeholder="Search assessments, devices, findings..."
-          className="w-full rounded-full border border-[rgba(100,150,220,0.18)] bg-[rgba(11,21,40,0.85)] py-2 pl-11 pr-4 text-xs text-[#F5F8FF] shadow-[inset_0_1px_3px_rgba(0,0,0,0.4)] outline-none transition-all placeholder:text-[#65738B] focus:border-[#1677FF] md:text-sm"
+          placeholder="Search devices, assessments, findings, rules, frameworks..."
+          className="w-full rounded-full border border-[var(--color-hairline)] bg-white py-2 pl-10 pr-12 text-xs text-[var(--color-ink-navy)] shadow-xs outline-none transition-all placeholder:text-[var(--color-mist-gray)] focus:border-[var(--color-signal-blue)] focus:ring-1 focus:ring-[var(--color-signal-blue)] text-ellipsis whitespace-nowrap"
         />
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-0.5 pointer-events-none">
+          <kbd className="rounded border border-[var(--color-hairline)] bg-[var(--color-pebble)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-slate-gray)] font-mono">
+            ⌘ K
+          </kbd>
+        </div>
       </div>
 
-      <div className="flex items-center gap-3.5">
-        <div className="hidden items-center gap-2 rounded-full border border-[rgba(100,150,220,0.12)] bg-[rgba(14,27,50,0.6)] px-3 py-1.5 lg:flex">
-          <span
-            className="h-2 w-2 rounded-full"
-            style={{
-              backgroundColor: state.colour,
-              boxShadow: `0 0 8px ${state.colour}`,
-            }}
-          />
-          <span className="text-xs font-medium text-[#AAB8D0]">
-            {state.label}
-          </span>
-          {data && (
-            <span className="text-xs text-[#65738B]">
-              · {data.platforms_parsed.length} platforms
-            </span>
-          )}
-        </div>
-
+      {/* Right: Notification, Language & Profile Area */}
+      <div className="flex items-center gap-5">
+        {/* Notification Bell */}
         <button
           aria-label="Notifications"
-          className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(100,150,220,0.14)] bg-[rgba(14,27,50,0.8)] text-[#AAB8D0] transition-colors hover:border-[rgba(80,150,255,0.3)] hover:text-[#F5F8FF]"
+          className="relative flex h-9 w-9 items-center justify-center rounded-full text-[var(--color-slate-gray)] transition-colors hover:text-[var(--color-ink-navy)] hover:bg-[var(--color-pebble)]"
         >
-          <Bell className="h-4 w-4" />
+          <Bell className="h-4 w-4 stroke-[1.8px]" />
+          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
         </button>
 
-        {/* No signed-in user: this build has no authentication, and a profile
-            pill showing a name would imply an identity nothing established. */}
-        <div className="flex items-center gap-2.5 rounded-full border border-[rgba(100,150,220,0.18)] bg-[rgba(14,27,50,0.85)] py-1 pl-1.5 pr-3">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#1677FF] to-[#0B3A78] text-xs font-bold text-white shadow-[0_0_8px_rgba(22,119,255,0.4)]">
-            N
+        {/* Language Selector */}
+        <div className="flex items-center gap-1 text-xs font-semibold text-[var(--color-ink-navy)] cursor-pointer px-1 py-1 hover:text-[var(--color-signal-blue)]">
+          <span>EN</span>
+          <ChevronDown className="h-3.5 w-3.5 text-[var(--color-slate-gray)]" />
+        </div>
+
+        {/* User Profile */}
+        <div className="flex items-center gap-2.5 pl-2 cursor-pointer group">
+          <div className="h-8 w-8 rounded-full bg-[var(--color-pebble)] text-[var(--color-ink-navy)] font-bold text-xs flex items-center justify-center border border-[var(--color-hairline)]">
+            T
           </div>
-          <span className="text-xs font-medium text-[#F5F8FF]">Local</span>
+          <div className="flex flex-col text-left">
+            <span className="text-xs font-bold leading-none text-[var(--color-ink-navy)] group-hover:text-[var(--color-signal-blue)] transition-colors">
+              Tanss
+            </span>
+            <span className="text-[10px] text-[var(--color-slate-gray)] leading-tight mt-0.5">
+              Administrator
+            </span>
+          </div>
+          <ChevronDown className="h-3.5 w-3.5 text-[var(--color-slate-gray)] group-hover:text-[var(--color-ink-navy)] transition-colors ml-0.5" />
         </div>
       </div>
     </header>

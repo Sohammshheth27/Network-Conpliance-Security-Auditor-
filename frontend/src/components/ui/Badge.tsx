@@ -13,12 +13,12 @@ const Badge = forwardRef<HTMLDivElement, BadgeProps>(
         ref={ref}
         className={cn(
           "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors select-none",
-          variant === 'default' && "bg-[rgba(14,27,50,0.8)] border border-[rgba(100,150,220,0.18)] text-[#AAB8D0]",
-          variant === 'success' && "bg-[rgba(50,214,168,0.12)] border border-[rgba(50,214,168,0.25)] text-[#32D6A8]",
-          variant === 'warning' && "bg-[rgba(245,184,46,0.12)] border border-[rgba(245,184,46,0.25)] text-[#F5B82E]",
-          variant === 'critical' && "bg-[rgba(229,72,77,0.12)] border border-[rgba(229,72,77,0.25)] text-[#E5484D]",
-          variant === 'info' && "bg-[rgba(22,119,255,0.14)] border border-[rgba(80,150,255,0.28)] text-[#2D8CFF]",
-          variant === 'outline' && "border border-[rgba(100,150,220,0.20)] text-[#F5F8FF]",
+          variant === 'default' && "bg-[var(--color-pebble)] border border-[var(--color-hairline)] text-[var(--color-deep-cobalt)]",
+          variant === 'success' && "bg-[rgba(16,185,129,0.12)] border border-[rgba(16,185,129,0.25)] text-[#10B981]",
+          variant === 'warning' && "bg-[rgba(245,158,11,0.12)] border border-[rgba(245,158,11,0.25)] text-[#F59E0B]",
+          variant === 'critical' && "bg-[rgba(239,68,68,0.12)] border border-[rgba(239,68,68,0.25)] text-[#EF4444]",
+          variant === 'info' && "bg-[rgba(0,107,255,0.14)] border border-[rgba(0,107,255,0.28)] text-[var(--color-signal-blue)]",
+          variant === 'outline' && "border border-[var(--color-hairline)] text-[var(--color-slate-gray)]",
           className
         )}
         {...props}

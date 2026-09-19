@@ -54,9 +54,9 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
       <Card variant="default" className="p-5">
         <div className="flex items-center gap-2">
           <FlaskConical className="h-4 w-4 text-[#9B78FF]" />
-          <h3 className="text-sm font-bold text-[#F5F8FF]">What-if remediation</h3>
+          <h3 className="text-sm font-bold text-[var(--color-ink-navy)]">What-if remediation</h3>
         </div>
-        <p className="mt-1 text-[12px] text-[#8FA0BC]">
+        <p className="mt-1 text-[12px] text-[var(--color-slate-gray)]">
           Choose failures to fix. The engine re-scores a copy of this assessment
           with those settings corrected. Nothing on the device changes.
         </p>
@@ -64,7 +64,7 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
           {failing.map((f) => (
             <label
               key={f.control_id}
-              className="flex items-start gap-2 text-[12.5px] text-[#DDE7F7]"
+              className="flex items-start gap-2 text-[12.5px] text-[var(--color-ink-navy)]"
             >
               <input
                 type="checkbox"
@@ -72,9 +72,9 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
                 checked={picked.includes(f.control_id)}
                 onChange={() => toggle(f.control_id)}
               />
-              <span className="font-mono text-[11px] text-[#8FA0BC]">{f.control_id}</span>
+              <span className="font-mono text-[11px] text-[var(--color-slate-gray)]">{f.control_id}</span>
               <span>{f.title}</span>
-              <span className="ml-auto text-[10.5px] uppercase text-[#65738B]">
+              <span className="ml-auto text-[10.5px] uppercase text-[var(--color-slate-gray)]">
                 {f.severity}
               </span>
             </label>
@@ -98,19 +98,19 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
           </p>
           <div className="grid grid-cols-2 gap-3">
             <Card variant="panel">
-              <span className="block text-2xl font-bold text-[#F5F8FF]">
+              <span className="block text-2xl font-bold text-[var(--color-ink-navy)]">
                 {out.before.score_pct ?? '—'}% → {out.after.score_pct ?? '—'}%
               </span>
-              <span className="text-[11px] text-[#8FA0BC]">
+              <span className="text-[11px] text-[var(--color-slate-gray)]">
                 compliance score
                 {out.delta.score_pct !== null && ` (${out.delta.score_pct >= 0 ? '+' : ''}${out.delta.score_pct})`}
               </span>
             </Card>
             <Card variant="panel">
-              <span className="block text-2xl font-bold text-[#F5F8FF]">
+              <span className="block text-2xl font-bold text-[var(--color-ink-navy)]">
                 {out.before.assessed_pct}% → {out.after.assessed_pct}%
               </span>
-              <span className="text-[11px] text-[#8FA0BC]">coverage</span>
+              <span className="text-[11px] text-[var(--color-slate-gray)]">coverage</span>
             </Card>
           </div>
 
@@ -118,9 +118,9 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
             <div className="space-y-1">
               {out.changes.map((c) => (
                 <div key={c.control_id} className="flex items-center gap-2 text-[12.5px]">
-                  <span className="font-mono text-[11px] text-[#8FA0BC]">{c.control_id}</span>
+                  <span className="font-mono text-[11px] text-[var(--color-slate-gray)]">{c.control_id}</span>
                   <Badge variant="critical">{c.before}</Badge>
-                  <span className="text-[#65738B]">→</span>
+                  <span className="text-[var(--color-slate-gray)]">→</span>
                   <Badge variant={c.after === 'PASS' ? 'success' : 'warning'}>{c.after}</Badge>
                   <span className="text-[#AAB8D0]">{c.title}</span>
                   {!c.targeted && <Badge variant="info">side effect</Badge>}
@@ -137,7 +137,7 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
               <strong className="text-[#F5B82E]">{r.item} not simulated: </strong>
               {r.reason}
               {r.suggest_disable_rules && r.suggest_disable_rules.length > 0 && (
-                <span className="mt-1 block font-mono text-[11px] text-[#DDE7F7]">
+                <span className="mt-1 block font-mono text-[11px] text-[var(--color-ink-navy)]">
                   rules behind it: {r.suggest_disable_rules.join(', ')} — use Blast
                   radius → Simulate closing
                 </span>
@@ -145,7 +145,7 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
             </div>
           ))}
 
-          <ul className="space-y-1 text-[11.5px] text-[#8FA0BC]">
+          <ul className="space-y-1 text-[11.5px] text-[var(--color-slate-gray)]">
             {out.caveats.map((c) => (
               <li key={c}>· {c}</li>
             ))}

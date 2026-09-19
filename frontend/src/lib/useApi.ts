@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "./api";
 
+const apiCache = new Map<string, unknown>();
+
 export interface AsyncState<T> {
   data: T | null;
   loading: boolean;
@@ -19,11 +21,16 @@ export interface AsyncState<T> {
 export function useApi<T>(
   fn: () => Promise<T>,
   deps: unknown[],
-  options: { enabled?: boolean } = {},
+  options: { enabled?: boolean; cacheKey?: string } = {},
 ): AsyncState<T> {
   const enabled = options.enabled ?? true;
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(enabled);
+  
+  const initialData = (options.cacheKey && apiCache.has(options.cacheKey))
+    ? (apiCache.get(options.cacheKey) as T)
+    : null;
+    
+  const [data, setData] = useState<T | null>(initialData);
+  const [loading, setLoading] = useState(enabled && initialData === null);
   const [error, setError] = useState<ApiError | null>(null);
   const [nonce, setNonce] = useState(0);
 
@@ -37,7 +44,10 @@ export function useApi<T>(
       return;
     }
     const mine = ++seq.current;
-    setLoading(true);
+    
+    if (initialData === null) {
+      setLoading(true);
+    }
     setError(null);
 
     fn()
@@ -45,6 +55,9 @@ export function useApi<T>(
         if (mine === seq.current) {
           setData(d);
           setLoading(false);
+          if (options.cacheKey) {
+            apiCache.set(options.cacheKey, d);
+          }
         }
       })
       .catch((e) => {
@@ -61,4 +74,8 @@ export function useApi<T>(
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
   return { data, loading, error, reload };
+}
+
+export function invalidateApiCache(key: string) {
+  apiCache.delete(key);
 }

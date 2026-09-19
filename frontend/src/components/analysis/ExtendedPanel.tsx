@@ -85,9 +85,9 @@ const DomainCard: FC<{ name: string; d: ExtendedDomain }> = ({ name, d }) => {
             <Icon className="h-4 w-4" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-[#F5F8FF]">{meta.label}</h3>
+            <h3 className="text-sm font-bold text-[var(--color-ink-navy)]">{meta.label}</h3>
             {d.validated_on && d.validated_on !== 'n/a' && (
-              <span className="text-[11px] text-[#65738B]">
+              <span className="text-[11px] text-[var(--color-slate-gray)]">
                 validated on {d.validated_on}
               </span>
             )}
@@ -105,7 +105,7 @@ const DomainCard: FC<{ name: string; d: ExtendedDomain }> = ({ name, d }) => {
         </div>
       </div>
 
-      <p className="mt-3 text-[13px] leading-relaxed text-[#DDE7F7]">{d.summary}</p>
+      <p className="mt-3 text-[13px] leading-relaxed text-[var(--color-ink-navy)]">{d.summary}</p>
 
       {name === 'cve' && d.inventory.length > 0 && <CveTable rows={d.inventory} />}
       {name === 'vpn' && d.inventory.length > 0 && <VpnTable rows={d.inventory} />}
@@ -119,7 +119,7 @@ const DomainCard: FC<{ name: string; d: ExtendedDomain }> = ({ name, d }) => {
       )}
 
       {d.notes.length > 0 && (
-        <ul className="mt-4 space-y-1 text-[11.5px] leading-relaxed text-[#8FA0BC]">
+        <ul className="mt-4 space-y-1 text-[11.5px] leading-relaxed text-[var(--color-slate-gray)]">
           {d.notes.map((n) => (
             <li key={n}>· {n}</li>
           ))}
@@ -133,24 +133,24 @@ const FindingRow: FC<{ f: ExtendedFinding }> = ({ f }) => (
   <div className="rounded-xl border border-[rgba(100,150,220,0.14)] p-3">
     <div className="flex flex-wrap items-center gap-2">
       <Badge variant={STATE_VARIANT[f.state]}>{f.state.replace('_', ' ')}</Badge>
-      <span className="text-[11px] uppercase tracking-wider text-[#65738B]">
+      <span className="text-[11px] uppercase tracking-wider text-[var(--color-slate-gray)]">
         {f.severity}
       </span>
-      <span className="font-mono text-[11px] text-[#8FA0BC]">{f.check_id}</span>
-      <span className="text-[12.5px] font-semibold text-[#F5F8FF]">{f.scope}</span>
+      <span className="font-mono text-[11px] text-[var(--color-slate-gray)]">{f.check_id}</span>
+      <span className="text-[12.5px] font-semibold text-[var(--color-ink-navy)]">{f.scope}</span>
     </div>
     <p className="mt-1 text-[12.5px] text-[#AAB8D0]">
-      <span className="text-[#DDE7F7]">{f.title}.</span> {f.reason}
+      <span className="text-[var(--color-ink-navy)]">{f.title}.</span> {f.reason}
     </p>
     {f.evidence.slice(0, 3).map((e, i) => (
       <div
         key={i}
         className="mt-1.5 flex items-baseline gap-2 rounded-lg bg-[rgba(5,11,24,0.8)] px-2 py-1"
       >
-        <span className="shrink-0 font-mono text-[10.5px] text-[#65738B]">
+        <span className="shrink-0 font-mono text-[10.5px] text-[var(--color-slate-gray)]">
           {locate(e)}
         </span>
-        <code className="min-w-0 break-all font-mono text-[11.5px] text-[#DDE7F7]">
+        <code className="min-w-0 break-all font-mono text-[11.5px] text-[var(--color-ink-navy)]">
           {e.raw}
         </code>
       </div>
@@ -182,7 +182,7 @@ const FindingRow: FC<{ f: ExtendedFinding }> = ({ f }) => (
 const CveTable: FC<{ rows: Record<string, unknown>[] }> = ({ rows }) => (
   <div className="mt-4 overflow-x-auto">
     <table className="w-full text-left text-[12px]">
-      <thead className="text-[10.5px] uppercase tracking-wider text-[#65738B]">
+      <thead className="text-[10.5px] uppercase tracking-wider text-[var(--color-slate-gray)]">
         <tr>
           <th className="py-1.5 pr-3">CVE</th>
           <th className="py-1.5 pr-3">CVSS</th>
@@ -190,7 +190,7 @@ const CveTable: FC<{ rows: Record<string, unknown>[] }> = ({ rows }) => (
           <th className="py-1.5">Why it matches this device</th>
         </tr>
       </thead>
-      <tbody className="text-[#DDE7F7]">
+      <tbody className="text-[var(--color-ink-navy)]">
         {rows.map((r) => {
           const refs = (r.references as string[] | undefined) ?? [];
           return (
@@ -209,7 +209,7 @@ const CveTable: FC<{ rows: Record<string, unknown>[] }> = ({ rows }) => (
                 {r.known_exploited ? (
                   <Badge variant="critical">CISA KEV</Badge>
                 ) : (
-                  <span className="text-[#65738B]">not listed</span>
+                  <span className="text-[var(--color-slate-gray)]">not listed</span>
                 )}
               </td>
               <td className="py-1.5 font-mono text-[11px] text-[#AAB8D0]">
@@ -229,7 +229,7 @@ const VpnTable: FC<{ rows: Record<string, unknown>[] }> = ({ rows }) => {
   return (
     <div className="mt-4 overflow-x-auto">
       <table className="w-full text-left text-[12px]">
-        <thead className="text-[10.5px] uppercase tracking-wider text-[#65738B]">
+        <thead className="text-[10.5px] uppercase tracking-wider text-[var(--color-slate-gray)]">
           <tr>
             <th className="py-1.5 pr-3">Tunnel</th>
             <th className="py-1.5 pr-3">Enabled</th>
@@ -239,7 +239,7 @@ const VpnTable: FC<{ rows: Record<string, unknown>[] }> = ({ rows }) => {
             <th className="py-1.5">Algorithms (vendor codes)</th>
           </tr>
         </thead>
-        <tbody className="text-[#DDE7F7]">
+        <tbody className="text-[var(--color-ink-navy)]">
           {rows.map((r) => (
             <tr key={String(r.name)} className="border-t border-[rgba(100,150,220,0.1)]">
               <td className="py-1.5 pr-3">{String(r.name)}</td>
@@ -253,7 +253,7 @@ const VpnTable: FC<{ rows: Record<string, unknown>[] }> = ({ rows }) => {
               <td className="py-1.5 pr-3 font-mono text-[11px]">
                 {String(r.ike_lifetime_s ?? '—')}s / {String(r.ipsec_lifetime_s ?? '—')}s
               </td>
-              <td className="py-1.5 font-mono text-[10.5px] text-[#65738B]">
+              <td className="py-1.5 font-mono text-[10.5px] text-[var(--color-slate-gray)]">
                 {Object.entries((r.algorithms_raw as Record<string, string>) ?? {})
                   .map(([k, v]) => `${k.replace('ipsec', '')}=${v}`)
                   .join(' ')}

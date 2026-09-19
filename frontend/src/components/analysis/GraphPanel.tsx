@@ -29,17 +29,17 @@ function refTone(state: string): string {
 
 const RefList: FC<{ label: string; refs: ResolvedRef[] }> = ({ label, refs }) => (
   <div className="rounded-lg border border-[rgba(100,150,220,0.14)] p-2.5">
-    <span className="text-[10.5px] uppercase tracking-wider text-[#65738B]">
+    <span className="text-[10.5px] uppercase tracking-wider text-[var(--color-slate-gray)]">
       {label}
     </span>
     {refs.length === 0 ? (
-      <p className="mt-0.5 text-[12px] text-[#65738B]">—</p>
+      <p className="mt-0.5 text-[12px] text-[var(--color-slate-gray)]">—</p>
     ) : (
       refs.slice(0, 6).map((r, i) => (
         <p key={i} className="mt-0.5 font-mono text-[11.5px] leading-relaxed">
-          <span className="text-[#F5F8FF]">{r.name}</span>
+          <span className="text-[var(--color-ink-navy)]">{r.name}</span>
           {r.state === 'RESOLVED' ? (
-            <span className="text-[#8FA0BC]">
+            <span className="text-[var(--color-slate-gray)]">
               {' → '}
               {r.values.slice(0, 3).join(', ') || '(no value)'}
             </span>
@@ -77,10 +77,10 @@ export const GraphPanel: FC<{ id: string }> = ({ id }) => {
   return (
     <div className="space-y-4">
       <Card variant="default" className="p-6">
-        <h4 className="mb-1 text-sm font-bold text-[#F5F8FF]">
+        <h4 className="mb-1 text-sm font-bold text-[var(--color-ink-navy)]">
           Policy object graph
         </h4>
-        <p className="mb-4 text-[12.5px] text-[#8FA0BC]">
+        <p className="mb-4 text-[12.5px] text-[var(--color-slate-gray)]">
           The reconstruction every other analysis reads. Rule hygiene,
           reachability and recertification are conclusions drawn from this.
         </p>
@@ -91,10 +91,10 @@ export const GraphPanel: FC<{ id: string }> = ({ id }) => {
               key={label}
               className="rounded-xl border border-[rgba(100,150,220,0.14)] p-3"
             >
-              <span className="block text-xl font-bold text-[#F5F8FF]">
+              <span className="block text-xl font-bold text-[var(--color-ink-navy)]">
                 {value}
               </span>
-              <span className="text-[11px] text-[#8FA0BC]">{label}</span>
+              <span className="text-[11px] text-[var(--color-slate-gray)]">{label}</span>
             </div>
           ))}
         </div>
@@ -120,7 +120,7 @@ export const GraphPanel: FC<{ id: string }> = ({ id }) => {
             findings must not be mistaken for a tidy policy. */}
         {!data.ordered && (
           <p className="mt-3 rounded-xl border border-[rgba(45,140,255,0.25)] bg-[rgba(45,140,255,0.06)] p-3 text-[12.5px] text-[#AAB8D0]">
-            <strong className="text-[#2D8CFF]">Unordered platform.</strong> Rules
+            <strong className="text-[var(--color-ink-navy)]">Unordered platform.</strong> Rules
             here are not evaluated top to bottom, so none can shadow another.
             Shadow and redundancy analysis is suppressed — its absence from the
             findings is correct, not a clean result.
@@ -130,10 +130,10 @@ export const GraphPanel: FC<{ id: string }> = ({ id }) => {
 
       <Card variant="default" className="overflow-hidden p-0">
         <div className="border-b border-[rgba(100,150,220,0.12)] p-4">
-          <h4 className="text-sm font-bold text-[#F5F8FF]">
+          <h4 className="text-sm font-bold text-[var(--color-ink-navy)]">
             Rules, with references resolved ({data.rules_shown.length} shown)
           </h4>
-          <p className="mt-0.5 text-[12px] text-[#8FA0BC]">
+          <p className="mt-0.5 text-[12px] text-[var(--color-slate-gray)]">
             Every name is followed through to the value it resolves to, so a
             verdict can be checked rather than taken on trust.
           </p>
@@ -145,22 +145,22 @@ export const GraphPanel: FC<{ id: string }> = ({ id }) => {
               className="border-b border-[rgba(100,150,220,0.08)] p-4 last:border-0"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] text-[#65738B]">#{r.order}</span>
+                <span className="text-[11px] text-[var(--color-slate-gray)]">#{r.order}</span>
                 <Badge variant={r.action === 'allow' ? 'critical' : 'success'}>
                   {r.action}
                 </Badge>
-                <span className="font-mono text-[12px] text-[#F5F8FF]">
+                <span className="font-mono text-[12px] text-[var(--color-ink-navy)]">
                   {r.name}
                 </span>
                 {!r.enabled && <Badge variant="default">disabled</Badge>}
                 {r.source_zones.length > 0 && (
-                  <span className="text-[11px] text-[#8FA0BC]">
+                  <span className="text-[11px] text-[var(--color-slate-gray)]">
                     {r.source_zones.join(',')} →{' '}
                     {r.destination_zones.join(',') || 'any'}
                   </span>
                 )}
                 {r.hit_count !== null && (
-                  <span className="text-[11px] text-[#65738B]">
+                  <span className="text-[11px] text-[var(--color-slate-gray)]">
                     {r.hit_count.toLocaleString()} hits
                   </span>
                 )}
