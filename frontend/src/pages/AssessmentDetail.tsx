@@ -56,6 +56,23 @@ const AssessmentDetail: FC = () => {
   if (!data) return <Empty label="No such assessment found." />;
 
   const { identity, coverage, records } = data;
+  // Each framework judged against its OWN requirements, which is why there is
+  // no single number here any more: the same device is 37% to NIST and 37% to
+  // ISO because those catalogues group the evidence differently.
+  //
+  // A null score is not a zero. It means the framework publishes nothing for
+  // this platform -- there is no CIS benchmark or DISA STIG for SonicOS -- and
+  // rendering that as 0% would report a failure the device never had. Scored
+  // frameworks sort first so the card leads with real numbers.
+  const frameworkScores = [...(data.framework_coverage ?? [])].sort(
+    (a, b) =>
+      Number(a.framework_score_pct === null) -
+        Number(b.framework_score_pct === null) ||
+      a.name.localeCompare(b.name),
+  );
+  const someFrameworkUnscored = frameworkScores.some(
+    (f) => f.framework_score_pct === null,
+  );
   const bySeverity = failuresBySeverity(data.findings);
   const totalFindingsCount = data.findings.length;
   const assessmentDisplayId = id?.startsWith('NCSA') ? id : `NCSA-2026-${id?.slice(0, 4).toUpperCase() || '0014'}`;
@@ -134,24 +151,46 @@ const AssessmentDetail: FC = () => {
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* Compliance Score */}
+                {/* Framework Scores */}
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <ShieldCheck className="w-4 h-4 text-[var(--color-signal-blue)]" />
-                    <span className="text-xs font-semibold text-[var(--color-slate-gray)]">Compliance Score</span>
+                    <span className="text-xs font-semibold text-[var(--color-slate-gray)]">Framework Scores</span>
                   </div>
-                  <div className="text-2xl font-bold text-[var(--color-ink-navy)]">
-                    {Math.round(coverage.score_pct)}%
+                  <div className="space-y-2 mt-1.5">
+                    {frameworkScores.map((f) => (
+                      <div key={f.framework}>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="text-[11px] text-[var(--color-slate-gray)] truncate">
+                            {f.name}
+                          </span>
+                          <span className="text-sm font-bold text-[var(--color-ink-navy)] shrink-0">
+                            {f.framework_score_pct === null
+                              ? '—'
+                              : `${Math.round(f.framework_score_pct)}%`}
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 bg-[var(--color-pebble)] rounded-full mt-1 overflow-hidden">
+                          {f.framework_score_pct !== null && (
+                            <div
+                              className="h-full bg-[var(--color-signal-blue)] rounded-full"
+                              style={{ width: `${Math.round(f.framework_score_pct)}%` }}
+                            />
+                          )}
+                        </div>
+                        {f.framework_score_pct !== null && (
+                          <span className="text-[10px] text-[var(--color-mist-gray)] block mt-0.5">
+                            {f.requirements_met} / {f.requirements} requirements met
+                          </span>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                  <span className="text-[11px] text-[var(--color-slate-gray)] block mt-0.5">
-                    {coverage.controls_decided} / {coverage.controls_total} controls evaluated
-                  </span>
-                  <div className="w-full h-1.5 bg-[var(--color-pebble)] rounded-full mt-2 overflow-hidden">
-                    <div 
-                      className="h-full bg-[var(--color-signal-blue)] rounded-full" 
-                      style={{ width: `${Math.round(coverage.score_pct)}%` }}
-                    />
-                  </div>
+                  {someFrameworkUnscored && (
+                    <span className="text-[10px] text-[var(--color-mist-gray)] block mt-2">
+                      — publishes no requirements for this platform
+                    </span>
+                  )}
                 </div>
 
                 {/* Configuration Coverage */}
