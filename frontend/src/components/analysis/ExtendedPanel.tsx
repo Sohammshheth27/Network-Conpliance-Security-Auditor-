@@ -61,6 +61,36 @@ const COUNT_WORD: Record<string, string> = {
 };
 
 /**
+ * A published vulnerability is not a misconfiguration, and must not borrow the
+ * vocabulary of one.
+ *
+ * The engine records these checks with the same states as every other check,
+ * which is right internally -- but rendered with the shared words, a CVE reads
+ * as "FAIL: this device failed a test it should have passed". It did not fail
+ * anything. Its firmware matches the affected configuration NVD publishes for
+ * a known flaw, and a fix exists that has not been applied. "Affected" says
+ * exactly that and nothing more; "failed" invites an operator to look for a
+ * setting to correct, when the action is to patch.
+ *
+ * Only the WORDS change. The state the engine assigned is untouched, so the
+ * counts, the severity ordering and the API are all unchanged.
+ */
+const DOMAIN_WORD: Record<string, Record<string, string>> = {
+  cve: {
+    PASS: 'not affected',
+    FAIL: 'affected',
+    UNKNOWN: 'could not be determined',
+    PARTIAL: 'partly affected',
+  },
+};
+
+const stateWord = (domain: string, state: string): string =>
+  DOMAIN_WORD[domain]?.[state] ?? state.replace('_', ' ').toLowerCase();
+
+const countWord = (domain: string, state: string): string =>
+  DOMAIN_WORD[domain]?.[state] ?? COUNT_WORD[state] ?? state.replace('_', ' ').toLowerCase();
+
+/**
  * The engine's summary ends with a roll-call of check ids and states --
  * "NCSA-X-VPN-001: PARTIAL; NCSA-X-VPN-002: PARTIAL" -- which is precise and
  * unreadable. The findings below already say each one in words, so the tail is
@@ -146,7 +176,7 @@ const DomainCard: FC<{ name: string; d: ExtendedDomain }> = ({ name, d }) => {
             .filter(([, n]) => n > 0)
             .map(([s, n]) => (
               <Badge key={s} variant={STATE_VARIANT[s as ResultState] ?? 'default'}>
-                {n} {COUNT_WORD[s] ?? s.replace('_', ' ').toLowerCase()}
+                {n} {countWord(name, s)}
               </Badge>
             ))}
         </div>
@@ -162,10 +192,20 @@ const DomainCard: FC<{ name: string; d: ExtendedDomain }> = ({ name, d }) => {
       {name === 'cve' && d.inventory.length > 0 && <CveTable rows={d.inventory} />}
       {name === 'vpn' && d.inventory.length > 0 && <VpnTable rows={d.inventory} />}
 
+      {name === 'cve' && (
+        <p className="mt-3 rounded-lg border border-[var(--color-hairline)] bg-[var(--color-pebble)] px-3 py-2 text-[11px] leading-relaxed text-[var(--color-slate-gray)]">
+          <strong className="text-[var(--color-ink-navy)]">Affected</strong> means
+          this device's firmware matches the configuration NVD publishes as
+          vulnerable for that CVE. It is not a failed configuration check and
+          there is no setting to correct — the remedy is to apply the firmware
+          update the vendor has released.
+        </p>
+      )}
+
       {listed.length > 0 && (
         <div className="mt-4 space-y-2">
           {listed.map((f, i) => (
-            <FindingRow key={`${f.check_id}-${f.scope}-${i}`} f={f} />
+            <FindingRow key={`${f.check_id}-${f.scope}-${i}`} f={f} domain={name} />
           ))}
         </div>
       )}
@@ -181,10 +221,10 @@ const DomainCard: FC<{ name: string; d: ExtendedDomain }> = ({ name, d }) => {
   );
 };
 
-const FindingRow: FC<{ f: ExtendedFinding }> = ({ f }) => (
+const FindingRow: FC<{ f: ExtendedFinding; domain: string }> = ({ f, domain }) => (
   <div className="rounded-xl border border-[var(--color-hairline)] p-3">
     <div className="flex flex-wrap items-center gap-2">
-      <Badge variant={STATE_VARIANT[f.state]}>{f.state.replace('_', ' ')}</Badge>
+      <Badge variant={STATE_VARIANT[f.state]}>{stateWord(domain, f.state)}</Badge>
       <span className="text-[11px] uppercase tracking-wider text-[var(--color-slate-gray)]">
         {f.severity}
       </span>

@@ -770,6 +770,33 @@ const AssessmentDetail: FC = () => {
                 <span className="text-[var(--color-slate-gray)]">Vendor / Platform</span>
                 <span className="font-medium text-[var(--color-ink-navy)]">{vendorClean} · {platformClean}</span>
               </div>
+              {/* The firmware release is parsed and stored on every assessment
+                  and was never displayed. It decides which CVEs apply and
+                  which pack version was verified against this device, so an
+                  auditor reading the report needs it beside the vendor. */}
+              {(identity.os || identity.version) && (
+                <div className="flex items-center justify-between py-1 border-b border-[var(--color-hairline)]">
+                  <span className="text-[var(--color-slate-gray)]">OS / Firmware</span>
+                  <span className="font-medium text-[var(--color-ink-navy)] text-right">
+                    {[identity.os, identity.version].filter(Boolean).join(' ')}
+                  </span>
+                </div>
+              )}
+              {identity.model && (
+                <div className="flex items-center justify-between py-1 border-b border-[var(--color-hairline)]">
+                  <span className="text-[var(--color-slate-gray)]">Model</span>
+                  <span className="font-medium text-[var(--color-ink-navy)]">{identity.model}</span>
+                </div>
+              )}
+              {/* Serials come from `show version`, not a running-config, so most
+                  file-based assessments will not carry one. Absent rather than
+                  blank: an empty row reads as "no serial", which is a claim. */}
+              {identity.serial && (
+                <div className="flex items-center justify-between py-1 border-b border-[var(--color-hairline)]">
+                  <span className="text-[var(--color-slate-gray)]">Serial</span>
+                  <span className="font-mono text-[11px] text-[var(--color-ink-navy)]">{identity.serial}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between py-1 border-b border-[var(--color-hairline)]">
                 <span className="text-[var(--color-slate-gray)]">Source File</span>
                 <span className="font-medium text-[var(--color-ink-navy)] truncate max-w-[150px]">{identity.source_file}</span>

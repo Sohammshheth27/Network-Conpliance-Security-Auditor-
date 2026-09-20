@@ -152,10 +152,13 @@ def evaluate_control(
     # own coverage actually is.
     domain = control.field.split(".", 1)[0].split("[", 1)[0]
     if not_applicable_domains and domain in not_applicable_domains:
+        # The colon is load-bearing: `test_na_justification` requires every
+        # NOT_APPLICABLE verdict to carry a stated reason, and checks for it.
         return finding(
             ResultState.NOT_APPLICABLE,
-            f"platform {platform!r} has no {domain!r} capability: "
-            f"{not_applicable_domains[domain]}",
+            f"This control covers {domain} configuration, which the "
+            f"{platform} platform does not provide: "
+            f"{not_applicable_domains[domain]}.",
         )
 
     # A sub-property of a DISABLED feature cannot fail. On a real hardened
@@ -221,13 +224,18 @@ def evaluate_control(
         # device is compliant, and we cannot prove it is not.
         return finding(
             ResultState.UNKNOWN,
-            f"{control.field} was never evaluated by any mapping rule",
+            f"No mapping rule read {control.field} from this configuration, so "
+            f"the requirement ({_requirement(control)}) could not be assessed. "
+            "This is a limitation of the assessment, not a finding about the "
+            "device.",
         )
 
     if obs.state is ObservationState.UNPARSED:
         return finding(
             ResultState.UNKNOWN,
-            f"{control.field} appeared in the config but could not be interpreted",
+            f"{control.field} is present in the configuration, but its value "
+            f"could not be interpreted, so compliance with the requirement "
+            f"({_requirement(control)}) could not be determined.",
             obs,
         )
 
@@ -237,9 +245,13 @@ def evaluate_control(
         # exist" absence IS the violation. The operator decides, with None as
         # the observed value -- we do not shortcut to PASS.
         state = run_operator(control.operator, None, control.expected)
-        reason = f"{control.field} not present in configuration"
         if state is ResultState.PASS:
-            reason += " (absence satisfies this control)"
+            reason = (f"{control.field} is not configured on this device, and "
+                      f"its absence satisfies the requirement "
+                      f"({_requirement(control)}).")
+        else:
+            reason = (f"{control.field} is not configured on this device. The "
+                      f"requirement is that it {_requirement(control)}.")
         return finding(state, reason, obs)
 
     # --- we have a value ----------------------------------------------------
@@ -251,16 +263,47 @@ def evaluate_control(
     if state is ResultState.FAIL and obs.state is ObservationState.DEFAULT_ASSUMED:
         return finding(
             ResultState.UNKNOWN,
-            f"{control.field} was assumed from platform defaults, not observed; "
-            "cannot prove a violation from an assumption",
+            f"{control.field} is not stated in the configuration. The value "
+            f"shown ({_stated(obs.value, control)}) is this platform's documented "
+            f"default, not a setting read from the device, and a violation "
+            f"cannot be proven from an assumed value.",
             obs,
         )
 
-    reason = ""
-    if state is ResultState.PARTIAL:
-        reason = f"partially satisfied: observed {obs.value!r}, expected {control.expected!r}"
+    # Every verdict carries a sentence. PASS and FAIL used to carry none, so
+    # the report's "why" was blank for most findings and populated only for the
+    # unusual ones -- which read as though the tool had nothing to say about
+    # the results that mattered most.
+    # `control` is passed so the value can be worded for the KIND of check:
+    # a falsy value under a count requirement means "none are configured",
+    # never "disabled". A syslog collector is not a switch, and
+    # "logging.servers is disabled ... (must have at least 2)" is not a
+    # sentence about a count.
+    if state is ResultState.PASS:
+        reason = (f"{control.field} is {_stated(obs.value, control)}, which "
+                  f"satisfies the requirement that it {_requirement(control)}.")
+    elif state is ResultState.FAIL:
+        reason = (f"{control.field} is {_stated(obs.value, control)}. The "
+                  f"requirement is that it {_requirement(control)}.")
+    elif state is ResultState.PARTIAL:
+        # Nothing that is absent can be met "in part". Where the value is not
+        # configured at all, PARTIAL comes from the operator counting zero
+        # instances, and the honest sentence says the requirement is unmet --
+        # "logging.servers is not configured, which meets the requirement in
+        # part" is a contradiction an auditor would rightly challenge.
+        said = _stated(obs.value, control)
+        reason = (
+            f"{control.field} is not configured, so the requirement that it "
+            f"{_requirement(control)} is not met."
+            if said == "not configured" else
+            f"{control.field} is {said}, which meets the requirement "
+            f"({_requirement(control)}) in part but not in full.")
     elif state is ResultState.ERROR:
-        reason = f"operator {control.operator!r} failed on value {obs.value!r}"
+        reason = (f"The {control.operator} check could not be applied to the "
+                  f"recorded value ({_stated(obs.value, control)}), so this "
+                  f"control produced no verdict.")
+    else:
+        reason = ""
     return finding(state, reason, obs)
 
 
@@ -273,6 +316,79 @@ _SEVERITY_ORDER = {
     ResultState.NOT_APPLICABLE: 5,
     ResultState.MANUAL_REVIEW: 6,
 }
+
+
+#: An operator, said the way a requirement is written in an audit finding.
+#:
+#: The engine's own vocabulary -- `lte`, `max_count`, `contains_none` -- is
+#: exact and belongs in the rule files. It does not belong in the sentence an
+#: administrator reads to understand why a control failed, where it reads as
+#: machine output rather than a statement about their device.
+_REQUIREMENT = {
+    "equals": "must be",
+    "not_equals": "must not be",
+    "in": "must be one of",
+    "not_in": "must not be one of",
+    "gte": "must be at least",
+    "lte": "must be no more than",
+    "min_count": "must have at least",
+    "max_count": "must have no more than",
+    "contains_all": "must include",
+    "contains_none": "must not include",
+    "matches": "must match",
+    "is_set": "must be configured",
+}
+
+
+#: Operators that count instances. For these a falsy value means "none are
+#: configured", never "disabled": a syslog collector is not a switch, and
+#: "logging.servers is disabled" is not a sentence about a count.
+_COUNTING = {"min_count", "max_count"}
+
+#: How many members of a list to name before summarising. NCSA-CAT-004 reports
+#: every unresolved policy reference on the device -- fifty of them -- and
+#: interpolating all of them produced a three-thousand-character sentence that
+#: was less readable than the blank it replaced.
+_MAX_NAMED = 4
+
+
+def _requirement(control) -> str:
+    """"must be no more than 120" -- the control's requirement, in words."""
+    phrase = _REQUIREMENT.get(control.operator, f"must satisfy {control.operator}")
+    expected = control.expected
+    if control.operator == "is_set" or expected is None:
+        return phrase
+    # `must be True` is the engine's own literal leaking into prose.
+    if isinstance(expected, bool):
+        return "must be enabled" if expected else "must be disabled"
+    if isinstance(expected, (list, tuple, set)):
+        expected = _join(list(expected))
+    return f"{phrase} {expected}"
+
+
+def _join(items: list) -> str:
+    """Name a few, then say how many more, rather than listing everything."""
+    named = ", ".join(str(x) for x in items[:_MAX_NAMED])
+    rest = len(items) - _MAX_NAMED
+    return f"{named} and {rest} other(s)" if rest > 0 else named
+
+
+def _stated(value, control=None) -> str:
+    """A configured value as an administrator would see it written."""
+    counting = control is not None and control.operator in _COUNTING
+    if value is None:
+        return "not configured"
+    if isinstance(value, bool):
+        # A count of zero reported as a boolean still means "none".
+        return ("not configured" if counting
+                else ("enabled" if value else "disabled"))
+    if isinstance(value, (list, tuple, set)):
+        items = [x for x in value if str(x).strip()]
+        if not items:
+            return "not configured"
+        return f"{_join(items)} ({len(items)} in total)" if counting else _join(items)
+    text = str(value).strip()
+    return text or "not configured"
 
 
 def _worst_of(control, scoped: dict, finding, labels):
@@ -294,18 +410,49 @@ def _worst_of(control, scoped: dict, finding, labels):
     results.sort(key=lambda r: _SEVERITY_ORDER.get(r[0], 9))
     state, path, obs = results[0]
     same = [p for st, p, _ in results if st is state]
+    named = ", ".join(_scope_label(p) for p in same[:3])
+    more = f" and {len(same) - 3} other(s)" if len(same) > 3 else ""
+    # The device configures this setting per instance -- per interface, per
+    # VTY line, per tunnel -- so the control is judged on the weakest of them:
+    # one interface outside a zone leaves that interface outside a zone,
+    # whatever the other thirty-five do.
     reason = (
-        f"worst of {len(results)} scoped instance(s); {state.value} at "
-        + ", ".join(_scope_label(p) for p in same[:3])
+        f"This setting is configured separately on {len(results)} instances, "
+        f"and the result reflects the weakest of them. The requirement "
+        f"({_requirement(control)}) is not met at {named}{more}."
+        if state is not ResultState.PASS else
+        f"This setting is configured separately on {len(results)} instances, "
+        f"and every one of them meets the requirement "
+        f"({_requirement(control)})."
     )
     f = finding(state, reason, obs)
     return f
 
 
 def _scope_label(path: str) -> str:
-    import re
-    m = re.search(r"\[([^\]]+)\]", path)
-    return m.group(1) if m else path
+    """The instance name out of a scoped field path.
+
+    `firewall.rules[Test_SSH [IPv4#1]].source` -> `Test_SSH [IPv4#1]`.
+
+    A scope id may itself contain brackets -- SonicOS names a rule
+    `Test_SSH [IPv4#1]` -- so matching the FIRST `[...]` stopped at the inner
+    closing bracket and produced `Test_SSH [IPv4#1`, a name with its bracket
+    hanging open. Take the outermost bracketed span instead, by finding the
+    first `[` and the last `]` that closes it.
+    """
+    start = path.find("[")
+    if start == -1:
+        return path
+    depth, i = 0, start
+    while i < len(path):
+        if path[i] == "[":
+            depth += 1
+        elif path[i] == "]":
+            depth -= 1
+            if depth == 0:
+                return path[start + 1:i]
+        i += 1
+    return path[start + 1:] or path
 
 
 def evaluate_all(
