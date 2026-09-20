@@ -962,10 +962,16 @@ export const api = {
   extended: (id: string) =>
     request<ExtendedResponse>(`/assessment/${id}/extended`),
   zones: (id: string) => request<ZonesResponse>(`/assessment/${id}/zones`),
-  /** SVG text of the topology figure. Rendered server-side, shown via <img>. */
-  topologySvg: async (id: string, redact: boolean): Promise<string> => {
+  /** SVG text of the topology figure. Rendered server-side, shown via <img>.
+   *  `solid` extrudes the zones and the device into 3-D slabs; flat is kept
+   *  for print, where the shading that separates them on screen turns to mud. */
+  topologySvg: async (
+    id: string,
+    redact: boolean,
+    solid = true,
+  ): Promise<string> => {
     const res = await fetch(
-      `${BASE}/assessment/${id}/topology-map.svg?redact=${redact}`,
+      `${BASE}/assessment/${id}/topology-map.svg?redact=${redact}&solid=${solid}`,
     );
     if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText}`);
     return res.text();

@@ -668,14 +668,20 @@ def get_topology_map(aid: str, redact: bool = Query(True)):
 
 
 @app.get("/assessment/{aid}/topology-map.svg", tags=["analyse"])
-def get_topology_svg(aid: str, redact: bool = Query(True)):
-    """The same figure, rendered. One layout serves the UI and the export."""
+def get_topology_svg(aid: str, redact: bool = Query(True),
+                     solid: bool = Query(True)):
+    """The same figure, rendered. One layout serves the UI and the export.
+
+    `solid` extrudes every zone and the device into a 3-D slab. Flat is kept
+    for print: the shading that separates boxes on screen turns to mud on a
+    monochrome printer.
+    """
     from fastapi.responses import Response
 
     from ..topology.map import build_map, render_svg
 
     da, _ = _get(aid)
-    return Response(render_svg(build_map(da, redact=redact)),
+    return Response(render_svg(build_map(da, redact=redact), solid=solid),
                     media_type="image/svg+xml")
 
 

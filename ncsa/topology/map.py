@@ -266,8 +266,62 @@ def _t(x, y, s, size=16, color=INK, weight="normal", anchor="start", family="Seg
             f'fill="{color}" font-weight="{weight}" text-anchor="{anchor}">{escape(str(s))}</text>')
 
 
-def render_svg(m: dict, width: int = 2000, height: int = 1300) -> str:
-    """Deterministic radial layout: device in the middle, zones around it."""
+# ------------------------------------------------------------------ 3-D solid
+#
+# Zones can be drawn as extruded slabs rather than flat rectangles. This is
+# real geometry -- three painted faces per solid with a cast shadow -- not a
+# CSS effect, so it renders identically in the browser and in the PDF report
+# and needs no WebGL library (which the console's content-security policy
+# would block anyway).
+#
+# The projection is a shallow cabinet oblique: the front face keeps its true
+# rectangle so LABELS STAY HORIZONTAL AND FULLY LEGIBLE, and depth is added by
+# offsetting a second face up and to the right. A true isometric would skew
+# every label, which trades the one thing this figure exists for -- being read
+# -- for the appearance of sophistication.
+DEPTH = 16          # how far the solid is extruded, in pixels
+
+
+def _shade(hex_colour: str, factor: float) -> str:
+    """Same hue, darker or lighter -- for the side and top faces of a solid."""
+    h = hex_colour.lstrip("#")
+    if len(h) != 6:
+        return hex_colour
+    r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+    f = lambda v: max(0, min(255, int(v * factor)))   # noqa: E731
+    return f"#{f(r):02x}{f(g):02x}{f(b):02x}"
+
+
+def _solid(x, y, w, h, fill, stroke, *, depth=DEPTH, dash="", radius=12) -> list[str]:
+    """One extruded box: shadow, right face, top face, then the front face."""
+    d = depth
+    return [
+        # Cast shadow, offset down-right and low-opacity.
+        f'<rect x="{x + 6:.0f}" y="{y + 8:.0f}" width="{w}" height="{h}" rx="{radius}" '
+        f'fill="#0b3558" opacity="0.06"/>',
+        # Right face.
+        f'<path d="M{x + w:.0f},{y:.0f} L{x + w + d:.0f},{y - d:.0f} '
+        f'L{x + w + d:.0f},{y + h - d:.0f} L{x + w:.0f},{y + h:.0f} Z" '
+        f'fill="{_shade(fill, 0.90)}" stroke="{stroke}" stroke-width="1"/>',
+        # Top face.
+        f'<path d="M{x:.0f},{y:.0f} L{x + d:.0f},{y - d:.0f} '
+        f'L{x + w + d:.0f},{y - d:.0f} L{x + w:.0f},{y:.0f} Z" '
+        f'fill="{_shade(fill, 0.96)}" stroke="{stroke}" stroke-width="1"/>',
+        # Front face, drawn last so its border is unbroken.
+        f'<rect x="{x:.0f}" y="{y:.0f}" width="{w}" height="{h}" rx="{radius}" '
+        f'fill="{fill}" stroke="{stroke}" stroke-width="2"{dash}/>',
+    ]
+
+
+def render_svg(m: dict, width: int = 2000, height: int = 1300,
+               *, solid: bool = True) -> str:
+    """Deterministic radial layout: device in the middle, zones around it.
+
+    `solid` draws every zone and the device as an extruded 3-D slab. It is the
+    default because depth separates the boxes from the lines crossing between
+    them; `solid=False` keeps the flat figure, which reproduces better on a
+    monochrome printer.
+    """
     # The VPN site list gets a column of its own, clear of the zone ring.
     side = 520 if m["tunnels"] else 0
     cx, cy = (width - side) / 2, height / 2 - 20
@@ -326,6 +380,19 @@ def render_svg(m: dict, width: int = 2000, height: int = 1300) -> str:
                    f'fill="none" stroke="{FLOW}" stroke-width="3"{dash} '
                    f'marker-end="url(#arrow)" opacity="0.9"/>')
         lx, ly = (x1 + 2 * qx + x2) / 4, (y1 + 2 * qy + y2) / 4
+        # Nudge the plate clear of any zone it lands on. With ten zones in a
+        # ring the midpoint of a bowed arrow often falls on a box, and the
+        # label then covered the interface list the reader came for -- on the
+        # reference device it hid MGMT's addressing completely.
+        for _ in range(24):
+            hit = next((b for b in boxes.values()
+                        if lx - 190 < b[0] + b[2] and lx + 190 > b[0]
+                        and ly - 20 < b[1] + b[3] and ly + 20 > b[1]), None)
+            if hit is None:
+                break
+            # Leave by the nearer edge, so the label stays close to its arrow.
+            ly = (hit[1] - 30 if ly < hit[1] + hit[3] / 2
+                  else hit[1] + hit[3] + 30)
         n_r = len(f["any_any"])
         label = (f'{f["from"]} → {f["to"]}: any/any'
                  + (", latent" if f.get("latent") else "")
@@ -338,8 +405,14 @@ def render_svg(m: dict, width: int = 2000, height: int = 1300) -> str:
 
     # Device.
     dw, dh = 380, 120
-    out.append(f'<rect x="{cx - dw / 2:.0f}" y="{cy - dh / 2:.0f}" width="{dw}" height="{dh}" '
-               f'rx="14" fill="{PANEL}" stroke="{DEVICE}" stroke-width="3"/>')
+    if solid:
+        # The device is raised further than the zones: it is the thing the
+        # whole figure is about, and depth says so without another colour.
+        out.extend(_solid(cx - dw / 2, cy - dh / 2, dw, dh, PANEL, DEVICE,
+                          depth=DEPTH + 8, radius=14))
+    else:
+        out.append(f'<rect x="{cx - dw / 2:.0f}" y="{cy - dh / 2:.0f}" width="{dw}" height="{dh}" '
+                   f'rx="14" fill="{PANEL}" stroke="{DEVICE}" stroke-width="3"/>')
     dev = m["device"]
     out.append(_t(cx, cy - 22, dev["name"], 24, INK, "bold", "middle"))
     out.append(_t(cx, cy + 8, " · ".join(x for x in (dev.get("model"), dev.get("os"),
@@ -354,8 +427,11 @@ def render_svg(m: dict, width: int = 2000, height: int = 1300) -> str:
         dash = "" if z["populated"] else ' stroke-dasharray="7 6"'
         if not z["populated"]:
             fill, stroke = CANVAS, IDLE
-        out.append(f'<rect x="{x:.0f}" y="{y:.0f}" width="{w}" height="{h}" rx="12" '
-                   f'fill="{fill}" stroke="{stroke}" stroke-width="2"{dash}/>')
+        if solid:
+            out.extend(_solid(x, y, w, h, fill, stroke, dash=dash))
+        else:
+            out.append(f'<rect x="{x:.0f}" y="{y:.0f}" width="{w}" height="{h}" rx="12" '
+                       f'fill="{fill}" stroke="{stroke}" stroke-width="2"{dash}/>')
         out.append(_t(x + 14, y + 24, z["name"], 19, stroke, "bold"))
         out.append(_t(x + w - 12, y + 24, z["trust"], 14, MUTED, "normal", "end"))
         ly = y + 56
