@@ -29,8 +29,8 @@ from fastapi.staticfiles import StaticFiles
 
 from .convert import assessment_out, candidate_out, remediation_out
 from .schemas import (ApprovalIn, ApprovalOut, AssessmentOut, CollectIn,
-                      MonitorIn, ReachQueryIn, RemediationOut, TopologyIn,
-                      TrainingCandidateOut)
+                      HardenedOut, MonitorIn, ReachQueryIn, RemediationOut,
+                      TopologyIn, TrainingCandidateOut)
 
 app = FastAPI(
     title="NCSA -- Network Compliance & Security Auditor",
@@ -451,6 +451,66 @@ def get_remediation(aid: str):
     meta = _STORE.meta(aid) or {}
     sbm = _sbm_for(da, path, redact=bool(meta.get("redact", True)))
     return remediation_out(build_plan(da, controls_by_id=controls, sbm=sbm))
+
+
+def _emit_hardened(aid: str):
+    """The device's own configuration with what is provably wrong corrected."""
+    from ..engine.emit import emit_sonicos
+    from ..engine.rules import load_rules
+    from ..pipeline import load_packs, select_pack
+
+    da, path = _get(aid)
+    controls = {c.id: c for c in load_rules(
+        "rules", platform=da.identity.platform)}
+    pack = select_pack(load_packs(), da.fingerprint)
+    if pack is None:
+        raise HTTPException(422, "no mapping pack matched this device")
+    return da, path, emit_sonicos(da, path, controls_by_id=controls, pack=pack)
+
+
+@app.get("/assessment/{aid}/hardened", response_model=HardenedOut,
+         tags=["remediate"])
+def get_hardened(aid: str, measure: bool = Query(True)):
+    """A hardened configuration, and the compliance gain it measures.
+
+    Only records a FAIL finding CITES are rewritten; PASS is never touched and
+    UNKNOWN never changed -- a setting the engine could not read cannot be
+    corrected, only disturbed. Everything declined is returned in `refused`
+    with its reason, because an unlisted gap reads as a solved one.
+
+    `measure=true` re-assesses the emitted configuration through the same
+    engine, so the before/after is measured rather than predicted. It costs a
+    full re-assessment; pass `measure=false` for the change list alone.
+    """
+    from ..engine.emit import verify
+
+    da, path, em = _emit_hardened(aid)
+    out = em.to_json()
+    if measure and em.supported and em.changes:
+        out.update(verify(em, da, path, assessment_id=f"{aid}-hardened"))
+    return out
+
+
+@app.get("/assessment/{aid}/hardened.conf", tags=["remediate"])
+def download_hardened(aid: str):
+    """The hardened configuration itself, as a file.
+
+    It carries the device's real addressing: this is the operator's own
+    configuration with corrections applied, not a redacted view of it.
+    """
+    from fastapi.responses import Response
+
+    _da, _path, em = _emit_hardened(aid)
+    if not em.supported:
+        raise HTTPException(422, em.note)
+    if not em.changes:
+        raise HTTPException(
+            422, "no failing control on this device maps to a single record, "
+                 "so there is nothing to rewrite")
+    return Response(
+        em.text, media_type="text/plain",
+        headers={"Content-Disposition":
+                 f'attachment; filename="hardened-{aid}.txt"'})
 
 
 @app.get("/assessment/{aid}/baseline", tags=["report"])

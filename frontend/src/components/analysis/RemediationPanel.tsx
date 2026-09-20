@@ -1,8 +1,8 @@
-import { useMemo, type FC } from 'react';
+import { useMemo, useState, type FC } from 'react';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Empty, ErrorPanel, Loading } from '../ui/States';
-import { api, type RemediationStep } from '../../lib/api';
+import { api, type HardenedResponse, type RemediationStep } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 
 /**
@@ -84,6 +84,8 @@ export const RemediationPanel: FC<{ id: string }> = ({ id }) => {
           </a>
         )}
       </Card>
+
+      <HardenedConfig id={id} />
 
       {data.rollback_command && (
         <Card variant="default" className="p-4">
@@ -185,4 +187,185 @@ const StepCard: FC<{ step: RemediationStep }> = ({ step: s }) => (
       </p>
     )}
   </Card>
+);
+
+/**
+ * The hardened configuration, and the compliance it MEASURES.
+ *
+ * Fetched on demand, not with the panel: the engine writes the corrected
+ * configuration and assesses it again, so the before/after is the number this
+ * tool would report on the fixed device rather than an estimate of it. That
+ * costs a full re-assessment, which is not something to spend on every tab
+ * switch.
+ */
+const HardenedConfig: FC<{ id: string }> = ({ id }) => {
+  const [data, setData] = useState<HardenedResponse | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState('');
+
+  const run = async () => {
+    setBusy(true);
+    setFailed('');
+    try {
+      setData(await api.hardened(id));
+    } catch (e) {
+      setFailed(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const before = data?.before?.score_pct ?? null;
+  const after = data?.after?.score_pct ?? null;
+
+  return (
+    <Card variant="default" className="p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h4 className="text-sm font-bold text-[var(--color-ink-navy)]">
+            Hardened configuration
+          </h4>
+          <p className="mt-0.5 max-w-3xl text-xs text-[var(--color-slate-gray)]">
+            This device's own configuration with the provable failures
+            corrected. Only records a finding cites are rewritten — settings
+            that pass are untouched, and settings the engine could not read are
+            never changed.
+          </p>
+        </div>
+        <button
+          onClick={run}
+          disabled={busy}
+          className="rounded-xl border border-[var(--color-hairline)] px-3 py-2 text-xs font-semibold text-[var(--color-ink-navy)] disabled:opacity-50"
+        >
+          {busy ? 'Measuring…' : data ? 'Re-measure' : 'Generate and measure'}
+        </button>
+      </div>
+
+      {failed && (
+        <p className="mt-3 text-xs text-[#be123c]">{failed}</p>
+      )}
+
+      {data && !data.supported && (
+        <p className="mt-3 text-xs text-[var(--color-slate-gray)]">{data.note}</p>
+      )}
+
+      {data?.supported && (
+        <>
+          {before !== null && after !== null && (
+            <div className="mt-3 flex flex-wrap items-end gap-6 rounded-xl bg-[var(--color-pebble)] p-4">
+              <Score label="Before" value={before} />
+              <span className="pb-1 text-lg text-[var(--color-slate-gray)]">→</span>
+              <Score label="After" value={after} accent="#047857" />
+              <div className="pb-1">
+                <p className="text-[11px] uppercase tracking-wider text-[var(--color-mist-gray)]">
+                  Measured
+                </p>
+                <p className="text-sm font-bold text-[#047857]">
+                  +{(data.score_delta ?? 0).toFixed(1)} points
+                </p>
+              </div>
+              <div className="pb-1 text-xs text-[var(--color-slate-gray)]">
+                {data.changes.length} setting{data.changes.length === 1 ? '' : 's'} rewritten
+                {' · '}
+                {data.refused.length} not changed
+              </div>
+            </div>
+          )}
+
+          {/* UNKNOWN is shown deliberately: it should NOT move, and seeing it
+              hold still is how you know nothing unreadable was touched. */}
+          {data.before?.states && data.after?.states && (
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-[11px] uppercase tracking-wider text-[var(--color-mist-gray)]">
+                    <th className="py-1.5 font-semibold">State</th>
+                    <th className="py-1.5 font-semibold">Before</th>
+                    <th className="py-1.5 font-semibold">After</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {['PASS', 'FAIL', 'PARTIAL', 'UNKNOWN'].map((s) => (
+                    <tr key={s} className="border-t border-[var(--color-hairline)]">
+                      <td className="py-1.5 font-mono text-[var(--color-ink-navy)]">{s}</td>
+                      <td className="py-1.5 text-[var(--color-slate-gray)]">
+                        {data.before?.states?.[s] ?? 0}
+                      </td>
+                      <td className="py-1.5 text-[var(--color-ink-navy)]">
+                        {data.after?.states?.[s] ?? 0}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {data.changes.length > 0 && (
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-[11px] uppercase tracking-wider text-[var(--color-mist-gray)]">
+                    <th className="py-1.5 font-semibold">Control</th>
+                    <th className="py-1.5 font-semibold">Setting</th>
+                    <th className="py-1.5 font-semibold">Before</th>
+                    <th className="py-1.5 font-semibold">After</th>
+                    <th className="py-1.5 font-semibold">Evidence</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.changes.map((c) => (
+                    <tr key={c.record} className="border-t border-[var(--color-hairline)]">
+                      <td className="py-1.5 font-mono text-[var(--color-slate-gray)]">{c.control_id}</td>
+                      <td className="py-1.5 font-mono text-[var(--color-ink-navy)]">{c.key}</td>
+                      <td className="py-1.5 font-mono text-[var(--color-slate-gray)]">
+                        {c.before || '(empty)'}
+                      </td>
+                      <td className="py-1.5 font-mono text-[#047857]">{c.after.slice(0, 40)}</td>
+                      <td className="py-1.5 font-mono text-[11px] text-[var(--color-mist-gray)]">
+                        {c.record}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {data.changes.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <a
+                href={`/api/assessment/${id}/hardened.conf`}
+                className="rounded-xl bg-[var(--color-signal-blue)] px-3 py-2 text-xs font-semibold text-white"
+              >
+                Download hardened configuration
+              </a>
+              <p className="text-xs text-[var(--color-slate-gray)]">
+                Carries this device's real addressing. Import is unverified —
+                test it on a sandbox appliance before a live device.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </Card>
+  );
+};
+
+const Score: FC<{ label: string; value: number; accent?: string }> = ({
+  label,
+  value,
+  accent,
+}) => (
+  <div>
+    <p className="text-[11px] uppercase tracking-wider text-[var(--color-mist-gray)]">
+      {label}
+    </p>
+    <p
+      className="text-2xl font-bold"
+      style={{ color: accent ?? 'var(--color-ink-navy)' }}
+    >
+      {value.toFixed(1)}%
+    </p>
+  </div>
 );

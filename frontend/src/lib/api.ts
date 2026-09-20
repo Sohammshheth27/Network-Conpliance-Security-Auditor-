@@ -322,6 +322,46 @@ export interface ReachResponse {
 
 // ------------------------------------------------------- the other analyses
 
+/** One record rewritten in the hardened configuration. */
+export interface HardenedChange {
+  control_id: string;
+  title?: string;
+  key: string;
+  before: string;
+  after: string;
+  /** The settings record this change was anchored to, e.g. `setting[21208]`. */
+  record: string;
+  /** `evidence` when a finding cited the record; `mapping` when it was empty. */
+  anchored_by: string;
+}
+
+/** A failing control the emitter declined to act on, and why. */
+export interface HardenedRefusal {
+  control_id: string;
+  field: string;
+  reason: string;
+}
+
+export interface HardenedScore {
+  score_pct?: number | null;
+  assessed_pct?: number | null;
+  states?: Record<string, number>;
+}
+
+/**
+ * A hardened configuration and the compliance gain it MEASURES: the emitted
+ * file is run back through the engine, so before/after is not a prediction.
+ */
+export interface HardenedResponse {
+  supported: boolean;
+  note: string;
+  changes: HardenedChange[];
+  refused: HardenedRefusal[];
+  before?: HardenedScore | null;
+  after?: HardenedScore | null;
+  score_delta?: number | null;
+}
+
 /** One ordered fix: the commands, how to verify it, and what it costs you. */
 export interface RemediationStep {
   control_id?: string;
@@ -1014,6 +1054,10 @@ export const api = {
     }),
   remediation: (id: string) =>
     request<RemediationResponse>(`/assessment/${id}/remediation`),
+  // Costs a full re-assessment of the emitted file: the gain is measured, not
+  // predicted, so it is fetched on demand rather than with the panel.
+  hardened: (id: string) =>
+    request<HardenedResponse>(`/assessment/${id}/hardened`),
   training: (id: string) =>
     request<TrainingCandidate[]>(`/assessment/${id}/training`),
   trainingContext: (id: string) =>

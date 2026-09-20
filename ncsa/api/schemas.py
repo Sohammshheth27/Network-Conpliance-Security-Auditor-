@@ -265,6 +265,53 @@ class RemediationOut(BaseModel):
     script: str = ""
 
 
+# ------------------------------------------------------ hardened configuration
+class HardenedChangeOut(BaseModel):
+    """One record rewritten, with the evidence that justified it."""
+
+    control_id: str
+    title: str = ""
+    key: str
+    before: str
+    after: str
+    record: str
+    anchored_by: str = Field(
+        default="",
+        description="`evidence` when a finding cited this record; `mapping` "
+                    "when the record is empty and therefore carries none.")
+
+
+class HardenedRefusalOut(BaseModel):
+    """A failing control the emitter would not act on, and why."""
+
+    control_id: str
+    field: str
+    reason: str
+
+
+class ScoreOut(BaseModel):
+    score_pct: float | None = None
+    assessed_pct: float | None = None
+    states: dict[str, int] = Field(default_factory=dict)
+
+
+class HardenedOut(BaseModel):
+    """A hardened configuration, and the compliance gain it MEASURES.
+
+    `before`/`after` are not predicted. The emitted configuration is run back
+    through the same engine, so the delta is the number the tool would report
+    on the corrected device.
+    """
+
+    supported: bool = True
+    note: str = ""
+    changes: list[HardenedChangeOut] = Field(default_factory=list)
+    refused: list[HardenedRefusalOut] = Field(default_factory=list)
+    before: ScoreOut | None = None
+    after: ScoreOut | None = None
+    score_delta: float | None = None
+
+
 # --------------------------------------------------------------- analysis in
 class ReachQueryIn(BaseModel):
     """One reachability question against a single device.
