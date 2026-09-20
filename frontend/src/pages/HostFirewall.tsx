@@ -165,7 +165,7 @@ const HygieneView: FC<{ data: HygieneResponse }> = ({ data }) => {
             ['Unevaluable', s.unevaluable],
             ['Findings', s.findings],
           ].map(([label, value]) => (
-            <div key={label as string} className="rounded-xl border border-[rgba(100,150,220,0.14)] p-3">
+            <div key={label as string} className="rounded-xl border border-[var(--color-hairline)] p-3">
               <span className="block text-xl font-bold text-[var(--color-ink-navy)]">
                 {(value as number).toLocaleString()}
               </span>
@@ -176,7 +176,7 @@ const HygieneView: FC<{ data: HygieneResponse }> = ({ data }) => {
 
         {s.unevaluable > 0 && (
           <p className="mt-4 rounded-xl border border-[rgba(245,184,46,0.25)] bg-[rgba(245,184,46,0.06)] p-3 text-[12.5px] text-[var(--color-slate-gray)]">
-            <strong className="text-[#F5B82E]">
+            <strong className="text-[#b45309]">
               {s.unevaluable} of {s.rules_examined} rules could not be fully resolved.
             </strong>{' '}
             Their references point at objects this export does not contain.
@@ -194,14 +194,14 @@ const HygieneView: FC<{ data: HygieneResponse }> = ({ data }) => {
 
       {data.findings.length > 0 ? (
         <Card variant="default" className="overflow-hidden p-0">
-          <div className="border-b border-[rgba(100,150,220,0.12)] p-4">
+          <div className="border-b border-[var(--color-hairline)] p-4">
             <h4 className="text-sm font-bold text-[var(--color-ink-navy)]">
               Findings ({data.findings.length} shown)
             </h4>
           </div>
           <div className="max-h-[520px] overflow-y-auto">
             {data.findings.map((f, idx) => (
-              <div key={idx} className="border-b border-[rgba(100,150,220,0.08)] px-4 py-3 last:border-0">
+              <div key={idx} className="border-b border-[var(--color-hairline)] px-4 py-3 last:border-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={f.severity === 'high' ? 'critical' : f.severity === 'medium' ? 'warning' : 'default'}>
                     {f.kind.replace(/_/g, ' ')}

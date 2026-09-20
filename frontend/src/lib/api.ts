@@ -869,6 +869,16 @@ export const api = {
   health: () => request<HealthResponse>("/health"),
   platforms: () => request<PlatformInfo[]>("/platforms"),
   frameworks: () => request<FrameworksResponse>("/frameworks"),
+
+  /** What cited identifiers mean, as far as each licence allows: NIST and
+   *  DISA STIG come back with their published titles, CIS and ISO with the
+   *  document and number only. A control the catalogue cannot resolve comes
+   *  back null, so the page shows the bare id rather than inventing a gloss. */
+  frameworkControls: (framework: string, ids: string[]) =>
+    request<{ framework: string; controls: Record<string, string | null> }>(
+      `/framework-controls?framework=${encodeURIComponent(framework)}` +
+        `&ids=${encodeURIComponent(ids.join(','))}`,
+    ),
   aiGovernance: () => request<AiGovernanceResponse>("/ai-governance"),
 
   assessments: () => request<AssessmentSummary[]>("/assessments"),

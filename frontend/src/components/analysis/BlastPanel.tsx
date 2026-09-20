@@ -70,7 +70,7 @@ export const BlastPanel: FC<{ id: string }> = ({ id }) => {
             <select
               value={selected}
               onChange={(e) => setZone(e.target.value)}
-              className="rounded-xl border border-[rgba(100,150,220,0.2)] bg-[rgba(5,11,24,0.8)] px-3 py-2 text-sm text-[var(--color-ink-navy)]"
+              className="rounded-xl border border-[var(--color-hairline)] bg-[var(--color-pebble)] px-3 py-2 text-sm text-[var(--color-ink-navy)]"
             >
               {zones.data.source_zones.map((z) => (
                 <option key={z} value={z}>
@@ -83,7 +83,7 @@ export const BlastPanel: FC<{ id: string }> = ({ id }) => {
           <button
             onClick={() => run(selected)}
             disabled={!selected || busy}
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#1677FF] to-[#2D8CFF] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[var(--color-signal-blue)] to-[var(--color-signal-blue)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             <Crosshair className="h-4 w-4" />
             {busy ? 'Walking the policy…' : 'Compute blast radius'}
@@ -120,16 +120,16 @@ const BlastResult: FC<{ id: string; r: BlastResponse }> = ({ id, r }) => {
   return (
     <div className="space-y-4">
       {s.latent && s.paths_open > 0 && (
-        <div className="rounded-2xl border border-[rgba(245,184,46,0.3)] bg-[rgba(245,184,46,0.07)] p-4 text-[12.5px] leading-relaxed text-[#AAB8D0]">
-          <strong className="text-[#F5B82E]">Latent exposure.</strong> Nothing is
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-[12.5px] leading-relaxed text-[var(--color-slate-gray)]">
+          <strong className="text-[#b45309]">Latent exposure.</strong> Nothing is
           in {s.origin} today — no interface and no access point. The policy
           permits every path below, and they go live the moment something joins
           the zone, with no firewall change needed.
         </div>
       )}
       {s.origin_populated === true && (
-        <div className="rounded-2xl border border-[rgba(229,72,77,0.3)] bg-[rgba(229,72,77,0.06)] p-4 text-[12.5px] text-[#AAB8D0]">
-          <strong className="text-[#E5484D]">Live.</strong> {s.origin} contains{' '}
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-[12.5px] text-[var(--color-slate-gray)]">
+          <strong className="text-[#be123c]">Live.</strong> {s.origin} contains{' '}
           {s.origin_members.slice(0, 4).join(', ')}.
         </div>
       )}
@@ -149,7 +149,7 @@ const BlastResult: FC<{ id: string; r: BlastResponse }> = ({ id, r }) => {
       </div>
 
       {s.zones_fully_undecidable.length > 0 && (
-        <p className="rounded-xl border border-[rgba(100,150,220,0.16)] p-3 text-[12px] text-[#AAB8D0]">
+        <p className="rounded-xl border border-[var(--color-hairline)] p-3 text-[12px] text-[var(--color-slate-gray)]">
           <strong className="text-[var(--color-ink-navy)]">Unproven, not absent:</strong> every
           probe into {s.zones_fully_undecidable.join(', ')} was undecidable — no
           rule matched and this platform does not state its default policy.
@@ -168,7 +168,7 @@ const BlastResult: FC<{ id: string; r: BlastResponse }> = ({ id, r }) => {
             {steps.map((p) => (
               <div
                 key={`${p.protocol}${p.port}`}
-                className="flex items-center gap-2 rounded-lg bg-[rgba(5,11,24,0.8)] px-2 py-1 text-[12px]"
+                className="flex items-center gap-2 rounded-lg bg-[var(--color-pebble)] px-2 py-1 text-[12px]"
               >
                 {p.administrative ? (
                   <Badge variant="critical">admin</Badge>
@@ -250,15 +250,15 @@ const SimulateClose: FC<{ id: string; zone: string; rules: string[] }> = ({
 
       {out && (
         <div className="mt-4 space-y-3">
-          <p className="rounded-xl border border-[rgba(155,120,255,0.3)] bg-[rgba(155,120,255,0.06)] p-3 text-[12px] text-[#AAB8D0]">
+          <p className="rounded-xl border border-[rgba(155,120,255,0.3)] bg-[rgba(155,120,255,0.06)] p-3 text-[12px] text-[var(--color-slate-gray)]">
             {out.label}
           </p>
           {out.warnings.map((w) => (
             <p
               key={w}
-              className="rounded-xl border border-[rgba(229,72,77,0.3)] bg-[rgba(229,72,77,0.06)] p-3 text-[12.5px] text-[var(--color-ink-navy)]"
+              className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-[12.5px] text-[var(--color-ink-navy)]"
             >
-              <strong className="text-[#E5484D]">Not closed: </strong>
+              <strong className="text-[#be123c]">Not closed: </strong>
               {w}
             </p>
           ))}
@@ -279,7 +279,7 @@ const SimulateClose: FC<{ id: string; zone: string; rules: string[] }> = ({
               ))}
             </div>
           )}
-          <p className="text-[12px] text-[#AAB8D0]">
+          <p className="text-[12px] text-[var(--color-slate-gray)]">
             Compliance score {out.before.score_pct ?? '—'}% →{' '}
             <strong className="text-[var(--color-ink-navy)]">{out.after.score_pct ?? '—'}%</strong>{' '}
             on {out.before.assessed_pct}% → {out.after.assessed_pct}% coverage.

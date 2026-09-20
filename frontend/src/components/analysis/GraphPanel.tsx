@@ -22,13 +22,13 @@ import { useApi } from '../../lib/useApi';
 
 /** Colour a resolution state. UNRESOLVED must never look like a clean read. */
 function refTone(state: string): string {
-  if (state === 'RESOLVED') return 'text-[#32D6A8]';
+  if (state === 'RESOLVED') return 'text-[#047857]';
   if (state === 'UNSUPPORTED') return 'text-[#9B78FF]';
-  return 'text-[#F5B82E]';
+  return 'text-[#b45309]';
 }
 
 const RefList: FC<{ label: string; refs: ResolvedRef[] }> = ({ label, refs }) => (
-  <div className="rounded-lg border border-[rgba(100,150,220,0.14)] p-2.5">
+  <div className="rounded-lg border border-[var(--color-hairline)] p-2.5">
     <span className="text-[10.5px] uppercase tracking-wider text-[var(--color-slate-gray)]">
       {label}
     </span>
@@ -89,7 +89,7 @@ export const GraphPanel: FC<{ id: string }> = ({ id }) => {
           {tiles.map(([label, value]) => (
             <div
               key={label}
-              className="rounded-xl border border-[rgba(100,150,220,0.14)] p-3"
+              className="rounded-xl border border-[var(--color-hairline)] p-3"
             >
               <span className="block text-xl font-bold text-[var(--color-ink-navy)]">
                 {value}
@@ -108,9 +108,9 @@ export const GraphPanel: FC<{ id: string }> = ({ id }) => {
         </div>
 
         {s.untrusted_zones.length > 0 && (
-          <p className="mt-3 text-[12px] text-[#AAB8D0]">
+          <p className="mt-3 text-[12px] text-[var(--color-slate-gray)]">
             Untrusted zones:{' '}
-            <span className="font-mono text-[#F5B82E]">
+            <span className="font-mono text-[#b45309]">
               {s.untrusted_zones.join(', ')}
             </span>
           </p>
@@ -119,7 +119,7 @@ export const GraphPanel: FC<{ id: string }> = ({ id }) => {
         {/* An unordered platform has no shadowing, and the absence of shadow
             findings must not be mistaken for a tidy policy. */}
         {!data.ordered && (
-          <p className="mt-3 rounded-xl border border-[rgba(45,140,255,0.25)] bg-[rgba(45,140,255,0.06)] p-3 text-[12.5px] text-[#AAB8D0]">
+          <p className="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-[12.5px] text-[var(--color-slate-gray)]">
             <strong className="text-[var(--color-ink-navy)]">Unordered platform.</strong> Rules
             here are not evaluated top to bottom, so none can shadow another.
             Shadow and redundancy analysis is suppressed — its absence from the
@@ -129,7 +129,7 @@ export const GraphPanel: FC<{ id: string }> = ({ id }) => {
       </Card>
 
       <Card variant="default" className="overflow-hidden p-0">
-        <div className="border-b border-[rgba(100,150,220,0.12)] p-4">
+        <div className="border-b border-[var(--color-hairline)] p-4">
           <h4 className="text-sm font-bold text-[var(--color-ink-navy)]">
             Rules, with references resolved ({data.rules_shown.length} shown)
           </h4>
@@ -142,7 +142,7 @@ export const GraphPanel: FC<{ id: string }> = ({ id }) => {
           {data.rules_shown.map((r) => (
             <div
               key={r.id}
-              className="border-b border-[rgba(100,150,220,0.08)] p-4 last:border-0"
+              className="border-b border-[var(--color-hairline)] p-4 last:border-0"
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[11px] text-[var(--color-slate-gray)]">#{r.order}</span>
@@ -173,7 +173,7 @@ export const GraphPanel: FC<{ id: string }> = ({ id }) => {
               </div>
 
               {r.undecidable_for_ports && (
-                <p className="mt-2 text-[11.5px] text-[#F5B82E]">
+                <p className="mt-2 text-[11.5px] text-[#b45309]">
                   Cannot decide a port question alone: {r.undecidable_for_ports}
                 </p>
               )}

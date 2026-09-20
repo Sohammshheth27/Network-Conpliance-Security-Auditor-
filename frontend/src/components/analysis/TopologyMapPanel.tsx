@@ -38,7 +38,7 @@ export const TopologyMapPanel: FC<{ id: string }> = ({ id }) => {
   return (
     <div className="space-y-4">
       <Card variant="default" className="flex flex-wrap items-center justify-between gap-3 p-4">
-        <p className="max-w-3xl text-[12.5px] text-[#AAB8D0]">
+        <p className="max-w-3xl text-[12.5px] text-[var(--color-slate-gray)]">
           Drawn from the configuration, not live discovery: it shows the zones,
           subnets, uplinks and VPN sites the device is configured for. Dashed
           zones exist in the policy with nothing assigned. Red arrows are
@@ -47,7 +47,7 @@ export const TopologyMapPanel: FC<{ id: string }> = ({ id }) => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setRedact((r) => !r)}
-            className="flex items-center gap-2 rounded-xl border border-[rgba(100,150,220,0.2)] px-3 py-2 text-xs font-semibold text-[#DDE7F7]"
+            className="flex items-center gap-2 rounded-xl border border-[var(--color-hairline)] px-3 py-2 text-xs font-semibold text-[var(--color-ink-navy)]"
           >
             <EyeOff className="h-3.5 w-3.5" />
             {redact ? 'Show real addresses & names' : 'Redact public IPs & site names'}
@@ -56,7 +56,7 @@ export const TopologyMapPanel: FC<{ id: string }> = ({ id }) => {
             <a
               href={url}
               download={`topology-${id}${redact ? '-redacted' : ''}.svg`}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#1677FF] to-[#2D8CFF] px-3 py-2 text-xs font-semibold text-white"
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[var(--color-signal-blue)] to-[var(--color-signal-blue)] px-3 py-2 text-xs font-semibold text-white"
             >
               <Download className="h-3.5 w-3.5" />
               Download SVG
@@ -68,7 +68,7 @@ export const TopologyMapPanel: FC<{ id: string }> = ({ id }) => {
       {svg.loading && <Loading label="Drawing topology" />}
       {svg.error && <ErrorPanel error={svg.error} onRetry={svg.reload} />}
       {url && !svg.loading && (
-        <div className="overflow-x-auto rounded-2xl border border-[rgba(100,150,220,0.14)]">
+        <div className="overflow-x-auto rounded-2xl border border-[var(--color-hairline)]">
           <img src={url} alt="Device topology derived from configuration" className="block min-w-[1100px] w-full" />
         </div>
       )}

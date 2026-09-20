@@ -38,13 +38,13 @@ const ReportAndHistory: FC<{ aid: string }> = ({ aid }) => {
   };
 
   const link =
-    'inline-flex items-center gap-1.5 rounded-full border border-[var(--color-hairline)] px-3 py-1.5 text-xs font-semibold text-[var(--color-ink-navy)] hover:border-[#1677FF]';
+    'inline-flex items-center gap-1.5 rounded-full border border-[var(--color-hairline)] px-3 py-1.5 text-xs font-semibold text-[var(--color-ink-navy)] hover:border-[var(--color-signal-blue)]';
 
   return (
     <Card variant="default" className="p-6 space-y-5">
       <div>
         <h3 className="flex items-center gap-2 text-sm font-bold text-[var(--color-ink-navy)]">
-          <FileDown className="h-4 w-4 text-[#2D8CFF]" /> Assessment report
+          <FileDown className="h-4 w-4 text-[var(--color-signal-blue)]" /> Assessment report
         </h3>
         <div className="mt-3 flex flex-wrap gap-2">
           {/* Buttons, not links: a link cannot carry the API token. */}
@@ -100,10 +100,10 @@ const ReportAndHistory: FC<{ aid: string }> = ({ aid }) => {
         )}
       </div>
 
-      <div className="border-t border-[rgba(100,150,220,0.12)] pt-4">
+      <div className="border-t border-[var(--color-hairline)] pt-4">
         <div className="flex items-center justify-between gap-3">
           <h3 className="flex items-center gap-2 text-sm font-bold text-[var(--color-ink-navy)]">
-            <History className="h-4 w-4 text-[#2D8CFF]" /> Framework scores over time
+            <History className="h-4 w-4 text-[var(--color-signal-blue)]" /> Framework scores over time
           </h3>
           <button onClick={record} disabled={saving} className={link}>
             {saving ? 'Recording…' : 'Record snapshot'}
@@ -124,7 +124,7 @@ const ReportAndHistory: FC<{ aid: string }> = ({ aid }) => {
               </thead>
               <tbody className="text-[var(--color-ink-navy)]">
                 {points.map((p) => (
-                  <tr key={p.taken_at} className="border-t border-[rgba(100,150,220,0.1)]">
+                  <tr key={p.taken_at} className="border-t border-[var(--color-hairline)]">
                     <td className="py-1.5 pr-4 font-mono text-[11.5px]">{p.taken_at}</td>
                     <td className="py-1.5 pr-4 text-right">{pct(p.score_pct)}</td>
                     {FRAMEWORKS.map(([key]) => (

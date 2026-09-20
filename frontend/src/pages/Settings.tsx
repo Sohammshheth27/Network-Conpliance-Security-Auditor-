@@ -31,7 +31,7 @@ const ApiAccess: FC = () => {
   return (
     <Card variant="default" className="p-6">
       <h3 className="mb-1 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[var(--color-ink-navy)]">
-        <KeyRound className="h-4 w-4 text-[#2D8CFF]" /> API access
+        <KeyRound className="h-4 w-4 text-[var(--color-signal-blue)]" /> API access
       </h3>
       <p className="mb-3 text-[12.5px] text-[var(--color-slate-gray)]">
         Needed only when the engine is started with <code className="font-mono">NCSA_API_TOKEN</code>.
@@ -44,19 +44,19 @@ const ApiAccess: FC = () => {
           onChange={(e) => setValue(e.target.value)}
           placeholder={saved ? 'token saved — enter a new one to replace it' : 'API token'}
           autoComplete="off"
-          className="min-w-[240px] flex-1 rounded-xl border border-[var(--color-hairline)] bg-white px-3 py-2 text-xs text-[var(--color-ink-navy)] focus:border-[#1677FF] focus:outline-none"
+          className="min-w-[240px] flex-1 rounded-xl border border-[var(--color-hairline)] bg-white px-3 py-2 text-xs text-[var(--color-ink-navy)] focus:border-[var(--color-signal-blue)] focus:outline-none"
         />
         <button
           onClick={() => store(value.trim())}
           disabled={!value.trim()}
-          className="rounded-full border border-[var(--color-hairline)] px-3 py-1.5 text-xs font-semibold text-[var(--color-ink-navy)] hover:border-[#1677FF] disabled:opacity-50"
+          className="rounded-full border border-[var(--color-hairline)] px-3 py-1.5 text-xs font-semibold text-[var(--color-ink-navy)] hover:border-[var(--color-signal-blue)] disabled:opacity-50"
         >
           Save
         </button>
         {saved && (
           <button
             onClick={() => store('')}
-            className="rounded-full border border-[rgba(229,72,77,0.4)] px-3 py-1.5 text-xs font-semibold text-[#E5484D]"
+            className="rounded-full border border-rose-200 px-3 py-1.5 text-xs font-semibold text-[#be123c]"
           >
             Clear
           </button>
@@ -80,7 +80,7 @@ const Monitoring: FC = () => {
     }
   };
   const btn =
-    'rounded-full border border-[var(--color-hairline)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-ink-navy)] hover:border-[#1677FF] disabled:opacity-50';
+    'rounded-full border border-[var(--color-hairline)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-ink-navy)] hover:border-[var(--color-signal-blue)] disabled:opacity-50';
   return (
     <Card variant="default" className="p-6">
       <h3 className="mb-1 text-sm font-bold uppercase tracking-wider text-[var(--color-ink-navy)]">
@@ -111,7 +111,7 @@ const Monitoring: FC = () => {
             </thead>
             <tbody className="text-[var(--color-ink-navy)]">
               {mon.data.jobs.map((j) => (
-                <tr key={j.job_id} className="border-t border-[rgba(100,150,220,0.1)]">
+                <tr key={j.job_id} className="border-t border-[var(--color-hairline)]">
                   <td className="py-1.5 pr-3 font-mono">{j.host}</td>
                   <td className="py-1.5 pr-3">{j.interval_minutes} min</td>
                   <td className="py-1.5 pr-3 font-mono text-[11px]">{j.last_run ?? 'never'}</td>
@@ -132,7 +132,7 @@ const Monitoring: FC = () => {
         </div>
       )}
       {mon.data && mon.data.alerts.length > 0 && (
-        <ul className="mt-4 space-y-1 text-[12px] text-[#AAB8D0]">
+        <ul className="mt-4 space-y-1 text-[12px] text-[var(--color-slate-gray)]">
           {mon.data.alerts.slice(0, 20).map((a) => (
             <li key={a.alert_id}>
               <span className="font-mono text-[11px] text-[var(--color-slate-gray)]">{a.at}</span>{' '}

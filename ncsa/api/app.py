@@ -1402,6 +1402,38 @@ def attack_coverage():
     return _memoised("attack", _stamp(Path("rules"), Path(BUNDLE)), build)
 
 
+@app.get("/framework-controls", tags=["meta"])
+def framework_controls(framework: str, ids: str = Query("")):
+    """What a cited identifier actually says -- as far as its licence allows.
+
+    "AU-2" tells an operator nothing. The catalogue knows it is "Event
+    Logging", and for NIST and DISA STIG -- both public domain -- we may say
+    so. CIS and ISO are identifier-only, so `citation()` returns the source
+    document and the number and never the prose. That is the same rule the PDF
+    report follows, enforced in one place rather than re-decided per surface.
+    """
+    from ..frameworks.models import Framework
+    from ..frameworks.registry import CACHE_PATH, load_all
+
+    try:
+        fw = Framework(framework)
+    except ValueError:
+        raise HTTPException(
+            422, f"unknown framework: {framework}") from None
+
+    reg = _memoised("registry", _stamp(CACHE_PATH),
+                    lambda: load_all("reference"))
+    cat = reg.catalogs.get(fw)
+    wanted = [i.strip() for i in ids.split(",") if i.strip()][:200]
+    out: dict[str, str | None] = {}
+    for i in wanted:
+        entry = cat.by_id(i) if cat else None
+        # None, not a guess: an id we cannot resolve is reported as such so the
+        # page shows the bare identifier rather than inventing a description.
+        out[i] = entry.citation() if entry else None
+    return {"framework": framework, "controls": out}
+
+
 @app.get("/frameworks", tags=["meta"])
 def frameworks():
     from ..frameworks.registry import CACHE_PATH, load_all

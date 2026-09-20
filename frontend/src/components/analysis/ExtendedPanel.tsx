@@ -61,7 +61,7 @@ export const ExtendedPanel: FC<{ id: string }> = ({ id }) => {
 
   return (
     <div className="space-y-4">
-      <p className="rounded-2xl border border-[rgba(100,150,220,0.14)] bg-[rgba(14,27,50,0.4)] p-3 text-[12.5px] text-[#AAB8D0]">
+      <p className="rounded-2xl border border-[var(--color-hairline)] bg-[rgba(14,27,50,0.4)] p-3 text-[12.5px] text-[var(--color-slate-gray)]">
         {data.scope}
       </p>
       {ORDER.filter((k) => data.domains[k]).map((k) => (
@@ -81,7 +81,7 @@ const DomainCard: FC<{ name: string; d: ExtendedDomain }> = ({ name, d }) => {
     <Card variant="default" className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[rgba(22,119,255,0.14)] text-[#2D8CFF]">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-[var(--color-signal-blue)]">
             <Icon className="h-4 w-4" />
           </div>
           <div>
@@ -130,7 +130,7 @@ const DomainCard: FC<{ name: string; d: ExtendedDomain }> = ({ name, d }) => {
 };
 
 const FindingRow: FC<{ f: ExtendedFinding }> = ({ f }) => (
-  <div className="rounded-xl border border-[rgba(100,150,220,0.14)] p-3">
+  <div className="rounded-xl border border-[var(--color-hairline)] p-3">
     <div className="flex flex-wrap items-center gap-2">
       <Badge variant={STATE_VARIANT[f.state]}>{f.state.replace('_', ' ')}</Badge>
       <span className="text-[11px] uppercase tracking-wider text-[var(--color-slate-gray)]">
@@ -139,13 +139,13 @@ const FindingRow: FC<{ f: ExtendedFinding }> = ({ f }) => (
       <span className="font-mono text-[11px] text-[var(--color-slate-gray)]">{f.check_id}</span>
       <span className="text-[12.5px] font-semibold text-[var(--color-ink-navy)]">{f.scope}</span>
     </div>
-    <p className="mt-1 text-[12.5px] text-[#AAB8D0]">
+    <p className="mt-1 text-[12.5px] text-[var(--color-slate-gray)]">
       <span className="text-[var(--color-ink-navy)]">{f.title}.</span> {f.reason}
     </p>
     {f.evidence.slice(0, 3).map((e, i) => (
       <div
         key={i}
-        className="mt-1.5 flex items-baseline gap-2 rounded-lg bg-[rgba(5,11,24,0.8)] px-2 py-1"
+        className="mt-1.5 flex items-baseline gap-2 rounded-lg bg-[var(--color-pebble)] px-2 py-1"
       >
         <span className="shrink-0 font-mono text-[10.5px] text-[var(--color-slate-gray)]">
           {locate(e)}
@@ -161,7 +161,7 @@ const FindingRow: FC<{ f: ExtendedFinding }> = ({ f }) => (
           <span
             key={t.id}
             title={t.why}
-            className="rounded-full border border-[rgba(229,72,77,0.25)] px-2 py-0.5 font-mono text-[10.5px] text-[#E5484D]"
+            className="rounded-full border border-rose-200 px-2 py-0.5 font-mono text-[10.5px] text-[#be123c]"
           >
             ATT&amp;CK {t.id} · {t.name}
           </span>
@@ -169,7 +169,7 @@ const FindingRow: FC<{ f: ExtendedFinding }> = ({ f }) => (
         {f.nist_800_53.map((n) => (
           <span
             key={n}
-            className="rounded-full border border-[rgba(100,150,220,0.2)] px-2 py-0.5 font-mono text-[10.5px] text-[#AAB8D0]"
+            className="rounded-full border border-[var(--color-hairline)] px-2 py-0.5 font-mono text-[10.5px] text-[var(--color-slate-gray)]"
           >
             NIST {n}
           </span>
@@ -194,10 +194,10 @@ const CveTable: FC<{ rows: Record<string, unknown>[] }> = ({ rows }) => (
         {rows.map((r) => {
           const refs = (r.references as string[] | undefined) ?? [];
           return (
-            <tr key={String(r.id)} className="border-t border-[rgba(100,150,220,0.1)]">
+            <tr key={String(r.id)} className="border-t border-[var(--color-hairline)]">
               <td className="py-1.5 pr-3 font-mono">
                 {refs[0] ? (
-                  <a href={refs[0]} target="_blank" rel="noreferrer" className="text-[#2D8CFF] hover:underline">
+                  <a href={refs[0]} target="_blank" rel="noreferrer" className="text-[var(--color-signal-blue)] hover:underline">
                     {String(r.id)}
                   </a>
                 ) : (
@@ -212,7 +212,7 @@ const CveTable: FC<{ rows: Record<string, unknown>[] }> = ({ rows }) => (
                   <span className="text-[var(--color-slate-gray)]">not listed</span>
                 )}
               </td>
-              <td className="py-1.5 font-mono text-[11px] text-[#AAB8D0]">
+              <td className="py-1.5 font-mono text-[11px] text-[var(--color-slate-gray)]">
                 {String(r.matched_on)}
               </td>
             </tr>
@@ -241,13 +241,13 @@ const VpnTable: FC<{ rows: Record<string, unknown>[] }> = ({ rows }) => {
         </thead>
         <tbody className="text-[var(--color-ink-navy)]">
           {rows.map((r) => (
-            <tr key={String(r.name)} className="border-t border-[rgba(100,150,220,0.1)]">
+            <tr key={String(r.name)} className="border-t border-[var(--color-hairline)]">
               <td className="py-1.5 pr-3">{String(r.name)}</td>
               <td className="py-1.5 pr-3">{yes(r.enabled)}</td>
-              <td className={`py-1.5 pr-3 ${r.enabled !== false && r.pfs === false ? 'text-[#E5484D]' : ''}`}>
+              <td className={`py-1.5 pr-3 ${r.enabled !== false && r.pfs === false ? 'text-[#be123c]' : ''}`}>
                 {yes(r.pfs)}
               </td>
-              <td className={`py-1.5 pr-3 ${r.enabled !== false && r.anti_replay === false ? 'text-[#E5484D]' : ''}`}>
+              <td className={`py-1.5 pr-3 ${r.enabled !== false && r.anti_replay === false ? 'text-[#be123c]' : ''}`}>
                 {yes(r.anti_replay)}
               </td>
               <td className="py-1.5 pr-3 font-mono text-[11px]">

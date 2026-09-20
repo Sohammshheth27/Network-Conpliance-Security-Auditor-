@@ -31,11 +31,21 @@ import { AnalysisTabs } from '../components/analysis/AnalysisTabs';
 
 type DetailTab = 'overview' | 'execution' | 'findings' | 'compliance' | 'analysis';
 
-/** The framework an organisation aligns to, or all of them. */
-type FrameworkKey = 'all' | 'nist_800_53' | 'iso_27001' | 'cis_ids' | 'stig_ids';
+/** The framework an organisation aligns to. There is no "all": see below. */
+type FrameworkKey = 'nist_800_53' | 'iso_27001' | 'cis_ids' | 'stig_ids';
+
+/** UI key -> the catalogue's own name, for resolving what an id means. */
+const CATALOGUE: Record<FrameworkKey, string> = {
+  nist_800_53: 'nist_800_53',
+  iso_27001: 'iso_27001_2022',
+  cis_ids: 'cis',
+  stig_ids: 'disa_stig',
+};
 
 const FRAMEWORK_TABS: { key: FrameworkKey; label: string }[] = [
-  { key: 'all', label: 'All frameworks' },
+  // No "all" option on purpose: an organisation aligns to a framework, and the
+  // question this page answers is "what does MINE require of this device".
+  // Anything failing badly still appears whatever is chosen -- see isUrgent.
   { key: 'nist_800_53', label: 'NIST 800-53' },
   { key: 'iso_27001', label: 'ISO 27001' },
   { key: 'cis_ids', label: 'CIS' },
@@ -51,7 +61,7 @@ const CITATIONS = [
 
 /** How many findings cite one framework. Takes the key already narrowed away
  *  from 'all', because TypeScript drops that narrowing inside a callback. */
-const countCiting = (rows: Finding[], key: Exclude<FrameworkKey, 'all'>) =>
+const countCiting = (rows: Finding[], key: FrameworkKey) =>
   rows.filter((f) => (f.frameworks?.[key]?.length ?? 0) > 0).length;
 
 /** A value as the engine reported it. Null and empty are shown as a dash
@@ -68,7 +78,7 @@ const AssessmentDetail: FC = () => {
   const [pdfError, setPdfError] = useState<any>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [findingFilter, setFindingFilter] = useState<'all' | Severity>('all');
-  const [frameworkFilter, setFrameworkFilter] = useState<FrameworkKey>('all');
+  const [frameworkFilter, setFrameworkFilter] = useState<FrameworkKey>('nist_800_53');
   const [expandedFinding, setExpandedFinding] = useState<string | null>(null);
 
   const { data, loading, error, reload } = useApi<Assessment>(
@@ -85,10 +95,8 @@ const AssessmentDetail: FC = () => {
     (f.severity === 'critical' || f.severity === 'high') &&
     (f.state === 'FAIL' || f.state === 'PARTIAL');
 
-  const citesSelected = (f: Finding) => {
-    if (frameworkFilter === 'all') return true;
-    return (f.frameworks?.[frameworkFilter]?.length ?? 0) > 0;
-  };
+  const citesSelected = (f: Finding) =>
+    (f.frameworks?.[frameworkFilter]?.length ?? 0) > 0;
 
   const findings = useMemo(() => {
     if (!data) return [];
@@ -99,6 +107,25 @@ const AssessmentDetail: FC = () => {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, findingFilter, frameworkFilter]);
+
+  /** Every identifier the selected framework cites on this device, resolved to
+   *  what it actually says. "AU-2" is not an answer to "why does this matter";
+   *  "AU-2: Event Logging" is. The engine resolves it only as far as each
+   *  licence allows -- CIS and ISO come back as the document and number, never
+   *  their prose -- so this shows whatever it is given and nothing more. */
+  const citedIds = useMemo(() => {
+    const seen = new Set<string>();
+    (data?.findings ?? []).forEach((f) =>
+      (f.frameworks?.[frameworkFilter] ?? []).forEach((i) => seen.add(i)),
+    );
+    return [...seen].sort();
+  }, [data, frameworkFilter]);
+
+  const clauses = useApi(
+    () => api.frameworkControls(CATALOGUE[frameworkFilter], citedIds),
+    [frameworkFilter, citedIds.join(',')],
+    { enabled: citedIds.length > 0 },
+  );
 
   if (loading) return <Loading label="Loading assessment" />;
   if (error) return <ErrorPanel error={error} onRetry={reload} />;
@@ -122,6 +149,10 @@ const AssessmentDetail: FC = () => {
   const someFrameworkUnscored = frameworkScores.some(
     (f) => f.framework_score_pct === null,
   );
+  /** The frameworks that actually produced a score for this device. */
+  const scoredFrameworks = frameworkScores
+    .filter((f) => f.framework_score_pct !== null)
+    .map((f) => f.name);
   const bySeverity = failuresBySeverity(data.findings);
   const totalFindingsCount = data.findings.length;
   const assessmentDisplayId = id?.startsWith('NCSA') ? id : `NCSA-2026-${id?.slice(0, 4).toUpperCase() || '0014'}`;
@@ -229,7 +260,13 @@ const AssessmentDetail: FC = () => {
                         </div>
                         {f.framework_score_pct !== null && (
                           <span className="text-[10px] text-[var(--color-mist-gray)] block mt-0.5">
-                            {f.requirements_met} / {f.requirements} requirements met
+                            {/* Denominator is requirements ASSESSED, matching the
+                                PDF report. Using the full requirement count here
+                                and the assessed count there made one fact look
+                                like two different numbers. */}
+                            {f.requirements_met} / {f.requirements_decided} met
+                            {f.requirements > f.requirements_decided &&
+                              ` · ${f.requirements - f.requirements_decided} undecided`}
                           </span>
                         )}
                       </div>
@@ -369,7 +406,16 @@ const AssessmentDetail: FC = () => {
                   <div className="w-2 h-2 rounded-full bg-[var(--color-slate-gray)] mt-1.5 shrink-0 z-10 shadow-[0_0_0_4px_white]" />
                   <div>
                     <div className="text-sm font-bold text-[var(--color-ink-navy)] mb-0.5">Rules Applied</div>
-                    <div className="text-xs text-[var(--color-slate-gray)] font-medium">Mapped against CIS, NIST, and PCI-DSS frameworks.</div>
+                    {/* Was hardcoded to "CIS, NIST, and PCI-DSS", which this
+                        device contradicts three lines above: CIS published no
+                        requirements for SonicOS and PCI was never part of the
+                        run. A log that states what did not happen is worse
+                        than no log. */}
+                    <div className="text-xs text-[var(--color-slate-gray)] font-medium">
+                      {scoredFrameworks.length
+                        ? `Scored against ${scoredFrameworks.join(', ')}.`
+                        : 'No framework published requirements for this platform.'}
+                    </div>
                   </div>
                 </div>
                 <div className="flex gap-4 relative">
@@ -455,10 +501,7 @@ const AssessmentDetail: FC = () => {
                   Align to
                 </span>
                 {FRAMEWORK_TABS.map((t) => {
-                  const count =
-                    t.key === 'all'
-                      ? data.findings.length
-                      : countCiting(data.findings, t.key);
+                  const count = countCiting(data.findings, t.key);
                   return (
                     <button
                       key={t.key}
@@ -473,11 +516,9 @@ const AssessmentDetail: FC = () => {
                     </button>
                   );
                 })}
-                {frameworkFilter !== 'all' && (
-                  <span className="text-[11px] text-[var(--color-slate-gray)]">
-                    plus critical and high failures from every framework
-                  </span>
-                )}
+                <span className="text-[11px] text-[var(--color-slate-gray)]">
+                  plus critical and high failures from every framework
+                </span>
               </div>
 
               {findings.length === 0 ? (
@@ -532,7 +573,7 @@ const AssessmentDetail: FC = () => {
                             </td>
                             <td className="px-4 py-3.5 font-bold text-[var(--color-ink-navy)] group-hover:text-[var(--color-signal-blue)] transition-colors">
                               {f.title}
-                              {frameworkFilter !== 'all' && !citesSelected(f) && (
+                              {!citesSelected(f) && (
                                 <span className="ml-2 align-middle px-2 py-0.5 rounded-full bg-rose-50 border border-rose-200 text-[10px] font-bold text-rose-700">
                                   Urgent · outside this framework
                                 </span>
@@ -542,10 +583,7 @@ const AssessmentDetail: FC = () => {
                               {f.control_id}
                             </td>
                             <td className="px-4 py-3.5 font-mono text-[11px] text-[var(--color-slate-gray)]">
-                              {(frameworkFilter !== 'all'
-                                ? f.frameworks?.[frameworkFilter]?.join(', ')
-                                : f.frameworks?.nist_800_53?.[0] ||
-                                  f.frameworks?.cis_ids?.[0]) || 'Unmapped'}
+                              {f.frameworks?.[frameworkFilter]?.join(', ') || 'Unmapped'}
                             </td>
                             <td className="px-4 py-3.5">
                               <span className={`inline-flex px-2 py-0.5 rounded-full text-[10.5px] font-semibold border ${
@@ -622,6 +660,24 @@ const AssessmentDetail: FC = () => {
                                       {CITATIONS.map(({ key, label }) => {
                                         const ids = f.frameworks?.[key] ?? [];
                                         if (!ids.length) return null;
+                                        // The selected framework is spelled out
+                                        // clause by clause; the others stay a
+                                        // compact chip so the panel is readable.
+                                        if (key === frameworkFilter) {
+                                          return (
+                                            <div key={key} className="w-full space-y-1">
+                                              {ids.map((id) => (
+                                                <div
+                                                  key={id}
+                                                  className="px-2 py-1 rounded-lg bg-[var(--color-cloud)] border border-[var(--color-hairline)] text-[11px] text-[var(--color-ink-navy)]"
+                                                >
+                                                  <span className="font-semibold">{label} </span>
+                                                  {clauses.data?.controls?.[id] ?? id}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          );
+                                        }
                                         return (
                                           <span
                                             key={key}

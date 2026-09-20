@@ -93,7 +93,7 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
 
       {out && (
         <Card variant="default" className="space-y-3 p-5">
-          <p className="rounded-xl border border-[rgba(155,120,255,0.3)] bg-[rgba(155,120,255,0.06)] p-3 text-[12px] text-[#AAB8D0]">
+          <p className="rounded-xl border border-[rgba(155,120,255,0.3)] bg-[rgba(155,120,255,0.06)] p-3 text-[12px] text-[var(--color-slate-gray)]">
             {out.label}
           </p>
           <div className="grid grid-cols-2 gap-3">
@@ -122,7 +122,7 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
                   <Badge variant="critical">{c.before}</Badge>
                   <span className="text-[var(--color-slate-gray)]">→</span>
                   <Badge variant={c.after === 'PASS' ? 'success' : 'warning'}>{c.after}</Badge>
-                  <span className="text-[#AAB8D0]">{c.title}</span>
+                  <span className="text-[var(--color-slate-gray)]">{c.title}</span>
                   {!c.targeted && <Badge variant="info">side effect</Badge>}
                 </div>
               ))}
@@ -132,9 +132,9 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
           {out.rejected.map((r) => (
             <div
               key={r.item}
-              className="rounded-xl border border-[rgba(245,184,46,0.3)] bg-[rgba(245,184,46,0.06)] p-3 text-[12.5px] text-[#AAB8D0]"
+              className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12.5px] text-[var(--color-slate-gray)]"
             >
-              <strong className="text-[#F5B82E]">{r.item} not simulated: </strong>
+              <strong className="text-[#b45309]">{r.item} not simulated: </strong>
               {r.reason}
               {r.suggest_disable_rules && r.suggest_disable_rules.length > 0 && (
                 <span className="mt-1 block font-mono text-[11px] text-[var(--color-ink-navy)]">
