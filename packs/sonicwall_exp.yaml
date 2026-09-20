@@ -24,6 +24,15 @@ version: "3.0"
 # different result.
 verified_versions: ["7.3.0"]
 
+# The `.exp` lists EVERY setting the appliance has -- 92,635 of them, whether
+# configured or not -- so a mapping that matches no record is a key WE named
+# wrongly, never a setting the device lacks. Three mappings are in that state
+# (`policyNgName*`, `uuidIpsObjEnable`, `uuidGavObjEnable`) and each produced a
+# verdict from silence: two FAILs asserting a violation we had no evidence for,
+# and `max_count 1` on local accounts PASSING because a dead `adminName*`
+# returned zero accounts.
+exhaustive: true
+
 supported_domains: [device, management, authentication, authorization,
                     logging, time, snmp, banner, crypto, interfaces,
                     firewall, security, platform, exposure, l2, routing]

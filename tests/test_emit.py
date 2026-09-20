@@ -133,14 +133,25 @@ def test_nothing_unreadable_is_touched(emitted):
 
 
 @sw_only
-def test_a_dead_mapping_is_refused_as_never_read(emitted):
+def test_a_dead_mapping_never_produces_a_change(emitted):
     """`uuidIpsObjEnable` matches none of the 92,635 records, so the engine has
-    no evidence IPS is off. Emitting a fix would toggle a security service on a
-    device whose state was never read."""
-    _da, em = emitted
-    reasons = {r.control_id: r.reason for r in em.refused}
-    assert "NCSA-EXT-039" in reasons
-    assert "matched no record" in reasons["NCSA-EXT-039"]
+    no evidence IPS is off, and a "fix" would toggle a security service on a
+    device whose state was never read.
+
+    This used to be caught HERE, as an emitter refusal. It is now caught a
+    layer earlier: the pack declares itself `exhaustive`, so a mapping that
+    matches nothing leaves its field unset and the control reports UNKNOWN.
+    The emitter only ever considers FAIL, so these never reach it at all --
+    a better place to stop it, and the reason this no longer looks for a
+    refusal.
+    """
+    da, em = emitted
+    changed = {c.control_id for c in em.changes}
+    for cid in ("NCSA-EXT-039", "NCSA-EXT-040", "NCSA-CAT-006"):
+        finding = next(f for f in da.assessment.findings if f.control_id == cid)
+        assert finding.state.value == "UNKNOWN", (
+            f"{cid} rules {finding.state.value} on a field no record populates")
+        assert cid not in changed
 
 
 @sw_only
@@ -195,7 +206,10 @@ def test_the_gain_is_measured_not_predicted(emitted):
     assert result["after"]["score_pct"] > result["before"]["score_pct"]
     assert result["score_delta"] == round(
         result["after"]["score_pct"] - result["before"]["score_pct"], 1)
-    # Hardening moves FAIL and PASS. It cannot move UNKNOWN: there is nothing
-    # on the device to correct for a setting we never read.
-    assert result["after"]["states"]["UNKNOWN"] == result["before"]["states"]["UNKNOWN"]
+    # Hardening cannot RESOLVE an unknown -- there is nothing on the device to
+    # correct for a setting we never read. It can, however, REVEAL one:
+    # enabling HTTPS management activates NCSA-HTTPS-001, which was moot while
+    # the service was off, and whose `tlsMinVersion` mapping matches no record
+    # in this export. So the count may rise; it must never fall.
+    assert result["after"]["states"]["UNKNOWN"] >= result["before"]["states"]["UNKNOWN"]
     assert result["after"]["states"]["FAIL"] < result["before"]["states"]["FAIL"]

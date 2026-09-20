@@ -72,7 +72,16 @@ def test_a_netmask_is_never_touched(mask):
 def test_redacted_sonicwall_equals_unredacted():
     raw = _sw(False)
     red = _sw(True)
-    assert (red.coverage()["score_pct"], red.coverage()["assessed_pct"]) == (40.0, 74.6)
+    # 41.3 / 68.7 since 20 Sep, deliberately. Four controls rested on mappings
+    # that match none of the 92,635 records, so the engine ruled on silence:
+    # two FAILs asserting a violation it had no evidence for, and -- worse --
+    # `max_count 1` on local accounts PASSING because a dead `adminName*`
+    # returned zero accounts. They are UNKNOWN now, which is why coverage FELL
+    # while the score rose: four controls left the decided set.
+    #
+    # This assertion is the point. A score must never move quietly, and it
+    # caught this move the moment the pack was flagged `exhaustive`.
+    assert (red.coverage()["score_pct"], red.coverage()["assessed_pct"]) == (41.3, 68.7)
     assert red.coverage() == raw.coverage()
     states = lambda da: {f.control_id: f.state.value for f in da.assessment.findings}
     assert states(red) == states(raw)

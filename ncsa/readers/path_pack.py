@@ -53,6 +53,13 @@ def apply_path_pack(
         if "*" in path:
             hits = cfg.glob(path)
             if not hits:
+                if pack.exhaustive and m.if_absent is None:
+                    # The source lists every setting, so a glob matching none
+                    # of them is a dead mapping -- our blind spot, not the
+                    # device's absence. Leaving the field unset makes the
+                    # control UNKNOWN instead of letting an operator rule on a
+                    # value nobody read.
+                    continue
                 sbm.set(field, Observation.not_observed(field_path=field))
                 continue
             seg = m.scope_from if m.scope_from is not None else _wildcard_index(path)
@@ -108,6 +115,13 @@ def apply_path_pack(
                 continue
             if m.if_absent is not None:
                 sbm.set(field, Observation.default_assumed(m.if_absent, field_path=field))
+            elif pack.exhaustive:
+                # As above: on a source that lists everything, a key that is
+                # absent is a key we named wrongly. `uuidIpsObjEnable` occurs
+                # in none of the 92,635 records, so we have no evidence about
+                # IPS at all -- and reporting FAIL there asserts a violation
+                # from silence.
+                pass
             else:
                 sbm.set(field, Observation.not_observed(field_path=field))
             continue

@@ -133,6 +133,26 @@ class Pack(BaseModel):
         if isinstance(naf, dict):
             return naf.get(field)
         return "" if field in (naf or []) else None
+    exhaustive: bool = Field(
+        default=False,
+        description=(
+            "This source lists EVERY setting the platform has, so a mapping "
+            "that matches nothing is OUR error, not the device's absence.\n\n"
+            "A SonicOS `.exp` carries all 92,635 settings whether or not they "
+            "are configured; a Cisco running-config carries only what differs "
+            "from default. So the same silence means opposite things: on the "
+            "export, `uuidIpsObjEnable` matching no record proves the key name "
+            "is wrong, while on IOS an absent `ip http server` line proves the "
+            "server is off.\n\n"
+            "Where it is true, a mapping that matches nothing leaves its field "
+            "UNSET -- the control then reports UNKNOWN rather than letting the "
+            "operator rule on a value we never read. Without it, "
+            "`max_count 1` on local accounts PASSED because a dead mapping "
+            "returned zero accounts: a false pass manufactured from a blind "
+            "spot. `if_absent` still wins, because a declared platform default "
+            "is a claim we chose to make."
+        ),
+    )
     fingerprint: list[str] = Field(default_factory=list)
     mappings: list[Mapping] = Field(default_factory=list)
     derivations: list[Derivation] = Field(default_factory=list)
