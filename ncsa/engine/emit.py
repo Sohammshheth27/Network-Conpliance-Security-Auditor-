@@ -263,6 +263,41 @@ def emit_sonicos(device_assessment, source: str | Path, *, controls_by_id,
     return out
 
 
+def as_exp(text: str) -> bytes:
+    """The IMPORTABLE form of an emitted configuration.
+
+    SonicOS ingests a `.exp`, which is base64 of the URL-encoded `key=value`
+    blob -- exactly what `readers.sonicos_exp.decode` undoes. The emitter works
+    on the decoded text, so handing an operator that text would hand them a
+    file the appliance does not accept: the right settings in the wrong
+    envelope. This is the inverse of `decode`, and nothing else.
+
+    It does NOT make the file importable in the sense that matters. The export
+    carries `checksumVersion=1` with no checksum field we can identify, so
+    whether the appliance accepts an edited settings file is unverified and
+    can only be settled on a sandbox device. Encoding is necessary; it is not
+    sufficient.
+    """
+    import base64
+
+    return base64.b64encode(text.encode("utf-8"))
+
+
+def roundtrip_ok(text: str) -> bool:
+    """Does the emitted configuration survive encode -> decode unchanged?
+
+    A cheap structural check, and the only import-shaped assurance available
+    without the hardware: if our own reader cannot read back what we wrote, no
+    appliance will either.
+    """
+    import base64
+
+    try:
+        return base64.b64decode(as_exp(text), validate=True).decode("utf-8") == text
+    except Exception:                                  # noqa: BLE001
+        return False
+
+
 def verify(emission: Emission, device_assessment, source: str | Path,
            *, assessment_id: str = "hardened") -> dict:
     """Re-assess the emitted configuration and report the measured delta.

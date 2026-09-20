@@ -150,6 +150,42 @@ def test_every_refusal_states_a_reason(emitted):
     assert all(r.reason.strip() for r in em.refused)
 
 
+def test_the_exp_envelope_is_the_inverse_of_the_reader():
+    """SonicOS ingests base64 of the settings blob. The emitter works on the
+    DECODED text, so shipping that text would hand an operator the right
+    settings in a form the appliance does not accept."""
+    import base64
+
+    from ncsa.engine.emit import as_exp, roundtrip_ok
+    from ncsa.readers.sonicos_exp import loads
+
+    text = "shortProdName=NSA+3700&minPasswordLength=15&allowHttpMgmt=off"
+    blob = as_exp(text)
+    assert base64.b64decode(blob, validate=True).decode("utf-8") == text
+    assert roundtrip_ok(text)
+    # and our own reader reads the decoded form back
+    doc = loads(base64.b64decode(blob).decode("utf-8"), redact=False)
+    assert doc.values["minPasswordLength"][0] == "15"
+
+
+@sw_only
+def test_the_emitted_configuration_survives_a_round_trip(emitted):
+    """A structural check, and the only import-shaped assurance available
+    without the hardware: if our reader cannot read back what we wrote, no
+    appliance will either."""
+    import base64
+
+    from ncsa.engine.emit import as_exp, roundtrip_ok
+    from ncsa.readers.sonicos_exp import loads
+
+    _da, em = emitted
+    assert roundtrip_ok(em.text)
+    doc = loads(base64.b64decode(as_exp(em.text)).decode("utf-8"), redact=False)
+    assert doc.total_records == 92635
+    for change in em.changes:
+        assert doc.values[change.key][0] == change.after
+
+
 @sw_only
 def test_the_gain_is_measured_not_predicted(emitted):
     """The emitted configuration is run back through the engine, so the number

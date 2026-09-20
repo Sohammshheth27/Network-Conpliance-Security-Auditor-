@@ -492,13 +492,24 @@ def get_hardened(aid: str, measure: bool = Query(True)):
 
 
 @app.get("/assessment/{aid}/hardened.conf", tags=["remediate"])
-def download_hardened(aid: str):
+def download_hardened(aid: str, fmt: str = Query("exp", pattern="^(exp|txt)$")):
     """The hardened configuration itself, as a file.
+
+    `exp` (the default) is what the appliance ingests: base64 of the settings
+    blob, the exact inverse of what the reader decodes. Serving the decoded
+    text would hand an operator the right settings in a form the device does
+    not accept. `txt` returns that decoded text, for reading and diffing.
 
     It carries the device's real addressing: this is the operator's own
     configuration with corrections applied, not a redacted view of it.
+
+    Encoding does not make it importable. The export carries
+    `checksumVersion=1` with no checksum field we can identify, so acceptance
+    by the appliance is unverified and needs a sandbox device.
     """
     from fastapi.responses import Response
+
+    from ..engine.emit import as_exp, roundtrip_ok
 
     _da, _path, em = _emit_hardened(aid)
     if not em.supported:
@@ -507,10 +518,20 @@ def download_hardened(aid: str):
         raise HTTPException(
             422, "no failing control on this device maps to a single record, "
                  "so there is nothing to rewrite")
+    if not roundtrip_ok(em.text):
+        # If our own reader cannot read back what we wrote, no appliance will.
+        raise HTTPException(
+            500, "the emitted configuration did not survive an encode/decode "
+                 "round trip and must not be offered for import")
+    if fmt == "txt":
+        return Response(
+            em.text, media_type="text/plain",
+            headers={"Content-Disposition":
+                     f'attachment; filename="hardened-{aid}.txt"'})
     return Response(
-        em.text, media_type="text/plain",
+        as_exp(em.text), media_type="application/octet-stream",
         headers={"Content-Disposition":
-                 f'attachment; filename="hardened-{aid}.txt"'})
+                 f'attachment; filename="hardened-{aid}.exp"'})
 
 
 @app.get("/assessment/{aid}/baseline", tags=["report"])
