@@ -38,7 +38,7 @@ export const TopologyMapPanel: FC<{ id: string }> = ({ id }) => {
   return (
     <div className="space-y-4">
       <Card variant="default" className="flex flex-wrap items-center justify-between gap-3 p-4">
-        <p className="max-w-3xl text-[12.5px] text-[var(--color-slate-gray)]">
+        <p className="max-w-3xl text-xs text-[var(--color-slate-gray)]">
           Drawn from the configuration, not live discovery: it shows the zones,
           subnets, uplinks and VPN sites the device is configured for. Dashed
           zones exist in the policy with nothing assigned. Red arrows are

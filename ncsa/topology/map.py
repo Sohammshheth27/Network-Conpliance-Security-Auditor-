@@ -244,49 +244,57 @@ def _zone_rank(z: dict):
 
 # -------------------------------------------------------------------- render
 
+# The figure is read inside a light console and printed into a light report,
+# so it is drawn light. Each trust level is a pale fill with a saturated stroke
+# of the same hue: the colour still carries the meaning at a glance, and the
+# labels inside the box stay legible, which they were not when a near-white
+# label sat on a near-white page.
 PALETTE = {
-    "untrusted": ("#3a1418", "#E5484D"),
-    "semi": ("#3a2e10", "#F5B82E"),
-    "trusted": ("#0f2f28", "#32D6A8"),
-    "unknown": ("#16233d", "#8FA0BC"),
+    "untrusted": ("#fff1f2", "#be123c"),   # rose
+    "semi": ("#fffbeb", "#b45309"),        # amber
+    "trusted": ("#ecfdf5", "#047857"),     # emerald
+    "unknown": ("#f0f3f8", "#476788"),     # pebble / slate
 }
-BG, INK, MUTED, DEVICE = "#0B1528", "#F5F8FF", "#8FA0BC", "#2D8CFF"
+BG, INK, MUTED, DEVICE = "#ffffff", "#0b3558", "#476788", "#006bff"
+HAIRLINE, CANVAS, PANEL = "#d4e0ed", "#f8f9fb", "#f0f3f8"
+FLOW = "#be123c"          # an any/any allow into a more trusted zone
+IDLE = "#a6bbd1"          # defined in policy, nothing assigned
 
 
-def _t(x, y, s, size=13, color=INK, weight="normal", anchor="start", family="Segoe UI, Arial, sans-serif"):
+def _t(x, y, s, size=16, color=INK, weight="normal", anchor="start", family="Segoe UI, Arial, sans-serif"):
     return (f'<text x="{x:.0f}" y="{y:.0f}" font-family="{family}" font-size="{size}" '
             f'fill="{color}" font-weight="{weight}" text-anchor="{anchor}">{escape(str(s))}</text>')
 
 
-def render_svg(m: dict, width: int = 1600, height: int = 1060) -> str:
+def render_svg(m: dict, width: int = 2000, height: int = 1300) -> str:
     """Deterministic radial layout: device in the middle, zones around it."""
     # The VPN site list gets a column of its own, clear of the zone ring.
-    side = 300 if m["tunnels"] else 0
+    side = 520 if m["tunnels"] else 0
     cx, cy = (width - side) / 2, height / 2 - 20
     zones = m["zones"]
     n = max(len(zones), 1)
-    rx, ry = (width - side) * 0.37, height * 0.33
+    rx, ry = (width - side) * 0.40, height * 0.35
     boxes = {}
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
            f'viewBox="0 0 {width} {height}">',
            f'<rect width="{width}" height="{height}" fill="{BG}"/>',
            '<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" '
            'markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
-           '<path d="M0,0 L10,5 L0,10 z" fill="#E5484D"/></marker></defs>']
+           '<path d="M0,0 L10,5 L0,10 z" fill="#be123c"/></marker></defs>']
 
     # Zone positions around an ellipse, first zone at the top.
     for k, z in enumerate(zones):
         a = -math.pi / 2 + 2 * math.pi * k / n
         zx, zy = cx + rx * math.cos(a), cy + ry * math.sin(a)
         lines = len(z["interfaces"][:8]) + 2
-        w, h = 250, 44 + 17 * lines
+        w, h = 330, 58 + 23 * lines
         boxes[z["name"]] = (zx - w / 2, zy - h / 2, w, h, zx, zy)
 
     # Device-to-zone links first, so boxes draw over them.
     for z in zones:
         x, y, w, h, zx, zy = boxes[z["name"]]
         dash = "" if z["populated"] else ' stroke-dasharray="7 6"'
-        col = PALETTE[z["trust"]][1] if z["populated"] else "#4a5874"
+        col = PALETTE[z["trust"]][1] if z["populated"] else IDLE
         out.append(f'<line x1="{cx:.0f}" y1="{cy:.0f}" x2="{zx:.0f}" y2="{zy:.0f}" '
                    f'stroke="{col}" stroke-width="2" opacity="0.7"{dash}/>')
 
@@ -310,12 +318,12 @@ def render_svg(m: dict, width: int = 1600, height: int = 1060) -> str:
             # perpendicular to the chord instead.
             px, py = -(y2 - y1), (x2 - x1)
             pl = math.hypot(px, py) or 1
-            qx, qy = mx + px / pl * 320, my + py / pl * 320
+            qx, qy = mx + px / pl * 400, my + py / pl * 400
         else:
-            qx, qy = mx + dx / d * 150, my + dy / d * 150
+            qx, qy = mx + dx / d * 230, my + dy / d * 230
         dash = ' stroke-dasharray="9 7"' if f.get("latent") else ""
         out.append(f'<path d="M{x1:.0f},{y1:.0f} Q{qx:.0f},{qy:.0f} {x2:.0f},{y2:.0f}" '
-                   f'fill="none" stroke="#E5484D" stroke-width="3"{dash} '
+                   f'fill="none" stroke="{FLOW}" stroke-width="3"{dash} '
                    f'marker-end="url(#arrow)" opacity="0.9"/>')
         lx, ly = (x1 + 2 * qx + x2) / 4, (y1 + 2 * qy + y2) / 4
         n_r = len(f["any_any"])
@@ -324,20 +332,20 @@ def render_svg(m: dict, width: int = 1600, height: int = 1060) -> str:
                  + f' ({n_r} rule{"s" if n_r > 1 else ""})')
         # Labels are collected and drawn LAST: drawn here, the zone boxes
         # painted over them and hid the most important one (WLAN -> DMZ).
-        labels.append(f'<rect x="{lx - 150:.0f}" y="{ly - 14:.0f}" width="300" height="24" rx="6" '
-                      f'fill="{BG}" stroke="#E5484D" stroke-width="1"/>')
-        labels.append(_t(lx, ly + 3, label, 12, "#FF8A8E", "bold", "middle"))
+        labels.append(f'<rect x="{lx - 190:.0f}" y="{ly - 17:.0f}" width="380" height="30" rx="7" '
+                      f'fill="{BG}" stroke="{FLOW}" stroke-width="1"/>')
+        labels.append(_t(lx, ly + 3, label, 15, FLOW, "bold", "middle"))
 
     # Device.
-    dw, dh = 290, 96
+    dw, dh = 380, 120
     out.append(f'<rect x="{cx - dw / 2:.0f}" y="{cy - dh / 2:.0f}" width="{dw}" height="{dh}" '
-               f'rx="14" fill="#10264a" stroke="{DEVICE}" stroke-width="3"/>')
+               f'rx="14" fill="{PANEL}" stroke="{DEVICE}" stroke-width="3"/>')
     dev = m["device"]
-    out.append(_t(cx, cy - 16, dev["name"], 18, INK, "bold", "middle"))
+    out.append(_t(cx, cy - 22, dev["name"], 24, INK, "bold", "middle"))
     out.append(_t(cx, cy + 8, " · ".join(x for x in (dev.get("model"), dev.get("os"),
-                                                      dev.get("version")) if x), 12, MUTED, "normal", "middle"))
+                                                      dev.get("version")) if x), 15, MUTED, "normal", "middle"))
     out.append(_t(cx, cy + 30, f'{len(zones)} zones · {sum(len(z["interfaces"]) for z in zones)} interfaces'
-                  f' · {len(m["tunnels"])} tunnels', 12, MUTED, "normal", "middle"))
+                  f' · {len(m["tunnels"])} tunnels', 15, MUTED, "normal", "middle"))
 
     # Zones.
     for z in zones:
@@ -345,23 +353,23 @@ def render_svg(m: dict, width: int = 1600, height: int = 1060) -> str:
         fill, stroke = PALETTE[z["trust"]]
         dash = "" if z["populated"] else ' stroke-dasharray="7 6"'
         if not z["populated"]:
-            fill, stroke = "#111a2c", "#5b6b88"
+            fill, stroke = CANVAS, IDLE
         out.append(f'<rect x="{x:.0f}" y="{y:.0f}" width="{w}" height="{h}" rx="12" '
                    f'fill="{fill}" stroke="{stroke}" stroke-width="2"{dash}/>')
-        out.append(_t(x + 14, y + 24, z["name"], 15, stroke, "bold"))
-        out.append(_t(x + w - 12, y + 24, z["trust"], 11, MUTED, "normal", "end"))
-        ly = y + 44
+        out.append(_t(x + 14, y + 24, z["name"], 19, stroke, "bold"))
+        out.append(_t(x + w - 12, y + 24, z["trust"], 14, MUTED, "normal", "end"))
+        ly = y + 56
         for itf in z["interfaces"][:8]:
             state = "" if itf["enabled"] else "  (down)"
             txt = f'{itf["name"]}  {itf["network"] or itf["address"] or "-"}{state}'
-            out.append(_t(x + 14, ly, txt, 12, INK, family="Consolas, monospace"))
-            ly += 17
+            out.append(_t(x + 14, ly, txt, 15, INK, family="Consolas, monospace"))
+            ly += 23
         if len(z["interfaces"]) > 8:
-            out.append(_t(x + 14, ly, f'+ {len(z["interfaces"]) - 8} more', 12, MUTED))
-            ly += 17
+            out.append(_t(x + 14, ly, f'+ {len(z["interfaces"]) - 8} more', 15, MUTED))
+            ly += 23
         if z["note"]:
-            out.append(_t(x + 14, ly, z["note"], 11.5,
-                          "#F5B82E" if not z["populated"] else MUTED, "normal"))
+            out.append(_t(x + 14, ly, z["note"], 14,
+                          "#b45309" if not z["populated"] else MUTED, "normal"))
 
     # Internet above the WAN zone.
     wan = next((z for z in zones if z["trust"] == "untrusted" and z["name"].lower() != "wlan"
@@ -370,49 +378,49 @@ def render_svg(m: dict, width: int = 1600, height: int = 1060) -> str:
         x, y, w, h, zx, zy = boxes[wan["name"]]
         ix, iy = zx, max(y - 60, 30)
         out.append(f'<line x1="{zx:.0f}" y1="{y:.0f}" x2="{ix:.0f}" y2="{iy + 18:.0f}" '
-                   f'stroke="#E5484D" stroke-width="2"/>')
-        out.append(f'<ellipse cx="{ix:.0f}" cy="{iy:.0f}" rx="80" ry="22" fill="#2a1216" '
-                   f'stroke="#E5484D" stroke-width="2"/>')
-        out.append(_t(ix, iy + 5, "Internet", 13, "#FF8A8E", "bold", "middle"))
+                   f'stroke="{FLOW}" stroke-width="2"/>')
+        out.append(f'<ellipse cx="{ix:.0f}" cy="{iy:.0f}" rx="80" ry="22" fill="#fff1f2" '
+                   f'stroke="{FLOW}" stroke-width="2"/>')
+        out.append(_t(ix, iy + 5, "Internet", 17, FLOW, "bold", "middle"))
 
     # VPN sites beside the VPN zone.
     if m["tunnels"]:
-        tx, ty = width - side + 20, 60
+        tx, ty = width - side + 30, 70
         out.append(f'<line x1="{tx - 12}" y1="30" x2="{tx - 12}" y2="{height - 110}" '
-                   f'stroke="#1f2f4d" stroke-width="1"/>')
+                   f'stroke="{HAIRLINE}" stroke-width="1"/>')
         up = sum(1 for t in m["tunnels"] if t["enabled"] is not False)
-        out.append(_t(tx, ty, f'VPN sites ({up} of {len(m["tunnels"])} enabled)', 13, INK, "bold"))
-        for k, t in enumerate(m["tunnels"][:16]):
-            col = "#32D6A8" if t["enabled"] is not False else "#5b6b88"
-            yy = ty + 18 + k * 17
+        out.append(_t(tx, ty, f'VPN sites ({up} of {len(m["tunnels"])} enabled)', 16, INK, "bold"))
+        for k, t in enumerate(m["tunnels"][:18]):
+            col = "#047857" if t["enabled"] is not False else IDLE
+            yy = ty + 24 + k * 23
             out.append(f'<circle cx="{tx + 5:.0f}" cy="{yy - 4:.0f}" r="4" fill="{col}"/>')
-            out.append(_t(tx + 16, yy, t["name"] + ("" if t["enabled"] is not False else "  (disabled)"),
-                          11.5, INK if t["enabled"] is not False else MUTED))
+            out.append(_t(tx + 16, yy, (t["name"][:26] + ("" if t["enabled"] is not False else "  (disabled)")),
+                          14, INK if t["enabled"] is not False else MUTED))
 
     out.extend(labels)
 
     # Legend and provenance.
     ly = height - 64
-    items = [("#E5484D", "untrusted"), ("#F5B82E", "DMZ / semi-trusted"),
-             ("#32D6A8", "trusted"), ("#5b6b88", "defined in policy, nothing assigned (dashed)")]
+    items = [(FLOW, "untrusted"), ("#b45309", "DMZ / semi-trusted"),
+             ("#047857", "trusted"), (IDLE, "defined in policy, nothing assigned (dashed)")]
     lx = 30
     for col, label in items:
         out.append(f'<rect x="{lx}" y="{ly - 11}" width="14" height="14" rx="3" fill="{col}"/>')
-        out.append(_t(lx + 22, ly, label, 12, MUTED))
+        out.append(_t(lx + 22, ly, label, 15, MUTED))
         lx += 24 + 8 * len(label) + 30
-    out.append(f'<line x1="{lx}" y1="{ly - 4}" x2="{lx + 40}" y2="{ly - 4}" stroke="#E5484D" '
+    out.append(f'<line x1="{lx}" y1="{ly - 4}" x2="{lx + 40}" y2="{ly - 4}" stroke="{FLOW}" '
                f'stroke-width="3" marker-end="url(#arrow)"/>')
     out.append(_t(lx + 50, ly, "any/any allow into a more trusted zone (dashed: latent)", 12, MUTED))
     if hidden > 0:
         out.append(_t(30, height - 46,
                       f"{hidden} further any/any flow(s) run toward an equally or less "
                       "trusted zone (e.g. LAN to WAN, the normal outbound direction) "
-                      "and are not drawn; every flow is in the map data.", 11.5, MUTED))
+                      "and are not drawn; every flow is in the map data.", 14, MUTED))
     src = m["source"]
     out.append(_t(30, height - 30,
                   f'Derived from configuration ({src["file"]}, sha256 {src["sha256"]}…), not live '
                   f'discovery. Generated {src["generated_at"]}.'
                   + ("  Public addresses, site names and hostname redacted." if m["redacted"] else ""),
-                  12, MUTED))
+                  14, MUTED))
     out.append("</svg>")
     return "\n".join(out)

@@ -67,6 +67,35 @@ LATERAL_PORTS: list[tuple[int, str, str]] = [
 #: origin is the worst case; a database is next.
 ADMIN_PORTS = {22, 23, 3389, 5985, 445, 135, 161}
 
+#: What an attacker would be attempting, in ATT&CK's vocabulary, if they used
+#: this port from a foothold. IDS ONLY -- the names are resolved from the
+#: bundle in reference/attack so a technique cannot be described here from
+#: memory and drift from what MITRE actually publishes.
+#:
+#: These describe the ATTEMPT the open path enables, not a detection: nothing
+#: here asserts the technique has been used, only that policy permits the
+#: traffic it needs. T1078 (Valid Accounts) and T1110 (Brute Force) accompany
+#: every login-bearing service because reaching a login prompt is what the
+#: path actually grants.
+ATTACK_BY_PORT: dict[int, tuple[str, ...]] = {
+    22: ("T1021.004", "T1078", "T1110"),        # SSH
+    23: ("T1021", "T1040", "T1110"),            # Telnet, cleartext on the wire
+    3389: ("T1021.001", "T1078", "T1110"),      # RDP
+    5985: ("T1021.006", "T1078"),               # WinRM
+    445: ("T1021.002", "T1078"),                # SMB
+    135: ("T1021.003",),                        # RPC / DCOM
+    161: ("T1602.001", "T1046"),                # SNMP MIB dump, discovery
+    443: ("T1190", "T1078"),                    # web management
+    80: ("T1190", "T1040"),                     # web management, cleartext
+    3306: ("T1210", "T1213"),
+    5432: ("T1210", "T1213"),
+    1433: ("T1210", "T1213"),
+    27017: ("T1210", "T1213"),
+    6379: ("T1210", "T1213"),                   # Redis, frequently unauthenticated
+    9200: ("T1210", "T1213"),
+    389: ("T1087.002", "T1078"),                # LDAP: directory enumeration
+}
+
 
 @dataclass
 class Step:
@@ -89,13 +118,19 @@ class Step:
     def administrative(self) -> bool:
         return self.port in ADMIN_PORTS
 
+    @property
+    def attack_ids(self) -> list[str]:
+        """ATT&CK techniques this open path would let an attacker attempt."""
+        return list(ATTACK_BY_PORT.get(self.port, ()))
+
     def to_json(self) -> dict:
         return {"to_zone": self.to_zone, "port": self.port,
                 "protocol": self.protocol, "service": self.service,
                 "permitted": self.permitted, "decided_by": self.decided_by,
                 "reason": self.reason, "uncertain": self.uncertain,
                 "zone_assumed": self.zone_assumed,
-                "administrative": self.administrative}
+                "administrative": self.administrative,
+                "attack_ids": self.attack_ids}
 
 
 @dataclass

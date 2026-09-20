@@ -157,7 +157,7 @@ const HygienePanel: FC<{ id: string }> = ({ id }) => {
             rule we could not resolve is not a clean rule, and a summary that
             hid them would report the policy as tidier than we can confirm. */}
         {s.unevaluable > 0 && (
-          <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12.5px] text-[var(--color-slate-gray)]">
+          <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-[var(--color-slate-gray)]">
             <strong className="text-[#b45309]">
               {s.unevaluable} of {s.rules_examined} rules could not be fully
               resolved.
@@ -201,7 +201,7 @@ const HygienePanel: FC<{ id: string }> = ({ id }) => {
                 >
                   {f.kind.replace(/_/g, ' ')}
                 </Badge>
-                <span className="font-mono text-[11.5px] text-[var(--color-ink-navy)]">
+                <span className="font-mono text-[11px] text-[var(--color-ink-navy)]">
                   {f.rule}
                 </span>
                 {f.hit_count !== null && (
@@ -210,7 +210,7 @@ const HygienePanel: FC<{ id: string }> = ({ id }) => {
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-[12.5px] leading-relaxed text-[var(--color-slate-gray)]">
+              <p className="mt-1 text-xs leading-relaxed text-[var(--color-slate-gray)]">
                 {f.detail}
               </p>
             </div>
@@ -225,7 +225,7 @@ const HygienePanel: FC<{ id: string }> = ({ id }) => {
           </h4>
           <div className="max-h-56 space-y-1 overflow-y-auto">
             {data.unevaluable.map((u) => (
-              <p key={u} className="font-mono text-[11.5px] text-[var(--color-slate-gray)]">
+              <p key={u} className="font-mono text-[11px] text-[var(--color-slate-gray)]">
                 {u}
               </p>
             ))}
@@ -289,7 +289,7 @@ const ReachPanel: FC<{ id: string }> = ({ id }) => {
         <h4 className="mb-1 text-sm font-bold text-[var(--color-ink-navy)]">
           Would this traffic be permitted?
         </h4>
-        <p className="mb-4 text-[12.5px] text-[var(--color-slate-gray)]">
+        <p className="mb-4 text-xs text-[var(--color-slate-gray)]">
           Evaluated in policy order, first match wins. The answer names the rule
           that decided it.
         </p>
@@ -305,14 +305,14 @@ const ReachPanel: FC<{ id: string }> = ({ id }) => {
             ] as const
           ).map(([key, label, ph]) => (
             <label key={key} className="block">
-              <span className="mb-1 block text-[10.5px] uppercase tracking-wider text-[var(--color-mist-gray)]">
+              <span className="mb-1 block text-[10px] uppercase tracking-wider text-[var(--color-mist-gray)]">
                 {label}
               </span>
               <input
                 value={form[key]}
                 placeholder={ph}
                 onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                className="w-full rounded-lg border border-[var(--color-hairline)] bg-[var(--color-pebble)] px-3 py-2 font-mono text-[13px] text-[var(--color-ink-navy)] outline-none placeholder:text-[var(--color-mist-gray)] focus:border-[var(--color-signal-blue)]"
+                className="w-full rounded-lg border border-[var(--color-hairline)] bg-[var(--color-pebble)] px-3 py-2 font-mono text-sm text-[var(--color-ink-navy)] outline-none placeholder:text-[var(--color-mist-gray)] focus:border-[var(--color-signal-blue)]"
               />
             </label>
           ))}
@@ -342,13 +342,13 @@ const ReachPanel: FC<{ id: string }> = ({ id }) => {
             >
               {verdict}
             </span>
-            <span className="font-mono text-[13px] text-[var(--color-ink-navy)]">
+            <span className="font-mono text-sm text-[var(--color-ink-navy)]">
               {a.query}
             </span>
           </div>
 
           {a.decided_by && (
-            <p className="mt-3 text-[13px] text-[var(--color-slate-gray)]">
+            <p className="mt-3 text-sm text-[var(--color-slate-gray)]">
               Decided by{' '}
               <strong className="font-mono text-[var(--color-ink-navy)]">
                 {a.decided_by}
@@ -361,7 +361,7 @@ const ReachPanel: FC<{ id: string }> = ({ id }) => {
               have decided differently, and a zone-scoped rule answering an
               unzoned question rests on an assumption the caller never made. */}
           {a.rules_unevaluable > 0 && (
-            <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12.5px] text-[var(--color-slate-gray)]">
+            <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-[var(--color-slate-gray)]">
               <strong className="text-[#b45309]">Caveat.</strong>{' '}
               {a.rules_unevaluable} rule
               {a.rules_unevaluable === 1 ? '' : 's'} above this one could not be
@@ -369,7 +369,7 @@ const ReachPanel: FC<{ id: string }> = ({ id }) => {
             </p>
           )}
           {a.zone_assumed && (
-            <p className="mt-2 rounded-xl border border-sky-200 bg-sky-50 p-3 text-[12.5px] text-[var(--color-slate-gray)]">
+            <p className="mt-2 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-[var(--color-slate-gray)]">
               <strong className="text-[var(--color-signal-blue)]">Zone assumed.</strong> The
               deciding rule is scoped to zones this query did not name, so it
               was assumed to apply. Fill in the zone fields to remove the
@@ -377,7 +377,7 @@ const ReachPanel: FC<{ id: string }> = ({ id }) => {
             </p>
           )}
 
-          <pre className="mt-4 overflow-x-auto whitespace-pre-wrap rounded-xl border border-[var(--color-hairline)] bg-[var(--color-pebble)] p-4 text-[12px] text-[var(--color-ink-navy)]">
+          <pre className="mt-4 overflow-x-auto whitespace-pre-wrap rounded-xl border border-[var(--color-hairline)] bg-[var(--color-pebble)] p-4 text-xs text-[var(--color-ink-navy)]">
             {result.explain}
           </pre>
         </Card>
@@ -406,7 +406,7 @@ const RecertPanel: FC<{ id: string }> = ({ id }) => {
           <h4 className="text-sm font-bold text-[var(--color-ink-navy)]">
             Due for review — {data.due.length}
           </h4>
-          <p className="mt-0.5 text-[12px] text-[var(--color-slate-gray)]">
+          <p className="mt-0.5 text-xs text-[var(--color-slate-gray)]">
             Rules with no recorded owner, or whose certification has expired.
           </p>
         </div>
@@ -425,7 +425,7 @@ const RecertPanel: FC<{ id: string }> = ({ id }) => {
                   >
                     {d.kind}
                   </Badge>
-                  <span className="font-mono text-[11.5px] text-[var(--color-ink-navy)]">
+                  <span className="font-mono text-[11px] text-[var(--color-ink-navy)]">
                     {d.rule_id}
                   </span>
                   {d.owner && (
@@ -434,7 +434,7 @@ const RecertPanel: FC<{ id: string }> = ({ id }) => {
                     </span>
                   )}
                 </div>
-                <p className="mt-1 text-[12.5px] text-[var(--color-slate-gray)]">{d.detail}</p>
+                <p className="mt-1 text-xs text-[var(--color-slate-gray)]">{d.detail}</p>
               </div>
             ))
           )}
@@ -450,7 +450,7 @@ const RecertPanel: FC<{ id: string }> = ({ id }) => {
               candidate, and it is still a candidate for review rather than an
               instruction. Any one signal alone is a bad reason to delete a
               firewall rule. */}
-          <p className="mt-0.5 text-[12px] text-[var(--color-slate-gray)]">
+          <p className="mt-0.5 text-xs text-[var(--color-slate-gray)]">
             Ranked by how many independent signals agree. Candidates for review,
             never for automatic removal.
           </p>
@@ -463,11 +463,11 @@ const RecertPanel: FC<{ id: string }> = ({ id }) => {
             >
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="info">{c.confidence} signals</Badge>
-                <span className="font-mono text-[11.5px] text-[var(--color-ink-navy)]">
+                <span className="font-mono text-[11px] text-[var(--color-ink-navy)]">
                   {c.rule}
                 </span>
               </div>
-              <ul className="mt-1 list-inside list-disc text-[12px] text-[var(--color-slate-gray)]">
+              <ul className="mt-1 list-inside list-disc text-xs text-[var(--color-slate-gray)]">
                 {c.signals.map((s, j) => (
                   <li key={j}>{s}</li>
                 ))}
@@ -506,7 +506,7 @@ const ChangePanel: FC<{ id: string }> = ({ id }) => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h4 className="text-sm font-bold text-[var(--color-ink-navy)]">Baseline</h4>
-            <p className="mt-0.5 text-[12.5px] text-[var(--color-slate-gray)]">
+            <p className="mt-0.5 text-xs text-[var(--color-slate-gray)]">
               Record this assessment so a later one can be compared against it.
             </p>
           </div>
@@ -519,7 +519,7 @@ const ChangePanel: FC<{ id: string }> = ({ id }) => {
           </button>
         </div>
         {snapMsg && (
-          <p className="mt-3 font-mono text-[12px] text-[#047857]">{snapMsg}</p>
+          <p className="mt-3 font-mono text-xs text-[#047857]">{snapMsg}</p>
         )}
       </Card>
 
@@ -571,7 +571,7 @@ const ChangePanel: FC<{ id: string }> = ({ id }) => {
           </div>
 
           {data.explain && (
-            <pre className="mt-4 overflow-x-auto whitespace-pre-wrap rounded-xl border border-[var(--color-hairline)] bg-[var(--color-pebble)] p-4 text-[12px] text-[var(--color-ink-navy)]">
+            <pre className="mt-4 overflow-x-auto whitespace-pre-wrap rounded-xl border border-[var(--color-hairline)] bg-[var(--color-pebble)] p-4 text-xs text-[var(--color-ink-navy)]">
               {data.explain}
             </pre>
           )}
@@ -602,7 +602,7 @@ const InterfacesPanel: FC<{ id: string }> = ({ id }) => {
         <h4 className="text-sm font-bold text-[var(--color-ink-navy)]">
           Interfaces — {data.interfaces.length}
         </h4>
-        <p className="mt-0.5 text-[12px] text-[var(--color-slate-gray)]">
+        <p className="mt-0.5 text-xs text-[var(--color-slate-gray)]">
           The addressing that multi-device topology is inferred from. Adjacency
           is inferred from shared subnets, not read from the wire.
         </p>
@@ -663,7 +663,7 @@ const ConsensusPanel: FC<{ id: string }> = ({ id }) => {
         <h4 className="mb-1 text-sm font-bold text-[var(--color-ink-navy)]">
           Independent cross-check
         </h4>
-        <p className="mb-4 text-[12.5px] text-[var(--color-slate-gray)]">
+        <p className="mb-4 text-xs text-[var(--color-slate-gray)]">
           Two methods read the same device: the mapping pack reads the grammar,
           a detector reads the raw text. Agreement promotes a caveat to a
           conclusion; disagreement is surfaced, not silently resolved.
@@ -691,7 +691,7 @@ const ConsensusPanel: FC<{ id: string }> = ({ id }) => {
                 >
                   {it.verdict}
                 </Badge>
-                <span className="font-mono text-[11.5px] text-[var(--color-ink-navy)]">
+                <span className="font-mono text-[11px] text-[var(--color-ink-navy)]">
                   {it.field}
                 </span>
                 <span className="text-[11px] text-[var(--color-mist-gray)]">
@@ -700,24 +700,24 @@ const ConsensusPanel: FC<{ id: string }> = ({ id }) => {
               </div>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 <div className="rounded-lg border border-[var(--color-hairline)] p-2.5">
-                  <span className="text-[10.5px] uppercase tracking-wider text-[var(--color-mist-gray)]">
+                  <span className="text-[10px] uppercase tracking-wider text-[var(--color-mist-gray)]">
                     Detector says
                   </span>
-                  <p className="mt-0.5 text-[12.5px] text-[var(--color-slate-gray)]">
+                  <p className="mt-0.5 text-xs text-[var(--color-slate-gray)]">
                     {it.universal_says}
                   </p>
                 </div>
                 <div className="rounded-lg border border-[var(--color-hairline)] p-2.5">
-                  <span className="text-[10.5px] uppercase tracking-wider text-[var(--color-mist-gray)]">
+                  <span className="text-[10px] uppercase tracking-wider text-[var(--color-mist-gray)]">
                     Pack says
                   </span>
-                  <p className="mt-0.5 font-mono text-[12.5px] text-[var(--color-slate-gray)]">
+                  <p className="mt-0.5 font-mono text-xs text-[var(--color-slate-gray)]">
                     {it.pack_says}
                   </p>
                 </div>
               </div>
               {it.note && (
-                <p className="mt-2 text-[12px] italic text-[var(--color-slate-gray)]">
+                <p className="mt-2 text-xs italic text-[var(--color-slate-gray)]">
                   {it.note}
                 </p>
               )}
@@ -746,7 +746,7 @@ export const TrainingPanel: FC<{ id: string }> = ({ id }) => {
         <h4 className="text-sm font-bold text-[var(--color-ink-navy)]">
           Unrecognised settings — {data.length}
         </h4>
-        <p className="mt-0.5 text-[12px] text-[var(--color-slate-gray)]">
+        <p className="mt-0.5 text-xs text-[var(--color-slate-gray)]">
           Settings the pack does not map yet, ordered by how likely the proposed
           field is. Approving one must pass the golden-corpus regression gate
           before it is accepted — and a high confidence is a reason to look
@@ -760,7 +760,7 @@ export const TrainingPanel: FC<{ id: string }> = ({ id }) => {
             className="border-b border-[var(--color-hairline)] px-4 py-3 last:border-0"
           >
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-[12px] text-[var(--color-ink-navy)]">
+              <span className="font-mono text-xs text-[var(--color-ink-navy)]">
                 {c.name}
               </span>
               <span className="text-[11px] text-[var(--color-mist-gray)]">
@@ -769,7 +769,7 @@ export const TrainingPanel: FC<{ id: string }> = ({ id }) => {
               <Badge variant="default">{c.status}</Badge>
             </div>
             {c.suggested_field && (
-              <p className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-[var(--color-slate-gray)]">
+              <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--color-slate-gray)]">
                 <span>
                   suggests{' '}
                   <span className="font-mono text-[var(--color-signal-blue)]">
@@ -787,7 +787,7 @@ export const TrainingPanel: FC<{ id: string }> = ({ id }) => {
                     '378 held-out pairs: 80+ ≈ 100%, 60–79 ≈ 88%, 40–59 ≈ 82%, ' +
                     'below 40 ≈ 56%. Every proposal still needs review.'
                   }
-                  className={`rounded-full border px-2 py-0.5 text-[10.5px] font-semibold ${
+                  className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
                     c.suggestion_score >= 60
                       ? 'border-emerald-200 bg-emerald-50 text-[#047857]'
                       : c.suggestion_score >= 40

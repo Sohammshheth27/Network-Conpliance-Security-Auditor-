@@ -23,11 +23,56 @@ import { useApi } from '../../lib/useApi';
 
 const ORDER = ['cve', 'vpn', 'wireless'] as const;
 
-const META: Record<string, { label: string; icon: typeof Bug }> = {
-  cve: { label: 'Known vulnerabilities', icon: Bug },
-  vpn: { label: 'IPsec VPN', icon: KeyRound },
-  wireless: { label: 'Wireless', icon: Wifi },
+const META: Record<string, { label: string; icon: typeof Bug; blurb: string }> = {
+  cve: {
+    label: 'Known vulnerabilities',
+    icon: Bug,
+    blurb:
+      'Published flaws that affect the exact firmware and model this device ' +
+      'reports. Being listed does not mean the device has been attacked — it ' +
+      'means a fix exists and this device has not had it.',
+  },
+  vpn: {
+    label: 'IPsec VPN',
+    icon: KeyRound,
+    blurb:
+      'How each site-to-site and remote-access tunnel is configured: whether ' +
+      'each key exchange is independent (forward secrecy), whether replayed ' +
+      'packets are rejected, and how long keys live before being replaced.',
+  },
+  wireless: {
+    label: 'Wireless',
+    icon: Wifi,
+    blurb:
+      'Wireless networks this firewall controls — encryption, guest isolation ' +
+      'and management access over the air.',
+  },
 };
+
+/** Plain words for a state, in the place a count is read quickly. */
+const COUNT_WORD: Record<string, string> = {
+  PASS: 'passed',
+  FAIL: 'failed',
+  PARTIAL: 'partly met',
+  NOT_APPLICABLE: 'do not apply here',
+  UNKNOWN: 'could not be determined',
+  MANUAL_REVIEW: 'need a person to judge',
+  ERROR: 'errored',
+};
+
+/**
+ * The engine's summary ends with a roll-call of check ids and states --
+ * "NCSA-X-VPN-001: PARTIAL; NCSA-X-VPN-002: PARTIAL" -- which is precise and
+ * unreadable. The findings below already say each one in words, so the tail is
+ * dropped here and the sentence before it kept.
+ */
+function readableSummary(s: string): string {
+  return s
+    .replace(/\s*NCSA-[A-Z0-9-]+\s*:\s*[A-Z_]+\s*;?/g, ' ')
+    .replace(/\s*\.\s*$/, '.')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
 
 const STATE_VARIANT: Record<
   ResultState,
@@ -61,7 +106,7 @@ export const ExtendedPanel: FC<{ id: string }> = ({ id }) => {
 
   return (
     <div className="space-y-4">
-      <p className="rounded-2xl border border-[var(--color-hairline)] bg-[rgba(14,27,50,0.4)] p-3 text-[12.5px] text-[var(--color-slate-gray)]">
+      <p className="rounded-2xl border border-[var(--color-hairline)] bg-[var(--color-cloud)] p-3 text-xs text-[var(--color-slate-gray)]">
         {data.scope}
       </p>
       {ORDER.filter((k) => data.domains[k]).map((k) => (
@@ -97,15 +142,22 @@ const DomainCard: FC<{ name: string; d: ExtendedDomain }> = ({ name, d }) => {
           {d.present === null && <Badge variant="outline">could not tell</Badge>}
           {d.present === false && <Badge variant="default">none present</Badge>}
           {fixture && <Badge variant="warning">fixture, not a real export</Badge>}
-          {Object.entries(d.counts).map(([s, n]) => (
-            <Badge key={s} variant={STATE_VARIANT[s as ResultState] ?? 'default'}>
-              {n} {s.replace('_', ' ').toLowerCase()}
-            </Badge>
-          ))}
+          {Object.entries(d.counts)
+            .filter(([, n]) => n > 0)
+            .map(([s, n]) => (
+              <Badge key={s} variant={STATE_VARIANT[s as ResultState] ?? 'default'}>
+                {n} {COUNT_WORD[s] ?? s.replace('_', ' ').toLowerCase()}
+              </Badge>
+            ))}
         </div>
       </div>
 
-      <p className="mt-3 text-[13px] leading-relaxed text-[var(--color-ink-navy)]">{d.summary}</p>
+      <p className="mt-3 text-xs leading-relaxed text-[var(--color-slate-gray)]">
+        {meta.blurb}
+      </p>
+      <p className="mt-2 text-sm leading-relaxed text-[var(--color-ink-navy)]">
+        {readableSummary(d.summary)}
+      </p>
 
       {name === 'cve' && d.inventory.length > 0 && <CveTable rows={d.inventory} />}
       {name === 'vpn' && d.inventory.length > 0 && <VpnTable rows={d.inventory} />}
@@ -119,7 +171,7 @@ const DomainCard: FC<{ name: string; d: ExtendedDomain }> = ({ name, d }) => {
       )}
 
       {d.notes.length > 0 && (
-        <ul className="mt-4 space-y-1 text-[11.5px] leading-relaxed text-[var(--color-slate-gray)]">
+        <ul className="mt-4 space-y-1 text-[11px] leading-relaxed text-[var(--color-slate-gray)]">
           {d.notes.map((n) => (
             <li key={n}>· {n}</li>
           ))}
@@ -137,9 +189,9 @@ const FindingRow: FC<{ f: ExtendedFinding }> = ({ f }) => (
         {f.severity}
       </span>
       <span className="font-mono text-[11px] text-[var(--color-slate-gray)]">{f.check_id}</span>
-      <span className="text-[12.5px] font-semibold text-[var(--color-ink-navy)]">{f.scope}</span>
+      <span className="text-xs font-semibold text-[var(--color-ink-navy)]">{f.scope}</span>
     </div>
-    <p className="mt-1 text-[12.5px] text-[var(--color-slate-gray)]">
+    <p className="mt-1 text-xs text-[var(--color-slate-gray)]">
       <span className="text-[var(--color-ink-navy)]">{f.title}.</span> {f.reason}
     </p>
     {f.evidence.slice(0, 3).map((e, i) => (
@@ -147,10 +199,10 @@ const FindingRow: FC<{ f: ExtendedFinding }> = ({ f }) => (
         key={i}
         className="mt-1.5 flex items-baseline gap-2 rounded-lg bg-[var(--color-pebble)] px-2 py-1"
       >
-        <span className="shrink-0 font-mono text-[10.5px] text-[var(--color-slate-gray)]">
+        <span className="shrink-0 font-mono text-[10px] text-[var(--color-slate-gray)]">
           {locate(e)}
         </span>
-        <code className="min-w-0 break-all font-mono text-[11.5px] text-[var(--color-ink-navy)]">
+        <code className="min-w-0 break-all font-mono text-[11px] text-[var(--color-ink-navy)]">
           {e.raw}
         </code>
       </div>
@@ -161,7 +213,7 @@ const FindingRow: FC<{ f: ExtendedFinding }> = ({ f }) => (
           <span
             key={t.id}
             title={t.why}
-            className="rounded-full border border-rose-200 px-2 py-0.5 font-mono text-[10.5px] text-[#be123c]"
+            className="rounded-full border border-rose-200 px-2 py-0.5 font-mono text-[10px] text-[#be123c]"
           >
             ATT&amp;CK {t.id} · {t.name}
           </span>
@@ -169,7 +221,7 @@ const FindingRow: FC<{ f: ExtendedFinding }> = ({ f }) => (
         {f.nist_800_53.map((n) => (
           <span
             key={n}
-            className="rounded-full border border-[var(--color-hairline)] px-2 py-0.5 font-mono text-[10.5px] text-[var(--color-slate-gray)]"
+            className="rounded-full border border-[var(--color-hairline)] px-2 py-0.5 font-mono text-[10px] text-[var(--color-slate-gray)]"
           >
             NIST {n}
           </span>
@@ -181,8 +233,8 @@ const FindingRow: FC<{ f: ExtendedFinding }> = ({ f }) => (
 
 const CveTable: FC<{ rows: Record<string, unknown>[] }> = ({ rows }) => (
   <div className="mt-4 overflow-x-auto">
-    <table className="w-full text-left text-[12px]">
-      <thead className="text-[10.5px] uppercase tracking-wider text-[var(--color-slate-gray)]">
+    <table className="w-full text-left text-xs">
+      <thead className="text-[10px] uppercase tracking-wider text-[var(--color-slate-gray)]">
         <tr>
           <th className="py-1.5 pr-3">CVE</th>
           <th className="py-1.5 pr-3">CVSS</th>
@@ -227,9 +279,22 @@ const VpnTable: FC<{ rows: Record<string, unknown>[] }> = ({ rows }) => {
   const yes = (v: unknown) =>
     v === true ? '✓' : v === false ? '✗' : '—';
   return (
-    <div className="mt-4 overflow-x-auto">
-      <table className="w-full text-left text-[12px]">
-        <thead className="text-[10.5px] uppercase tracking-wider text-[var(--color-slate-gray)]">
+    <div className="mt-4">
+      <p className="mb-2 text-[11px] leading-relaxed text-[var(--color-slate-gray)]">
+        <span className="font-semibold text-[var(--color-ink-navy)]">Reading this table.</span>{' '}
+        <span className="font-mono">✓</span> yes, <span className="font-mono">✗</span> no,{' '}
+        <span className="font-mono">—</span> the export does not say.{' '}
+        <strong className="text-[var(--color-ink-navy)]">PFS</strong> means each
+        key exchange is independent, so recovering one key does not expose past
+        traffic. <strong className="text-[var(--color-ink-navy)]">Anti-replay</strong>{' '}
+        rejects captured packets that are sent again. The algorithm column shows
+        the vendor's own numeric codes: SonicOS does not publish what they map
+        to, so the strength of these tunnels is reported as unknown rather than
+        guessed.
+      </p>
+      <div className="overflow-x-auto">
+      <table className="w-full text-left text-xs">
+        <thead className="text-[10px] uppercase tracking-wider text-[var(--color-slate-gray)]">
           <tr>
             <th className="py-1.5 pr-3">Tunnel</th>
             <th className="py-1.5 pr-3">Enabled</th>
@@ -253,7 +318,7 @@ const VpnTable: FC<{ rows: Record<string, unknown>[] }> = ({ rows }) => {
               <td className="py-1.5 pr-3 font-mono text-[11px]">
                 {String(r.ike_lifetime_s ?? '—')}s / {String(r.ipsec_lifetime_s ?? '—')}s
               </td>
-              <td className="py-1.5 font-mono text-[10.5px] text-[var(--color-slate-gray)]">
+              <td className="py-1.5 font-mono text-[10px] text-[var(--color-slate-gray)]">
                 {Object.entries((r.algorithms_raw as Record<string, string>) ?? {})
                   .map(([k, v]) => `${k.replace('ipsec', '')}=${v}`)
                   .join(' ')}
@@ -262,6 +327,7 @@ const VpnTable: FC<{ rows: Record<string, unknown>[] }> = ({ rows }) => {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 };

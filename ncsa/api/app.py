@@ -566,9 +566,29 @@ def get_blast_radius(aid: str, origin_zone: str = Query(""),
 
     da, _ = _get(aid)
     _require_graph(da, "blast radius")
-    return blast_radius(da.graph, origin_zone=origin_zone,
-                        origin_address=origin_address,
-                        origin_members=_zone_members(da, origin_zone)).to_json()
+    out = blast_radius(da.graph, origin_zone=origin_zone,
+                       origin_address=origin_address,
+                       origin_members=_zone_members(da, origin_zone)).to_json()
+
+    # Name the techniques from the bundle rather than from the engine's map:
+    # blast.py carries ids only, so a technique cannot be described here from
+    # memory and drift from what MITRE publishes. An id the bundle does not
+    # know is dropped, not guessed.
+    from ..frameworks.attack import load_techniques
+
+    try:
+        known = load_techniques()
+    except Exception:            # noqa: BLE001 -- bundle absent is not a finding
+        known = {}
+    for step in out.get("reachable", []):
+        tags = []
+        for tid in step.pop("attack_ids", []):
+            entry = known.get(tid)
+            name = entry.get("name") if isinstance(entry, dict) else entry
+            if name:
+                tags.append({"id": tid, "name": name})
+        step["attack"] = tags
+    return out
 
 
 def _zone_members(da, zone: str):
@@ -1052,11 +1072,20 @@ def get_interfaces(aid: str):
 
     da, _ = _get(aid)
     try:
-        return {"interfaces": [i.to_json() for i in extract(da)]}
-    except RedactedAddressing as exc:
+        # strict: a redacted upload has its octets masked, so addressing cannot
+        # be parsed. Without this the call returned an empty list and the page
+        # showed an empty table -- a device with ten live interfaces looking
+        # identical to a device with none. Raising here means the reason below
+        # reaches the reader instead of silence.
+        return {"interfaces": [i.to_json() for i in extract(da, strict=True)]}
+    except RedactedAddressing:
         return {"interfaces": [],
-                "note": f"addressing was redacted on upload, so topology "
-                        f"cannot be inferred from this assessment: {exc}"}
+                "note": "This upload was redacted, which masks interface "
+                        "addresses, so no addressing could be read and "
+                        "topology cannot be inferred from it. The device may "
+                        "well have interfaces -- we cannot see them here. "
+                        "Re-run the assessment with redaction off to build "
+                        "topology."}
 
 
 # ------------------------------------------------------ change tracking

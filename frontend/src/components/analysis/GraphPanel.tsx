@@ -29,14 +29,14 @@ function refTone(state: string): string {
 
 const RefList: FC<{ label: string; refs: ResolvedRef[] }> = ({ label, refs }) => (
   <div className="rounded-lg border border-[var(--color-hairline)] p-2.5">
-    <span className="text-[10.5px] uppercase tracking-wider text-[var(--color-slate-gray)]">
+    <span className="text-[10px] uppercase tracking-wider text-[var(--color-slate-gray)]">
       {label}
     </span>
     {refs.length === 0 ? (
-      <p className="mt-0.5 text-[12px] text-[var(--color-slate-gray)]">—</p>
+      <p className="mt-0.5 text-xs text-[var(--color-slate-gray)]">—</p>
     ) : (
       refs.slice(0, 6).map((r, i) => (
-        <p key={i} className="mt-0.5 font-mono text-[11.5px] leading-relaxed">
+        <p key={i} className="mt-0.5 font-mono text-[11px] leading-relaxed">
           <span className="text-[var(--color-ink-navy)]">{r.name}</span>
           {r.state === 'RESOLVED' ? (
             <span className="text-[var(--color-slate-gray)]">
@@ -80,7 +80,7 @@ export const GraphPanel: FC<{ id: string }> = ({ id }) => {
         <h4 className="mb-1 text-sm font-bold text-[var(--color-ink-navy)]">
           Policy object graph
         </h4>
-        <p className="mb-4 text-[12.5px] text-[var(--color-slate-gray)]">
+        <p className="mb-4 text-xs text-[var(--color-slate-gray)]">
           The reconstruction every other analysis reads. Rule hygiene,
           reachability and recertification are conclusions drawn from this.
         </p>
@@ -108,7 +108,7 @@ export const GraphPanel: FC<{ id: string }> = ({ id }) => {
         </div>
 
         {s.untrusted_zones.length > 0 && (
-          <p className="mt-3 text-[12px] text-[var(--color-slate-gray)]">
+          <p className="mt-3 text-xs text-[var(--color-slate-gray)]">
             Untrusted zones:{' '}
             <span className="font-mono text-[#b45309]">
               {s.untrusted_zones.join(', ')}
@@ -119,7 +119,7 @@ export const GraphPanel: FC<{ id: string }> = ({ id }) => {
         {/* An unordered platform has no shadowing, and the absence of shadow
             findings must not be mistaken for a tidy policy. */}
         {!data.ordered && (
-          <p className="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-[12.5px] text-[var(--color-slate-gray)]">
+          <p className="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-[var(--color-slate-gray)]">
             <strong className="text-[var(--color-ink-navy)]">Unordered platform.</strong> Rules
             here are not evaluated top to bottom, so none can shadow another.
             Shadow and redundancy analysis is suppressed — its absence from the
@@ -133,7 +133,7 @@ export const GraphPanel: FC<{ id: string }> = ({ id }) => {
           <h4 className="text-sm font-bold text-[var(--color-ink-navy)]">
             Rules, with references resolved ({data.rules_shown.length} shown)
           </h4>
-          <p className="mt-0.5 text-[12px] text-[var(--color-slate-gray)]">
+          <p className="mt-0.5 text-xs text-[var(--color-slate-gray)]">
             Every name is followed through to the value it resolves to, so a
             verdict can be checked rather than taken on trust.
           </p>
@@ -149,7 +149,7 @@ export const GraphPanel: FC<{ id: string }> = ({ id }) => {
                 <Badge variant={r.action === 'allow' ? 'critical' : 'success'}>
                   {r.action}
                 </Badge>
-                <span className="font-mono text-[12px] text-[var(--color-ink-navy)]">
+                <span className="font-mono text-xs text-[var(--color-ink-navy)]">
                   {r.name}
                 </span>
                 {!r.enabled && <Badge variant="default">disabled</Badge>}
@@ -173,7 +173,7 @@ export const GraphPanel: FC<{ id: string }> = ({ id }) => {
               </div>
 
               {r.undecidable_for_ports && (
-                <p className="mt-2 text-[11.5px] text-[#b45309]">
+                <p className="mt-2 text-[11px] text-[#b45309]">
                   Cannot decide a port question alone: {r.undecidable_for_ports}
                 </p>
               )}

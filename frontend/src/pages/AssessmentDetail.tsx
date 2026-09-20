@@ -655,7 +655,15 @@ const AssessmentDetail: FC = () => {
                                   )}
 
                                   <div>
-                                    <span className="block text-[10px] uppercase tracking-wider font-bold mb-1">Cited by</span>
+                                    <span className="block text-[10px] uppercase tracking-wider font-bold mb-1">
+                                      {/* ONLY the selected framework. Listing the
+                                          others here read as ISO clauses leaking
+                                          into a NIST view; a reader aligned to one
+                                          framework does not want the other three
+                                          in the same panel. */}
+                                      Cited by{' '}
+                                      {FRAMEWORK_TABS.find((t) => t.key === frameworkFilter)?.label}
+                                    </span>
                                     <div className="flex flex-wrap gap-1">
                                       {CITATIONS.map(({ key, label }) => {
                                         const ids = f.frameworks?.[key] ?? [];

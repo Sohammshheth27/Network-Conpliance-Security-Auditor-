@@ -88,7 +88,7 @@ const ReportAndHistory: FC<{ aid: string }> = ({ aid }) => {
             </button>
           ))}
         </div>
-        <p className="mt-2 text-[11.5px] text-[var(--color-slate-gray)]">
+        <p className="mt-2 text-[11px] text-[var(--color-slate-gray)]">
           A single-framework report re-assesses the same configuration with only
           that framework selected, so it always matches a scoped assessment.
         </p>
@@ -111,8 +111,8 @@ const ReportAndHistory: FC<{ aid: string }> = ({ aid }) => {
         </div>
         {points && points.length > 0 ? (
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-[12.5px]">
-              <thead className="text-[10.5px] uppercase tracking-wider text-[var(--color-slate-gray)]">
+            <table className="w-full text-left text-xs">
+              <thead className="text-[10px] uppercase tracking-wider text-[var(--color-slate-gray)]">
                 <tr>
                   <th className="py-1 pr-4">Taken</th>
                   <th className="py-1 pr-4 text-right">Overall</th>
@@ -125,7 +125,7 @@ const ReportAndHistory: FC<{ aid: string }> = ({ aid }) => {
               <tbody className="text-[var(--color-ink-navy)]">
                 {points.map((p) => (
                   <tr key={p.taken_at} className="border-t border-[var(--color-hairline)]">
-                    <td className="py-1.5 pr-4 font-mono text-[11.5px]">{p.taken_at}</td>
+                    <td className="py-1.5 pr-4 font-mono text-[11px]">{p.taken_at}</td>
                     <td className="py-1.5 pr-4 text-right">{pct(p.score_pct)}</td>
                     {FRAMEWORKS.map(([key]) => (
                       <td key={key} className="py-1.5 pr-4 text-right">
@@ -141,7 +141,7 @@ const ReportAndHistory: FC<{ aid: string }> = ({ aid }) => {
             </table>
           </div>
         ) : (
-          <p className="mt-2 text-[11.5px] text-[var(--color-slate-gray)]">
+          <p className="mt-2 text-[11px] text-[var(--color-slate-gray)]">
             No snapshots of this device yet. Record one now and again after a
             change to see each framework's score move.
           </p>

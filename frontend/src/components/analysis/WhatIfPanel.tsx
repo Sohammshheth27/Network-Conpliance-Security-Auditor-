@@ -53,10 +53,10 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
     <div className="space-y-4">
       <Card variant="default" className="p-5">
         <div className="flex items-center gap-2">
-          <FlaskConical className="h-4 w-4 text-[#9B78FF]" />
+          <FlaskConical className="h-4 w-4 text-[#7c3aed]" />
           <h3 className="text-sm font-bold text-[var(--color-ink-navy)]">What-if remediation</h3>
         </div>
-        <p className="mt-1 text-[12px] text-[var(--color-slate-gray)]">
+        <p className="mt-1 text-xs text-[var(--color-slate-gray)]">
           Choose failures to fix. The engine re-scores a copy of this assessment
           with those settings corrected. Nothing on the device changes.
         </p>
@@ -64,7 +64,7 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
           {failing.map((f) => (
             <label
               key={f.control_id}
-              className="flex items-start gap-2 text-[12.5px] text-[var(--color-ink-navy)]"
+              className="flex items-start gap-2 text-xs text-[var(--color-ink-navy)]"
             >
               <input
                 type="checkbox"
@@ -74,7 +74,7 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
               />
               <span className="font-mono text-[11px] text-[var(--color-slate-gray)]">{f.control_id}</span>
               <span>{f.title}</span>
-              <span className="ml-auto text-[10.5px] uppercase text-[var(--color-slate-gray)]">
+              <span className="ml-auto text-[10px] uppercase text-[var(--color-slate-gray)]">
                 {f.severity}
               </span>
             </label>
@@ -83,7 +83,7 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
         <button
           onClick={run}
           disabled={busy || picked.length === 0}
-          className="mt-3 rounded-xl bg-gradient-to-r from-[#7B5CFF] to-[#9B78FF] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          className="mt-3 rounded-xl bg-gradient-to-r from-[#7B5CFF] to-[#7c3aed] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
         >
           {busy ? 'Re-scoring…' : `Simulate fixing ${picked.length} control(s)`}
         </button>
@@ -93,7 +93,7 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
 
       {out && (
         <Card variant="default" className="space-y-3 p-5">
-          <p className="rounded-xl border border-[rgba(155,120,255,0.3)] bg-[rgba(155,120,255,0.06)] p-3 text-[12px] text-[var(--color-slate-gray)]">
+          <p className="rounded-xl border border-purple-200 bg-purple-50 p-3 text-xs text-[var(--color-slate-gray)]">
             {out.label}
           </p>
           <div className="grid grid-cols-2 gap-3">
@@ -117,7 +117,7 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
           {out.changes.length > 0 && (
             <div className="space-y-1">
               {out.changes.map((c) => (
-                <div key={c.control_id} className="flex items-center gap-2 text-[12.5px]">
+                <div key={c.control_id} className="flex items-center gap-2 text-xs">
                   <span className="font-mono text-[11px] text-[var(--color-slate-gray)]">{c.control_id}</span>
                   <Badge variant="critical">{c.before}</Badge>
                   <span className="text-[var(--color-slate-gray)]">→</span>
@@ -132,7 +132,7 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
           {out.rejected.map((r) => (
             <div
               key={r.item}
-              className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12.5px] text-[var(--color-slate-gray)]"
+              className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-[var(--color-slate-gray)]"
             >
               <strong className="text-[#b45309]">{r.item} not simulated: </strong>
               {r.reason}
@@ -145,7 +145,7 @@ export const WhatIfPanel: FC<{ id: string }> = ({ id }) => {
             </div>
           ))}
 
-          <ul className="space-y-1 text-[11.5px] text-[var(--color-slate-gray)]">
+          <ul className="space-y-1 text-[11px] text-[var(--color-slate-gray)]">
             {out.caveats.map((c) => (
               <li key={c}>· {c}</li>
             ))}

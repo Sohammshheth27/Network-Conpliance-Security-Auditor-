@@ -590,6 +590,10 @@ export interface BlastStep {
   uncertain: boolean;
   zone_assumed: boolean;
   administrative: boolean;
+  /** ATT&CK techniques this open path would let an attacker attempt. Named
+   *  from the bundle by the engine; an id the bundle does not know is dropped
+   *  rather than shown with a guessed description. */
+  attack: { id: string; name: string }[];
 }
 
 export interface BlastSummary {
