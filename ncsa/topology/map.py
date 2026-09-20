@@ -1,4 +1,4 @@
-"""A 2-D topology figure of one device: zones, LANs, WLANs, uplinks, tunnels.
+"""A topology figure of one device: zones, LANs, WLANs, uplinks, tunnels.
 
 WHAT THE FIGURE IS
 ------------------
@@ -7,6 +7,21 @@ exist, which interfaces and subnets sit in each, where the internet enters,
 which VPN sites hang off the device, whether any access point is provisioned
 for the wireless zone, and which zone-to-zone flows the policy opens with an
 any/any rule.
+
+HOW IT IS LAID OUT, AND WHY THAT CHANGED
+----------------------------------------
+Zones are stacked in TRUST TIERS -- internet-facing at the top, the device as a
+full-width slab across the middle, internal zones below -- which is how every
+network diagram an administrator has ever read is drawn.
+
+It used to be a ring: the device in the centre with ten zones around it. Every
+fact was present and none of it was legible. Working out whether a flow ran
+toward something sensitive meant finding two boxes on a circle and judging
+which was "more trusted", and the arrows between them crossed the middle at
+every angle. Stacking the tiers makes the one question worth asking --
+DOES THIS REACH MY INTERNAL NETWORK? -- answerable by direction alone: an
+escalating flow points DOWN, and it visibly passes through the firewall slab on
+its way. Position now carries meaning, so the reader does not have to.
 
 WHAT IT IS NOT
 --------------
@@ -27,6 +42,12 @@ customer's site name. With `redact=True` (the default) public addresses become
 `public-IP-n`, tunnel names `Tunnel n`, peers `peer-n`, and the hostname is
 replaced by the model. Private (RFC 1918) addressing is kept: it is what makes
 the figure useful and it identifies nobody.
+
+That is redaction at the MAP layer, and it still applies. A redacted
+ASSESSMENT is separately pseudonymised in the reader, which maps each address
+to a stable stand-in inside 10/8 -- so an assessment run with `redact=True`
+arrives here already carrying private-looking addressing, and the figure shows
+its structure rather than a row of blanks.
 """
 from __future__ import annotations
 
@@ -243,36 +264,97 @@ def _zone_rank(z: dict):
 
 
 # -------------------------------------------------------------------- render
+#
+# The figure is drawn on a DARK canvas. A network diagram is read on a console
+# for minutes at a time, and on dark ground a saturated stroke separates from
+# its background far more strongly than the same hue does on white -- so trust
+# reads at a glance and the arrows stay visible over ten stacked boxes. Every
+# fill, stroke and text colour below is chosen against this ground, not adapted
+# from the light version: dark backgrounds punish borrowed palettes.
+INK = "#e8eef8"          # primary text
+MUTED = "#93a7c4"        # secondary text
 
-# The figure is read inside a light console and printed into a light report,
-# so it is drawn light. Each trust level is a pale fill with a saturated stroke
-# of the same hue: the colour still carries the meaning at a glance, and the
-# labels inside the box stay legible, which they were not when a near-white
-# label sat on a near-white page.
+# Ground.
+BG = "#070d17"           # page
+CANVAS = "#0c1424"       # tier band
+PANEL = "#111c30"        # device / side panel
+HAIRLINE = "#1e2b44"     # rules and grid
+GRID = "#111a2b"
+
+# Trust. (fill, stroke, label) -- the label is a LIGHT tint of the stroke so
+# the zone name carries the same meaning as its border without dropping
+# contrast against a dark fill, which a saturated stroke colour would.
 PALETTE = {
-    "untrusted": ("#fff1f2", "#be123c"),   # rose
-    "semi": ("#fffbeb", "#b45309"),        # amber
-    "trusted": ("#ecfdf5", "#047857"),     # emerald
-    "unknown": ("#f0f3f8", "#476788"),     # pebble / slate
+    "untrusted": ("#2b0f18", "#f43f5e", "#fda4af"),   # rose
+    "semi": ("#2b1d08", "#f59e0b", "#fcd34d"),        # amber
+    "trusted": ("#052419", "#10b981", "#6ee7b7"),     # emerald
+    "unknown": ("#141d2e", "#64748b", "#a8b8cf"),     # slate
 }
-BG, INK, MUTED, DEVICE = "#ffffff", "#0b3558", "#476788", "#006bff"
-HAIRLINE, CANVAS, PANEL = "#d4e0ed", "#f8f9fb", "#f0f3f8"
-FLOW = "#be123c"          # an any/any allow into a more trusted zone
-IDLE = "#a6bbd1"          # defined in policy, nothing assigned
+DEVICE = "#38bdf8"       # the device's own stroke
+DEVICE_FILL = "#0d2540"
+FLOW = "#fb7185"         # an any/any allow into a more trusted zone
+IDLE = "#3f5375"         # defined in policy, nothing assigned
+
+# Tiers, top to bottom. UNKNOWN SITS ABOVE THE DEVICE, with the outside tiers:
+# a zone whose trust we could not establish is not one to draw among the
+# internal networks. On the reference device that is where VPN and MPLS land,
+# and VPN traffic does arrive from outside, so the placement is also correct.
+TIERS = [
+    ("untrusted", "INTERNET-FACING", "reachable from outside your control"),
+    ("semi", "PERIMETER / DMZ", "published services, partially trusted"),
+    ("unknown", "TRUST NOT ESTABLISHED", "defined in policy, not classified"),
+]
+TRUSTED_TIER = ("trusted", "INTERNAL", "your users, servers and management plane")
+
+MARGIN = 40
+BOX_W = 366
+BOX_GAP = 30
+# Clearance between a tier's heading and its first row of boxes. It must
+# exceed DEPTH: a solid is extruded UPWARD from its own top edge, so at 40 the
+# first row's top face rode over the heading and struck a line through every
+# tier's subtitle.
+TIER_HEAD = 60
+TIER_PAD = 22
+HEADER_H = 132
+DEVICE_H = 132
+FOOTER_H = 132
+LBL_W = 390             # a flow's label plate
+LBL_H = 32
 
 
-def _t(x, y, s, size=16, color=INK, weight="normal", anchor="start", family="Segoe UI, Arial, sans-serif"):
+def _width(text: str, size: int, bold: bool = False) -> float:
+    """Roughly how wide a run of text will be.
+
+    SVG has no text metrics until it is rendered, so anything placed AFTER a
+    string has to estimate. Under-estimating is what printed every tier's
+    subtitle on top of its own heading: uppercase bold advances closer to
+    0.72em than the 0.56em a mixed-case average suggests.
+    """
+    upper = sum(1 for c in text if c.isupper() or c.isdigit())
+    ratio = 0.56 + 0.10 * (upper / max(len(text), 1)) + (0.06 if bold else 0)
+    return len(text) * size * ratio
+
+
+def _t(x, y, s, size=16, color=INK, weight="normal", anchor="start",
+       family="Inter, Segoe UI, Arial, sans-serif", opacity=None):
+    op = f' opacity="{opacity}"' if opacity is not None else ""
     return (f'<text x="{x:.0f}" y="{y:.0f}" font-family="{family}" font-size="{size}" '
-            f'fill="{color}" font-weight="{weight}" text-anchor="{anchor}">{escape(str(s))}</text>')
+            f'fill="{color}" font-weight="{weight}" text-anchor="{anchor}"{op}>'
+            f'{escape(str(s))}</text>')
+
+
+def _mono(x, y, s, size=15, color=INK, anchor="start", opacity=None):
+    return _t(x, y, s, size, color, "normal", anchor,
+              "JetBrains Mono, Consolas, monospace", opacity)
 
 
 # ------------------------------------------------------------------ 3-D solid
 #
-# Zones can be drawn as extruded slabs rather than flat rectangles. This is
-# real geometry -- three painted faces per solid with a cast shadow -- not a
-# CSS effect, so it renders identically in the browser and in the PDF report
-# and needs no WebGL library (which the console's content-security policy
-# would block anyway).
+# Zones are drawn as extruded slabs rather than flat rectangles. This is real
+# geometry -- three painted faces per solid with a cast shadow -- not a CSS
+# effect, so it renders identically in the browser and in the PDF report and
+# needs no WebGL library (which the console's content-security policy would
+# block anyway).
 #
 # The projection is a shallow cabinet oblique: the front face keeps its true
 # rectangle so LABELS STAY HORIZONTAL AND FULLY LEGIBLE, and depth is added by
@@ -282,8 +364,22 @@ def _t(x, y, s, size=16, color=INK, weight="normal", anchor="start", family="Seg
 DEPTH = 16          # how far the solid is extruded, in pixels
 
 
+def _mix(hex_colour: str, other: str, amount: float) -> str:
+    """Blend toward `other`. On a dark figure the top face of a solid must be
+    LIGHTER than its front, not darker: multiplying a near-black fill by 0.96
+    is invisible, so the extrusion simply vanished."""
+    a, b = hex_colour.lstrip("#"), other.lstrip("#")
+    if len(a) != 6 or len(b) != 6:
+        return hex_colour
+    out = []
+    for i in (0, 2, 4):
+        ca, cb = int(a[i:i + 2], 16), int(b[i:i + 2], 16)
+        out.append(max(0, min(255, round(ca + (cb - ca) * amount))))
+    return "#%02x%02x%02x" % tuple(out)
+
+
 def _shade(hex_colour: str, factor: float) -> str:
-    """Same hue, darker or lighter -- for the side and top faces of a solid."""
+    """Same hue, darker or lighter -- kept for callers outside this module."""
     h = hex_colour.lstrip("#")
     if len(h) != 6:
         return hex_colour
@@ -295,63 +391,159 @@ def _shade(hex_colour: str, factor: float) -> str:
 def _solid(x, y, w, h, fill, stroke, *, depth=DEPTH, dash="", radius=12) -> list[str]:
     """One extruded box: shadow, right face, top face, then the front face."""
     d = depth
+    top = _mix(fill, "#ffffff", 0.16)
+    side = _mix(fill, "#000000", 0.45)
     return [
-        # Cast shadow, offset down-right and low-opacity.
-        f'<rect x="{x + 6:.0f}" y="{y + 8:.0f}" width="{w}" height="{h}" rx="{radius}" '
-        f'fill="#0b3558" opacity="0.06"/>',
+        # Cast shadow, offset down-right. Black on a dark ground, not navy.
+        f'<rect x="{x + 7:.0f}" y="{y + 9:.0f}" width="{w}" height="{h}" rx="{radius}" '
+        f'fill="#000000" opacity="0.38"/>',
         # Right face.
         f'<path d="M{x + w:.0f},{y:.0f} L{x + w + d:.0f},{y - d:.0f} '
         f'L{x + w + d:.0f},{y + h - d:.0f} L{x + w:.0f},{y + h:.0f} Z" '
-        f'fill="{_shade(fill, 0.90)}" stroke="{stroke}" stroke-width="1"/>',
+        f'fill="{side}" stroke="{stroke}" stroke-width="1" stroke-opacity="0.55"/>',
         # Top face.
         f'<path d="M{x:.0f},{y:.0f} L{x + d:.0f},{y - d:.0f} '
         f'L{x + w + d:.0f},{y - d:.0f} L{x + w:.0f},{y:.0f} Z" '
-        f'fill="{_shade(fill, 0.96)}" stroke="{stroke}" stroke-width="1"/>',
+        f'fill="{top}" stroke="{stroke}" stroke-width="1" stroke-opacity="0.55"/>',
         # Front face, drawn last so its border is unbroken.
         f'<rect x="{x:.0f}" y="{y:.0f}" width="{w}" height="{h}" rx="{radius}" '
         f'fill="{fill}" stroke="{stroke}" stroke-width="2"{dash}/>',
     ]
 
 
+def _box_h(z: dict) -> int:
+    """Tall enough for the zone's name, its addressing and its note."""
+    lines = len(z["interfaces"][:9])
+    if len(z["interfaces"]) > 9:
+        lines += 1
+    if z.get("note"):
+        lines += 1
+    return 62 + 23 * max(lines, 1)
+
+
+def _rows(zones: list, per_row: int) -> list[list]:
+    return [zones[i:i + per_row] for i in range(0, len(zones), per_row)] or []
+
+
 def render_svg(m: dict, width: int = 2000, height: int = 1300,
                *, solid: bool = True) -> str:
-    """Deterministic radial layout: device in the middle, zones around it.
+    """Trust-tiered layout: outside at the top, the device across the middle.
+
+    `height` is a MINIMUM. The figure grows to fit however many zones the
+    device has rather than compressing them into a fixed box, because a zone
+    whose addressing is clipped is a zone the reader cannot check.
 
     `solid` draws every zone and the device as an extruded 3-D slab. It is the
     default because depth separates the boxes from the lines crossing between
     them; `solid=False` keeps the flat figure, which reproduces better on a
     monochrome printer.
     """
-    # The VPN site list gets a column of its own, clear of the zone ring.
-    side = 520 if m["tunnels"] else 0
-    cx, cy = (width - side) / 2, height / 2 - 20
     zones = m["zones"]
-    n = max(len(zones), 1)
-    rx, ry = (width - side) * 0.40, height * 0.35
-    boxes = {}
+    side = 560 if m["tunnels"] else 0
+    usable = width - side - 2 * MARGIN
+    per_row = max(1, int(usable // (BOX_W + BOX_GAP)))
+
+    # ---------------------------------------------------------------- layout
+    # Measured first, drawn second: the canvas height depends on how many rows
+    # each tier needs, and the device band has to sit between the outside tiers
+    # and the internal one wherever that falls.
+    plan: list = []          # (kind, payload, y, h)
+    y = HEADER_H
+    for key, title, subtitle in TIERS:
+        members = [z for z in zones if z["trust"] == key]
+        if not members:
+            continue
+        rows = _rows(members, per_row)
+        h = TIER_HEAD + sum(max(_box_h(z) for z in r) + BOX_GAP for r in rows) + TIER_PAD
+        plan.append(("tier", (key, title, subtitle, rows), y, h))
+        y += h
+    device_y = y
+    y += DEVICE_H
+    trusted = [z for z in zones if z["trust"] == "trusted"]
+    if trusted:
+        rows = _rows(trusted, per_row)
+        key, title, subtitle = TRUSTED_TIER
+        h = TIER_HEAD + sum(max(_box_h(z) for z in r) + BOX_GAP for r in rows) + TIER_PAD
+        plan.append(("tier", (key, title, subtitle, rows), y, h))
+        y += h
+    height = max(height, int(y + FOOTER_H))
+
+    # Place every zone box, so flows can be routed before anything is painted.
+    boxes: dict = {}
+    for kind, payload, ty, th in plan:
+        _key, _title, _sub, rows = payload
+        ry = ty + TIER_HEAD
+        for row in rows:
+            rh = max(_box_h(z) for z in row)
+            total = len(row) * BOX_W + (len(row) - 1) * BOX_GAP
+            rx = MARGIN + max((usable - total) / 2, 0)
+            for z in row:
+                bh = _box_h(z)
+                boxes[z["name"]] = (rx, ry + (rh - bh) / 2, BOX_W, bh,
+                                    rx + BOX_W / 2, ry + (rh - bh) / 2 + bh / 2)
+                rx += BOX_W + BOX_GAP
+            ry += rh + BOX_GAP
+
+    cx = MARGIN + usable / 2
+    dev_cy = device_y + DEVICE_H / 2
+
+    # ------------------------------------------------------------------ paint
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
            f'viewBox="0 0 {width} {height}">',
+           '<defs>',
+           f'<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" '
+           f'markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
+           f'<path d="M0,0 L10,5 L0,10 z" fill="{FLOW}"/></marker>',
+           f'<marker id="idle" viewBox="0 0 10 10" refX="9" refY="5" '
+           f'markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
+           f'<path d="M0,0 L10,5 L0,10 z" fill="{IDLE}"/></marker>',
+           f'<pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">'
+           f'<path d="M48,0 L0,0 0,48" fill="none" stroke="{GRID}" stroke-width="1"/>'
+           f'</pattern>',
+           f'<linearGradient id="devglow" x1="0" y1="0" x2="0" y2="1">'
+           f'<stop offset="0%" stop-color="{_mix(DEVICE_FILL, "#38bdf8", 0.22)}"/>'
+           f'<stop offset="100%" stop-color="{DEVICE_FILL}"/></linearGradient>',
+           '</defs>',
            f'<rect width="{width}" height="{height}" fill="{BG}"/>',
-           '<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" '
-           'markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
-           '<path d="M0,0 L10,5 L0,10 z" fill="#be123c"/></marker></defs>']
+           f'<rect width="{width}" height="{height}" fill="url(#grid)" opacity="0.6"/>']
 
-    # Zone positions around an ellipse, first zone at the top.
-    for k, z in enumerate(zones):
-        a = -math.pi / 2 + 2 * math.pi * k / n
-        zx, zy = cx + rx * math.cos(a), cy + ry * math.sin(a)
-        lines = len(z["interfaces"][:8]) + 2
-        w, h = 330, 58 + 23 * lines
-        boxes[z["name"]] = (zx - w / 2, zy - h / 2, w, h, zx, zy)
+    # Header.
+    dev = m["device"]
+    out.append(_t(MARGIN, 58, dev["name"], 30, INK, "bold"))
+    meta = " · ".join(x for x in (dev.get("model"), dev.get("os"), dev.get("version")) if x)
+    if meta:
+        out.append(_t(MARGIN, 86, meta, 16, MUTED))
+    n_if = sum(len(z["interfaces"]) for z in zones)
+    chips = [f'{len(zones)} zones', f'{n_if} interfaces', f'{len(m["tunnels"])} VPN tunnels']
+    chx = MARGIN
+    for c in chips:
+        w = 16 + 8 * len(c)
+        out.append(f'<rect x="{chx:.0f}" y="102" width="{w}" height="26" rx="13" '
+                   f'fill="{PANEL}" stroke="{HAIRLINE}" stroke-width="1"/>')
+        out.append(_t(chx + w / 2, 120, c, 14, MUTED, "normal", "middle"))
+        chx += w + 10
+    out.append(_t(width - side - MARGIN, 58, "TRUST TIERS", 14, MUTED, "bold", "end"))
+    out.append(_t(width - side - MARGIN, 82,
+                  "outside at the top · your network at the bottom", 14, MUTED,
+                  "normal", "end"))
+    out.append(_t(width - side - MARGIN, 104,
+                  "an arrow pointing DOWN crosses the firewall inward", 14, FLOW,
+                  "normal", "end"))
 
-    # Device-to-zone links first, so boxes draw over them.
-    for z in zones:
-        x, y, w, h, zx, zy = boxes[z["name"]]
-        dash = "" if z["populated"] else ' stroke-dasharray="7 6"'
-        col = PALETTE[z["trust"]][1] if z["populated"] else IDLE
-        out.append(f'<line x1="{cx:.0f}" y1="{cy:.0f}" x2="{zx:.0f}" y2="{zy:.0f}" '
-                   f'stroke="{col}" stroke-width="2" opacity="0.7"{dash}/>')
+    # Tier bands and their labels.
+    for kind, payload, ty, th in plan:
+        key, title, subtitle, rows = payload
+        stroke = PALETTE[key][1]
+        out.append(f'<rect x="{MARGIN - 14:.0f}" y="{ty:.0f}" width="{usable + 28:.0f}" '
+                   f'height="{th:.0f}" rx="18" fill="{CANVAS}" stroke="{HAIRLINE}" '
+                   f'stroke-width="1"/>')
+        out.append(f'<rect x="{MARGIN - 14:.0f}" y="{ty:.0f}" width="6" '
+                   f'height="{th:.0f}" rx="3" fill="{stroke}" opacity="0.85"/>')
+        out.append(_t(MARGIN + 4, ty + 27, title, 16, stroke, "bold"))
+        out.append(_t(MARGIN + 4 + _width(title, 16, bold=True) + 22, ty + 27,
+                      subtitle, 14, MUTED))
 
+    # --------------------------------------------------------------- the flows
     # Only the flows that matter are drawn: an any/any allow from a LESS
     # trusted zone into a more trusted one. Drawing every auto-generated
     # default rule (LAN -> WAN is the normal outbound direction) buried the one
@@ -360,140 +552,201 @@ def render_svg(m: dict, width: int = 2000, height: int = 1300,
              and f["from"] in boxes and f["to"] in boxes][:8]
     hidden = sum(1 for f in m["flows"] if f["any_any"]) - len(drawn)
     labels: list = []
-    for f in drawn:
-        _, _, _, _, x1, y1 = boxes[f["from"]]
-        _, _, _, _, x2, y2 = boxes[f["to"]]
-        mx, my = (x1 + x2) / 2, (y1 + y2) / 2
-        dx, dy = mx - cx, my - cy
-        d = math.hypot(dx, dy)
-        if d < 140:
-            # Zones on opposite sides: bowing away from the centre is
-            # undefined and the arrow ran straight through the device. Bow
-            # perpendicular to the chord instead.
-            px, py = -(y2 - y1), (x2 - x1)
-            pl = math.hypot(px, py) or 1
-            qx, qy = mx + px / pl * 400, my + py / pl * 400
-        else:
-            qx, qy = mx + dx / d * 230, my + dy / d * 230
+    # A plate must clear the zone boxes AND every plate already placed.
+    # Avoiding only the boxes printed "VPN ZOne -> DMZ" directly on top of
+    # "MPLS -> DMZ", which is exactly as unreadable as printing either on a box.
+    # The device slab counts as an obstacle too. Left out, "MPLS -> LAN" was
+    # printed straight across the device's own name.
+    obstacles = [(b[0], b[1], b[2], b[3]) for b in boxes.values()]
+    obstacles.append((MARGIN, device_y + 18, usable, DEVICE_H - 42))
+    # So does each tier's heading: it is text, and a plate settling on it is no
+    # more readable than one settling on a box. "MPLS -> DMZ" came to rest
+    # across "TRUST NOT ESTABLISHED", and "VPN -> LAN" across "INTERNAL".
+    obstacles += [(MARGIN - 14, ty + 4, usable + 28, 34) for _k, _p, ty, _h in plan]
+    for idx, f in enumerate(drawn):
+        sx0, sy0, sw, sh, scx, scy = boxes[f["from"]]
+        ex0, ey0, ew, eh, ecx, ecy = boxes[f["to"]]
+        if ecy > scy + 40:                       # destination is lower: go down
+            x1, y1, x2, y2 = scx, sy0 + sh, ecx, ey0
+        elif ecy < scy - 40:
+            x1, y1, x2, y2 = scx, sy0, ecx, ey0 + eh
+        else:                                    # same row: leave by the side
+            right = ecx > scx
+            x1, y1 = (sx0 + sw, scy) if right else (sx0, scy)
+            x2, y2 = (ex0, ecy) if right else (ex0 + ew, ecy)
+        # A vertical S-curve. Every escalating flow therefore enters the device
+        # band from above and leaves below it, which is the fact the figure is
+        # for: this traffic crosses the firewall.
+        my = (y1 + y2) / 2
+        bow = (idx - (len(drawn) - 1) / 2) * 26      # fan them out, no overlap
         dash = ' stroke-dasharray="9 7"' if f.get("latent") else ""
-        out.append(f'<path d="M{x1:.0f},{y1:.0f} Q{qx:.0f},{qy:.0f} {x2:.0f},{y2:.0f}" '
-                   f'fill="none" stroke="{FLOW}" stroke-width="3"{dash} '
-                   f'marker-end="url(#arrow)" opacity="0.9"/>')
-        lx, ly = (x1 + 2 * qx + x2) / 4, (y1 + 2 * qy + y2) / 4
-        # Nudge the plate clear of any zone it lands on. With ten zones in a
-        # ring the midpoint of a bowed arrow often falls on a box, and the
-        # label then covered the interface list the reader came for -- on the
-        # reference device it hid MGMT's addressing completely.
-        for _ in range(24):
-            hit = next((b for b in boxes.values()
-                        if lx - 190 < b[0] + b[2] and lx + 190 > b[0]
-                        and ly - 20 < b[1] + b[3] and ly + 20 > b[1]), None)
-            if hit is None:
+        out.append(f'<path d="M{x1:.0f},{y1:.0f} C{x1 + bow:.0f},{my:.0f} '
+                   f'{x2 + bow:.0f},{my:.0f} {x2:.0f},{y2:.0f}" fill="none" '
+                   f'stroke="{FLOW}" stroke-width="3"{dash} '
+                   f'marker-end="url(#arrow)" opacity="0.95"/>')
+        # Search outward from the arrow's midpoint for a position clear of
+        # everything already on the canvas, preferring small moves so the plate
+        # stays near its own arrow. A deterministic scan over candidates, not a
+        # nudge loop: two obstacles facing each other bounce a nudge forever.
+        #
+        # SCORED, because the search can genuinely run out of room. An earlier
+        # version took the first free candidate and otherwise fell back to the
+        # arrow's midpoint -- so the one flow that found nothing (VPN ZOne ->
+        # DMZ, 0 of 65 candidates free once tier headings became obstacles) was
+        # dumped at the exact spot it had just proved was occupied, landing on
+        # both a neighbouring plate and a tier subtitle. Failing into the WORST
+        # position is worse than not searching. When nothing is free the least
+        # overlapped candidate wins instead.
+        lo = MARGIN + LBL_W / 2
+        hi = MARGIN + usable - LBL_W / 2
+        top, bot = HEADER_H + LBL_H, height - FOOTER_H - LBL_H
+        base_x = min(max((x1 + x2) / 2 + bow * 0.75, lo), hi)
+        cands = []
+        for dy in range(0, 361, 36):
+            for sy in ((0,) if dy == 0 else (-1, 1)):
+                for dx in range(0, 561, 70):
+                    for sx in ((0,) if dx == 0 else (-1, 1)):
+                        cands.append((dy * sy, dx * sx))
+        # Vertical first: a plate above or below its arrow still reads as
+        # belonging to it, one shifted sideways is easily misattributed.
+        cands.sort(key=lambda c: (abs(c[0]) + abs(c[1]) * 0.55, abs(c[1]), c))
+        best, best_cost = (base_x, my), None
+        for dy, dx in cands:
+            px = min(max(base_x + dx, lo), hi)
+            py = min(max(my + dy, top), bot)
+            cost = 0.0
+            for o in obstacles:
+                ox = min(px + LBL_W / 2, o[0] + o[2]) - max(px - LBL_W / 2, o[0])
+                oy = (min(py + LBL_H / 2 + 5, o[1] + o[3])
+                      - max(py - LBL_H / 2 - 5, o[1]))
+                if ox > 0 and oy > 0:
+                    cost += ox * oy
+            if cost == 0:
+                best = (px, py)
                 break
-            # Leave by the nearer edge, so the label stays close to its arrow.
-            ly = (hit[1] - 30 if ly < hit[1] + hit[3] / 2
-                  else hit[1] + hit[3] + 30)
+            if best_cost is None or cost < best_cost:
+                best, best_cost = (px, py), cost
+        lx, ly = best
+        obstacles.append((lx - LBL_W / 2, ly - LBL_H / 2, LBL_W, LBL_H))
         n_r = len(f["any_any"])
         label = (f'{f["from"]} → {f["to"]}: any/any'
                  + (", latent" if f.get("latent") else "")
                  + f' ({n_r} rule{"s" if n_r > 1 else ""})')
         # Labels are collected and drawn LAST: drawn here, the zone boxes
         # painted over them and hid the most important one (WLAN -> DMZ).
-        labels.append(f'<rect x="{lx - 190:.0f}" y="{ly - 17:.0f}" width="380" height="30" rx="7" '
-                      f'fill="{BG}" stroke="{FLOW}" stroke-width="1"/>')
-        labels.append(_t(lx, ly + 3, label, 15, FLOW, "bold", "middle"))
+        labels.append(f'<rect x="{lx - LBL_W / 2:.0f}" y="{ly - LBL_H / 2:.0f}" '
+                      f'width="{LBL_W}" height="{LBL_H}" '
+                      f'rx="8" fill="{BG}" stroke="{FLOW}" stroke-width="1" '
+                      f'fill-opacity="0.94"/>')
+        labels.append(_t(lx, ly + 5, label, 15, FLOW, "bold", "middle"))
 
-    # Device.
-    dw, dh = 380, 120
-    if solid:
-        # The device is raised further than the zones: it is the thing the
-        # whole figure is about, and depth says so without another colour.
-        out.extend(_solid(cx - dw / 2, cy - dh / 2, dw, dh, PANEL, DEVICE,
-                          depth=DEPTH + 8, radius=14))
-    else:
-        out.append(f'<rect x="{cx - dw / 2:.0f}" y="{cy - dh / 2:.0f}" width="{dw}" height="{dh}" '
-                   f'rx="14" fill="{PANEL}" stroke="{DEVICE}" stroke-width="3"/>')
-    dev = m["device"]
-    out.append(_t(cx, cy - 22, dev["name"], 24, INK, "bold", "middle"))
-    out.append(_t(cx, cy + 8, " · ".join(x for x in (dev.get("model"), dev.get("os"),
-                                                      dev.get("version")) if x), 15, MUTED, "normal", "middle"))
-    out.append(_t(cx, cy + 30, f'{len(zones)} zones · {sum(len(z["interfaces"]) for z in zones)} interfaces'
-                  f' · {len(m["tunnels"])} tunnels', 15, MUTED, "normal", "middle"))
-
-    # Zones.
+    # --------------------------------------------------------------- the zones
     for z in zones:
-        x, y, w, h, zx, zy = boxes[z["name"]]
-        fill, stroke = PALETTE[z["trust"]]
+        if z["name"] not in boxes:
+            continue
+        x, yy, w, h, zcx, zcy = boxes[z["name"]]
+        fill, stroke, text = PALETTE[z["trust"]]
         dash = "" if z["populated"] else ' stroke-dasharray="7 6"'
         if not z["populated"]:
-            fill, stroke = CANVAS, IDLE
+            fill, stroke, text = "#0f1726", IDLE, MUTED
         if solid:
-            out.extend(_solid(x, y, w, h, fill, stroke, dash=dash))
+            out.extend(_solid(x, yy, w, h, fill, stroke, dash=dash))
         else:
-            out.append(f'<rect x="{x:.0f}" y="{y:.0f}" width="{w}" height="{h}" rx="12" '
+            out.append(f'<rect x="{x:.0f}" y="{yy:.0f}" width="{w}" height="{h}" rx="12" '
                        f'fill="{fill}" stroke="{stroke}" stroke-width="2"{dash}/>')
-        out.append(_t(x + 14, y + 24, z["name"], 19, stroke, "bold"))
-        out.append(_t(x + w - 12, y + 24, z["trust"], 14, MUTED, "normal", "end"))
-        ly = y + 56
-        for itf in z["interfaces"][:8]:
+        out.append(_t(x + 16, yy + 30, z["name"], 20, text, "bold"))
+        n = len(z["interfaces"])
+        out.append(_t(x + w - 14, yy + 30, f'{n} interface{"" if n == 1 else "s"}',
+                      14, MUTED, "normal", "end"))
+        out.append(f'<line x1="{x + 16:.0f}" y1="{yy + 42:.0f}" x2="{x + w - 14:.0f}" '
+                   f'y2="{yy + 42:.0f}" stroke="{stroke}" stroke-width="1" '
+                   f'stroke-opacity="0.35"/>')
+        ly = yy + 66
+        for itf in z["interfaces"][:9]:
             state = "" if itf["enabled"] else "  (down)"
-            txt = f'{itf["name"]}  {itf["network"] or itf["address"] or "-"}{state}'
-            out.append(_t(x + 14, ly, txt, 15, INK, family="Consolas, monospace"))
+            out.append(_mono(x + 16, ly, f'{itf["name"]:<5} '
+                             f'{itf["network"] or itf["address"] or "-"}{state}', 15,
+                             INK if itf["enabled"] else MUTED))
             ly += 23
-        if len(z["interfaces"]) > 8:
-            out.append(_t(x + 14, ly, f'+ {len(z["interfaces"]) - 8} more', 15, MUTED))
+        if n > 9:
+            out.append(_t(x + 16, ly, f'+ {n - 9} more', 15, MUTED))
             ly += 23
         if z["note"]:
-            out.append(_t(x + 14, ly, z["note"], 14,
-                          "#b45309" if not z["populated"] else MUTED, "normal"))
+            out.append(_t(x + 16, ly, z["note"], 14,
+                          "#fcd34d" if not z["populated"] else MUTED))
 
-    # Internet above the WAN zone.
-    wan = next((z for z in zones if z["trust"] == "untrusted" and z["name"].lower() != "wlan"
-                and z["populated"]), None)
-    if wan:
-        x, y, w, h, zx, zy = boxes[wan["name"]]
-        ix, iy = zx, max(y - 60, 30)
-        out.append(f'<line x1="{zx:.0f}" y1="{y:.0f}" x2="{ix:.0f}" y2="{iy + 18:.0f}" '
-                   f'stroke="{FLOW}" stroke-width="2"/>')
-        out.append(f'<ellipse cx="{ix:.0f}" cy="{iy:.0f}" rx="80" ry="22" fill="#fff1f2" '
-                   f'stroke="{FLOW}" stroke-width="2"/>')
-        out.append(_t(ix, iy + 5, "Internet", 17, FLOW, "bold", "middle"))
+    # -------------------------------------------------------------- the device
+    dw = usable
+    if solid:
+        out.extend(_solid(MARGIN, device_y + 18, dw, DEVICE_H - 42, DEVICE_FILL,
+                          DEVICE, depth=DEPTH + 6, radius=16))
+    else:
+        out.append(f'<rect x="{MARGIN}" y="{device_y + 18:.0f}" width="{dw:.0f}" '
+                   f'height="{DEVICE_H - 42}" rx="16" fill="{DEVICE_FILL}" '
+                   f'stroke="{DEVICE}" stroke-width="3"/>')
+    out.append(_t(MARGIN + 24, dev_cy + 2, dev["name"], 22, INK, "bold"))
+    out.append(_t(MARGIN + 24, dev_cy + 26, "every flow between the tiers above and "
+                  "below is enforced here", 15, MUTED))
+    out.append(_t(MARGIN + dw - 24, dev_cy + 2,
+                  f'{len(drawn)} any/any flow(s) drawn', 16, FLOW, "bold", "end"))
+    out.append(_t(MARGIN + dw - 24, dev_cy + 26, "policy enforcement point", 14,
+                  MUTED, "normal", "end"))
 
-    # VPN sites beside the VPN zone.
+    # Internet, above the top tier.
+    top_tier = plan[0] if plan else None
+    if top_tier and top_tier[1][0] == "untrusted":
+        iy = top_tier[2] - 26
+        out.append(f'<rect x="{cx - 96:.0f}" y="{iy - 20:.0f}" width="192" height="38" '
+                   f'rx="19" fill="{PALETTE["untrusted"][0]}" stroke="{FLOW}" '
+                   f'stroke-width="2"/>')
+        out.append(_t(cx, iy + 5, "INTERNET", 17, "#fda4af", "bold", "middle"))
+
+    # ----------------------------------------------------------- VPN side list
     if m["tunnels"]:
-        tx, ty = width - side + 30, 70
-        out.append(f'<line x1="{tx - 12}" y1="30" x2="{tx - 12}" y2="{height - 110}" '
+        tx = width - side + 24
+        out.append(f'<rect x="{tx - 16:.0f}" y="{MARGIN:.0f}" width="{side - 44:.0f}" '
+                   f'height="{height - FOOTER_H - MARGIN:.0f}" rx="18" fill="{CANVAS}" '
                    f'stroke="{HAIRLINE}" stroke-width="1"/>')
         up = sum(1 for t in m["tunnels"] if t["enabled"] is not False)
-        out.append(_t(tx, ty, f'VPN sites ({up} of {len(m["tunnels"])} enabled)', 16, INK, "bold"))
-        for k, t in enumerate(m["tunnels"][:18]):
-            col = "#047857" if t["enabled"] is not False else IDLE
-            yy = ty + 24 + k * 23
-            out.append(f'<circle cx="{tx + 5:.0f}" cy="{yy - 4:.0f}" r="4" fill="{col}"/>')
-            out.append(_t(tx + 16, yy, (t["name"][:26] + ("" if t["enabled"] is not False else "  (disabled)")),
-                          14, INK if t["enabled"] is not False else MUTED))
+        out.append(_t(tx, MARGIN + 34, "VPN SITES", 16, INK, "bold"))
+        out.append(_t(tx, MARGIN + 56, f'{up} of {len(m["tunnels"])} enabled', 14, MUTED))
+        ty = MARGIN + 88
+        for t in m["tunnels"][:22]:
+            live = t["enabled"] is not False
+            col = "#10b981" if live else IDLE
+            out.append(f'<circle cx="{tx + 6:.0f}" cy="{ty - 5:.0f}" r="4" fill="{col}"/>')
+            out.append(_t(tx + 20, ty, t["name"][:30] + ("" if live else "  (disabled)"),
+                          14, INK if live else MUTED))
+            ty += 23
+        if len(m["tunnels"]) > 22:
+            out.append(_t(tx + 20, ty, f'+ {len(m["tunnels"]) - 22} more', 14, MUTED))
 
     out.extend(labels)
 
-    # Legend and provenance.
-    ly = height - 64
-    items = [(FLOW, "untrusted"), ("#b45309", "DMZ / semi-trusted"),
-             ("#047857", "trusted"), (IDLE, "defined in policy, nothing assigned (dashed)")]
-    lx = 30
+    # ------------------------------------------------------- legend, provenance
+    ly = height - 78
+    out.append(f'<line x1="{MARGIN}" y1="{ly - 30:.0f}" x2="{width - MARGIN}" '
+               f'y2="{ly - 30:.0f}" stroke="{HAIRLINE}" stroke-width="1"/>')
+    items = [(PALETTE["untrusted"][1], "internet-facing"),
+             (PALETTE["semi"][1], "DMZ / semi-trusted"),
+             (PALETTE["trusted"][1], "internal"),
+             (IDLE, "defined in policy, nothing assigned (dashed)")]
+    lx = MARGIN
     for col, label in items:
-        out.append(f'<rect x="{lx}" y="{ly - 11}" width="14" height="14" rx="3" fill="{col}"/>')
+        out.append(f'<rect x="{lx}" y="{ly - 11}" width="14" height="14" rx="4" fill="{col}"/>')
         out.append(_t(lx + 22, ly, label, 15, MUTED))
-        lx += 24 + 8 * len(label) + 30
-    out.append(f'<line x1="{lx}" y1="{ly - 4}" x2="{lx + 40}" y2="{ly - 4}" stroke="{FLOW}" '
-               f'stroke-width="3" marker-end="url(#arrow)"/>')
-    out.append(_t(lx + 50, ly, "any/any allow into a more trusted zone (dashed: latent)", 12, MUTED))
+        lx += 24 + 8 * len(label) + 26
+    out.append(f'<line x1="{lx}" y1="{ly - 4}" x2="{lx + 40}" y2="{ly - 4}" '
+               f'stroke="{FLOW}" stroke-width="3" marker-end="url(#arrow)"/>')
+    out.append(_t(lx + 50, ly, "any/any allow into a more trusted zone (dashed: latent)",
+                  14, MUTED))
     if hidden > 0:
-        out.append(_t(30, height - 46,
+        out.append(_t(MARGIN, height - 52,
                       f"{hidden} further any/any flow(s) run toward an equally or less "
                       "trusted zone (e.g. LAN to WAN, the normal outbound direction) "
                       "and are not drawn; every flow is in the map data.", 14, MUTED))
     src = m["source"]
-    out.append(_t(30, height - 30,
+    out.append(_t(MARGIN, height - 30,
                   f'Derived from configuration ({src["file"]}, sha256 {src["sha256"]}…), not live '
                   f'discovery. Generated {src["generated_at"]}.'
                   + ("  Public addresses, site names and hostname redacted." if m["redacted"] else ""),

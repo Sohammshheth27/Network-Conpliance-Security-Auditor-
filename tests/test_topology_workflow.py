@@ -50,15 +50,40 @@ def test_indented_extractor_reads_address_zone_and_shutdown():
 
 
 @pytest.mark.skipif(not os.path.exists(SW), reason="sample absent")
-def test_redaction_makes_topology_impossible_and_says_so():
-    """Redaction replaces octets with `x`, so an interface address becomes
-    unparseable. This returned an empty list, and a device with ten live
-    interfaces looked like a device with none."""
-    from ncsa.topology.interfaces import RedactedAddressing, extract
-    redacted = assess(SW, redact=True)
-    with pytest.raises(RedactedAddressing):
-        extract(redacted, strict=True)
-    assert extract(assess(SW, redact=False))   # ...and works unredacted
+def test_a_redacted_upload_still_yields_its_interfaces():
+    """Redaction hides WHICH addresses, never THAT there are interfaces.
+
+    It used to blank the last octet, so `203.0.113.45` became `10.0.113.x` --
+    not an address. Every address then failed to parse, this returned an empty
+    list, and a firewall with ten live interfaces was indistinguishable from
+    one with none. Redaction is now prefix-preserving pseudonymisation, so the
+    whole structure survives and only the numbers change.
+    """
+    import ipaddress
+
+    from ncsa.topology.interfaces import extract
+
+    red = extract(assess(SW, redact=True), strict=True)
+    raw = extract(assess(SW, redact=False))
+    assert len(red) == len(raw) == 10
+    assert [i.name for i in red] == [i.name for i in raw]
+    assert [i.zone for i in red] == [i.zone for i in raw]
+
+    # Every pseudonym is a usable, non-routable address with a real subnet.
+    assert all(ipaddress.ip_address(i.address).is_private for i in red)
+    assert all(i.network is not None for i in red)
+    assert all(i.netmask == j.netmask for i, j in zip(red, raw))   # masks intact
+    assert not {i.address for i in red} & {i.address for i in raw}
+
+    # THE POINT OF PREFIX PRESERVATION. X11 and X12 genuinely share a /24 on
+    # this device; hashing whole addresses would have scattered them onto
+    # unrelated subnets and the topology would have drawn two networks where
+    # there is one.
+    by_name = lambda ifs: {i.name: i.network for i in ifs}      # noqa: E731
+    r, u = by_name(red), by_name(raw)
+    assert u["X11"] == u["X12"]
+    assert r["X11"] == r["X12"]
+    assert r["X11"] != r["X5"]                 # ...and distinct subnets stay distinct
 
 
 # ----------------------------------------------------------------- topology

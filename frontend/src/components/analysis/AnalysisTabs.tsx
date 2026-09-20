@@ -590,9 +590,15 @@ const InterfacesPanel: FC<{ id: string }> = ({ id }) => {
   if (error) return <ErrorPanel error={error} onRetry={reload} />;
   if (!data) return null;
 
-  // A redacted upload has no addressing, so topology genuinely cannot be
-  // inferred. The engine says why; repeating it here beats an empty table.
-  if (data.note) return <NotRun what="Topology" reason={data.note} />;
+  // A note with NO interfaces means addressing genuinely could not be read:
+  // the engine says why, and repeating it beats an empty table. A note WITH
+  // interfaces is the redaction advisory -- the rows are real and only the
+  // numbers are pseudonyms -- so it goes ABOVE the table, never in place of
+  // it. Returning early on any note at all put a "not run" panel over ten
+  // perfectly good interfaces the moment redaction started pseudonymising
+  // instead of blanking, which is the blank Interfaces tab all over again.
+  if (data.note && !data.interfaces.length)
+    return <NotRun what="Topology" reason={data.note} />;
   if (!data.interfaces.length)
     return <Empty label="No addressed interfaces were found." />;
 
@@ -606,6 +612,11 @@ const InterfacesPanel: FC<{ id: string }> = ({ id }) => {
           The addressing that multi-device topology is inferred from. Adjacency
           is inferred from shared subnets, not read from the wire.
         </p>
+        {data.note && (
+          <p className="mt-2 rounded-lg border border-[var(--color-hairline)] bg-[var(--color-pebble)] px-3 py-2 text-xs text-[var(--color-slate-gray)]">
+            {data.note}
+          </p>
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">

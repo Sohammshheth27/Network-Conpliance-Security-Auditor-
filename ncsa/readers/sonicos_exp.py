@@ -25,6 +25,7 @@ sanitisation. :func:`redact` is applied by default for that reason.
 from __future__ import annotations
 
 import base64
+import hashlib
 import re
 import urllib.parse
 from pathlib import Path
@@ -163,12 +164,56 @@ class SonicOsExport:
 _FLAG_VALUE = re.compile(r"^(on|off|true|false|yes|no|enabled?|disabled?|0|1)$", re.I)
 
 
+#: A netmask is not a secret and it is not an address. Masking 255.255.255.0
+#: destroyed the subnet arithmetic every network derivation depends on, so
+#: these pass through untouched.
+_NETMASK = re.compile(
+    r"^(0|128|192|224|240|248|252|254|255)"
+    r"(\.(0|128|192|224|240|248|252|254|255)){3}$")
+
+
+def _pseudonym(addr: str) -> str:
+    """A stable, valid, non-routable stand-in for one real address.
+
+    REDACTION MUST PSEUDONYMISE, NOT MANGLE. The previous form replaced the
+    last octet with the letter "x" -- `203.0.113.45` became `10.0.113.x`, which
+    is not an IPv4 address at all. Everything downstream that parses addressing
+    then failed silently: `from_sonicos` skipped every interface, the topology
+    map drew a device with no interfaces, and the Interfaces panel was blank. A
+    redacted audit lost analysis it had every right to keep. It also kept the
+    real second and third octets, so it disclosed MORE than this does while
+    being less useful.
+
+    PREFIX-PRESERVING, deliberately. The /24 is hashed into 10/8 and the host
+    octet is carried across unchanged:
+
+        192.168.5.1   ->  10.a.b.1
+        192.168.5.20  ->  10.a.b.20     same real subnet, same pseudo subnet
+        172.16.9.1    ->  10.c.d.1      different subnet, different prefix
+
+    Hashing the whole address instead would scatter two interfaces that really
+    share a subnet into unrelated /24s, and `Interface.network` would then
+    report them as separate networks -- redaction would stop destroying
+    parseability and start destroying RELATIONSHIPS, which is worse because it
+    still looks like a working map. Subnet grouping, adjacency and the `.1`
+    gateway convention all have to survive for the figure to mean anything.
+
+    A bare host octet discloses nothing about the organisation on its own, and
+    the prefix it belongs to is gone.
+    """
+    head, _, host = addr.rpartition(".")
+    digest = hashlib.sha256(head.encode()).digest()
+    return f"10.{digest[0]}.{digest[1]}.{host}"
+
+
 def _redact_value(key: str, val: str) -> str:
     if _FLAG_VALUE.match(val):
         return val
     if SECRET_KEY.search(key) or SECRET_VAL.match(val):
         return "<REDACTED>"
-    return _IPV4.sub(lambda m: f"10.{m.group(2)}.{m.group(3)}.x", val)
+    if _NETMASK.match(val.strip()):
+        return val
+    return _IPV4.sub(lambda m: _pseudonym(m.group(0)), val)
 
 
 class NotASonicOsExport(ValueError):

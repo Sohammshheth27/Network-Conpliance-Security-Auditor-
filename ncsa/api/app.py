@@ -1054,9 +1054,9 @@ def build_topology(body: TopologyIn):
                 "assessment_id": aid,
                 "device": da.identity.hostname or da.identity.source_file})
         except Exception as exc:                          # noqa: BLE001
-            # Most often RedactedAddressing: the upload was redacted, so the
-            # interface addresses adjacency depends on are gone. That is a
-            # REASON, and reporting it beats silently dropping the device.
+            # Whatever the cause -- unreadable addressing, an unsupported
+            # platform -- it is a REASON, and reporting it beats silently
+            # dropping the device from the fabric.
             skipped.append({"assessment_id": aid,
                             "reason": f"{type(exc).__name__}: {exc}"})
 
@@ -1073,25 +1073,35 @@ def build_topology(body: TopologyIn):
 
 @app.get("/assessment/{aid}/interfaces", tags=["topology"])
 def get_interfaces(aid: str):
-    """The addressing that topology is inferred from. Empty when redacted."""
+    """The addressing that topology is inferred from.
+
+    Populated whether or not the upload was redacted. Redaction pseudonymises
+    each address into a valid, stable, prefix-preserving stand-in, so the
+    interface list, its zones and its subnet structure all survive; only the
+    numbers are not the real ones.
+    """
     from ..topology.interfaces import RedactedAddressing, extract
 
     da, _ = _get(aid)
     try:
-        # strict: a redacted upload has its octets masked, so addressing cannot
-        # be parsed. Without this the call returned an empty list and the page
-        # showed an empty table -- a device with ten live interfaces looking
-        # identical to a device with none. Raising here means the reason below
-        # reaches the reader instead of silence.
-        return {"interfaces": [i.to_json() for i in extract(da, strict=True)]}
+        # strict: never answer "no interfaces" for a device that has them. This
+        # is now a backstop rather than the expected path -- redaction used to
+        # blank octets, which made every address unparseable and turned a
+        # ten-interface firewall into an empty table.
+        out = {"interfaces": [i.to_json() for i in extract(da, strict=True)]}
+        if getattr(getattr(da, "document", None), "redacted", False):
+            out["note"] = ("This upload was redacted: addresses shown are "
+                           "stable pseudonyms, not the device's real "
+                           "addressing. Interfaces on one real subnet remain "
+                           "on one subnet here, so the structure is accurate "
+                           "even though the numbers are not.")
+        return out
     except RedactedAddressing:
         return {"interfaces": [],
-                "note": "This upload was redacted, which masks interface "
-                        "addresses, so no addressing could be read and "
-                        "topology cannot be inferred from it. The device may "
-                        "well have interfaces -- we cannot see them here. "
-                        "Re-run the assessment with redaction off to build "
-                        "topology."}
+                "note": "No addressing could be read from this redacted "
+                        "upload, so topology cannot be inferred from it. The "
+                        "device may well have interfaces -- we cannot see them "
+                        "here. Re-run the assessment with redaction off."}
 
 
 # ------------------------------------------------------ change tracking

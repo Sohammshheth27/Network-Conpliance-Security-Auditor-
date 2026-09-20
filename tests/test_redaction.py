@@ -1,5 +1,6 @@
 """Redaction hides secrets and addresses. It must never change a verdict."""
 from functools import lru_cache
+import ipaddress
 import os
 
 import pytest
@@ -36,8 +37,35 @@ def test_secrets_are_still_redacted(key, val):
     assert _redact_value(key, val) == "<REDACTED>"
 
 
-def test_addresses_are_still_masked():
-    assert _redact_value("iface_lan_ip", "192.168.10.1") == "10.168.10.x"
+def test_an_address_becomes_a_valid_pseudonym():
+    """Not `10.168.10.x`. That was not an address, and everything that parsed
+    addressing broke on it -- see `_pseudonym`. The /24 is hashed into 10/8 and
+    the host octet carries across."""
+    out = _redact_value("iface_lan_ip", "192.168.10.1")
+    assert out == "10.38.159.1"
+    assert ipaddress.ip_address(out).is_private
+    assert "192.168" not in out
+
+
+def test_one_real_subnet_stays_one_pseudonymous_subnet():
+    """Prefix-preserving, or the map lies. Hashing the whole address would put
+    two interfaces that really share a subnet on unrelated /24s, and the
+    topology would show them as separate networks."""
+    a = _redact_value("addrObjIp1_1", "192.168.5.1")
+    b = _redact_value("addrObjIp1_2", "192.168.5.20")
+    assert a.rsplit(".", 1)[0] == b.rsplit(".", 1)[0]
+    assert (a.rsplit(".", 1)[1], b.rsplit(".", 1)[1]) == ("1", "20")
+    # A different real subnet must land somewhere else.
+    c = _redact_value("addrObjIp1_3", "172.16.9.1")
+    assert c.rsplit(".", 1)[0] != a.rsplit(".", 1)[0]
+
+
+@pytest.mark.parametrize("mask", ["255.255.255.0", "255.255.254.0",
+                                  "255.255.255.255", "0.0.0.0"])
+def test_a_netmask_is_never_touched(mask):
+    """A netmask is not sensitive, and masking it destroyed the subnet
+    arithmetic `Interface.network` depends on."""
+    assert _redact_value("addrObjSubnetMask_1", mask) == mask
 
 
 @pytest.mark.skipif(not os.path.exists(SW), reason="SonicWall sample absent")

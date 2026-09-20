@@ -128,18 +128,24 @@ def from_indented(doc) -> list:
 
 
 class RedactedAddressing(RuntimeError):
-    """Addresses were masked, so topology cannot be built from this assessment."""
+    """A redacted assessment yielded no addressing at all.
+
+    No longer expected from SonicOS: redaction there pseudonymises an address
+    into a valid one (`_pseudonym`) instead of blanking octets, so interfaces
+    parse whether or not the upload was redacted. It remains the signal for any
+    future reader that masks addressing destructively -- silence on that is how
+    a device with ten live interfaces came to look like a device with none.
+    """
 
 
 def extract(device_assessment, *, strict=False) -> list:
     """Interfaces for whatever platform this device is.
 
-    `strict=True` RAISES when the assessment was redacted and produced nothing.
-    Redaction replaces octets with `x`, so an interface address becomes
-    unparseable and this silently returned an empty list -- a device with ten
-    live interfaces looked like a device with none, and the fabric built around
-    it reported "no policy governs that traffic". Topology needs
-    `assess(..., redact=False)`; reports do not.
+    `strict=True` RAISES when a redacted assessment produced nothing, rather
+    than returning `[]` for a device that plainly has interfaces. It is a
+    backstop, not the normal path: redaction is prefix-preserving, so a
+    redacted SonicOS upload yields the same interfaces, in the same zones, on
+    the same subnet structure -- with pseudonymous addresses.
     """
     doc = getattr(device_assessment, "document", None)
     if doc is None:
