@@ -129,4 +129,5 @@ def remediation_out(plan) -> RemediationOut:
         steps=[step(s) for s in plan.steps],
         deferred=[step(s) for s in plan.deferred],
         unavailable=list(plan.unavailable),
+        lockout_checked=plan.lockout_checked,
         script=plan.script())

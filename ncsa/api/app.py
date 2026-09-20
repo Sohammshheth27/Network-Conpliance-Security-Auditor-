@@ -444,10 +444,12 @@ def get_remediation(aid: str):
     from ..engine.remediate import build_plan
     from ..engine.rules import load_rules
 
-    da, _ = _get(aid)
+    da, path = _get(aid)
     controls = {c.id: c for c in load_rules(
         "rules", platform=da.identity.platform)}
-    sbm = _sbm_for(da)
+    # The path is right here. It used to be discarded and then searched for.
+    meta = _STORE.meta(aid) or {}
+    sbm = _sbm_for(da, path, redact=bool(meta.get("redact", True)))
     return remediation_out(build_plan(da, controls_by_id=controls, sbm=sbm))
 
 
@@ -1562,21 +1564,30 @@ def _require_graph(da, capability: str):
     })
 
 
-def _sbm_for(da):
+def _sbm_for(da, path, *, redact: bool = True):
     """Re-derive the SBM for remediation's lockout check.
 
     Remediation needs to know which management transports are LIVE, which is a
     property of the parsed device rather than of the findings.
+
+    IT TAKES THE PATH. This used to locate the file by scanning the store for
+    an object IDENTICAL to `da` -- but the store rebuilds assessments from
+    SQLite on access, so a rebuilt assessment is a different object each time
+    and the scan matched nothing. It then returned None, `build_plan` saw no
+    live transports, and every lockout check was skipped SILENTLY. Measured on
+    one Cisco device: with the model, four transport-disabling steps carried
+    three warnings; without it, the same four steps carried none. The caller
+    already holds the path, so there was never anything to search for.
+
+    `redact` follows the assessment's own option rather than being forced on:
+    the check reads management flags, which redaction preserves, but deriving
+    a device model under different options than the assessment used invites a
+    disagreement nobody would think to look for.
     """
     import hashlib
 
     from ..pipeline import _read_and_apply, load_packs, select_pack
 
-    _da, path = _STORE[da.identity.sha256[:12]] if False else (None, None)
-    for _aid, (stored, p) in _STORE.items():
-        if stored is da:
-            path = p
-            break
     if path is None:
         return None
     pack = select_pack(load_packs(), da.fingerprint)
@@ -1586,7 +1597,7 @@ def _sbm_for(da):
         sbm, _doc = _read_and_apply(
             path, pack, aid="remediation",
             sha=hashlib.sha256(Path(path).read_bytes()).hexdigest(),
-            redact=True)
+            redact=redact)
         return sbm
     except Exception:                                  # noqa: BLE001
         return None

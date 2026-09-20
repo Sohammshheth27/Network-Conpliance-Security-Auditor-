@@ -12,6 +12,7 @@ import {
   Route,
   ScrollText,
   Stamp,
+  Wrench,
 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
@@ -22,6 +23,7 @@ import { GraphPanel } from './GraphPanel';
 import { BlastPanel } from './BlastPanel';
 import { ExtendedPanel } from './ExtendedPanel';
 import { WhatIfPanel } from './WhatIfPanel';
+import { RemediationPanel } from './RemediationPanel';
 import { TopologyMapPanel } from './TopologyMapPanel';
 import { TrainingWorkbench } from '../training/TrainingWorkbench';
 
@@ -40,6 +42,7 @@ type Panel =
   | 'topomap'
   | 'blast'
   | 'whatif'
+  | 'remediate'
   | 'extended'
   | 'hygiene'
   | 'reach'
@@ -57,6 +60,9 @@ const PANELS: { id: Panel; label: string; icon: typeof Activity }[] = [
   // straight after it. Extended checks are reported beside the score.
   { id: 'blast', label: 'Blast radius', icon: Crosshair },
   { id: 'whatif', label: 'What-if', icon: FlaskConical },
+  // Straight after what-if: that panel asks what fixing a finding would score,
+  // and this one answers with the commands that do it.
+  { id: 'remediate', label: 'Remediation', icon: Wrench },
   { id: 'extended', label: 'VPN · Wireless · CVE', icon: ShieldAlert },
   { id: 'hygiene', label: 'Rule hygiene', icon: Activity },
   { id: 'reach', label: 'Reachability', icon: Route },
@@ -99,6 +105,7 @@ export const AnalysisTabs: FC<{ assessmentId: string }> = ({ assessmentId }) => 
       {panel === 'topomap' && <TopologyMapPanel id={assessmentId} />}
       {panel === 'blast' && <BlastPanel id={assessmentId} />}
       {panel === 'whatif' && <WhatIfPanel id={assessmentId} />}
+      {panel === 'remediate' && <RemediationPanel id={assessmentId} />}
       {panel === 'extended' && <ExtendedPanel id={assessmentId} />}
       {panel === 'change' && <ChangePanel id={assessmentId} />}
       {panel === 'topology' && <InterfacesPanel id={assessmentId} />}

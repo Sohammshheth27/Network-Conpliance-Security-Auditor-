@@ -322,13 +322,38 @@ export interface ReachResponse {
 
 // ------------------------------------------------------- the other analyses
 
+/** One ordered fix: the commands, how to verify it, and what it costs you. */
+export interface RemediationStep {
+  control_id?: string;
+  title?: string;
+  commands?: string[];
+  /** Lower runs first: prepare, enable, harden, then disable. */
+  phase?: number;
+  verify?: string;
+  risk_band?: string;
+  /** none | disables_http | disables_telnet | disables_ssh | restricts_source */
+  management_impact?: string;
+  /** Set when this step would sever the path you are managing the device over. */
+  lockout_warning?: string;
+  deferred?: boolean;
+  note?: string;
+}
+
 export interface RemediationResponse {
   platform: string;
   rollback_command: string;
   rollback_note: string;
-  steps: { control_id?: string; commands?: string[]; note?: string }[];
-  deferred: unknown[];
+  steps: RemediationStep[];
+  /** Steps held back because they would sever the only management path. */
+  deferred: RemediationStep[];
+  /** Failing controls with no remediation written for this platform. */
   unavailable: string[];
+  /**
+   * Whether any step was checked against the transports this device actually
+   * has enabled. FALSE means none were, so an empty `lockout_warning` proves
+   * nothing rather than proving the step is safe.
+   */
+  lockout_checked: boolean;
   script: string;
 }
 

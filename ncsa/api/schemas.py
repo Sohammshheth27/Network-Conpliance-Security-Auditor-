@@ -256,6 +256,12 @@ class RemediationOut(BaseModel):
         default_factory=list,
         description="Controls with no remediation written yet. Listed, never "
                     "invented.")
+    lockout_checked: bool = Field(
+        default=False,
+        description="Whether steps were checked against the transports the "
+                    "device actually has enabled. FALSE means no step was "
+                    "checked, so an empty `lockout_warning` on a step proves "
+                    "nothing.")
     script: str = ""
 
 

@@ -98,11 +98,29 @@ class Plan:
     deferred: list = field(default_factory=list)
     rollback: tuple = ("", "")
     unavailable: list = field(default_factory=list)
+    #: Did the lockout check actually run?
+    #:
+    #: Defaults to FALSE deliberately. The check needs the parsed device to
+    #: know which transports are live; without it no step is checked at all,
+    #: and an absence of warnings then proves nothing. Defaulting to True
+    #: would let a caller that never supplied the model publish a script that
+    #: LOOKS verified. Absence of evidence is not evidence of safety.
+    lockout_checked: bool = False
 
     def script(self) -> str:
         """The ordered CLI script an engineer can paste."""
         out = ["! NCSA remediation -- review before running.",
                f"! platform: {self.platform}"]
+        if not self.lockout_checked:
+            out += [
+                "!",
+                "! WARNING: THE LOCKOUT CHECK DID NOT RUN.",
+                "!   The device model was unavailable, so no step below has",
+                "!   been checked against the management transports this",
+                "!   device actually has enabled. A step that disables the",
+                "!   protocol you are connected over will NOT be flagged.",
+                "!   Verify each step by hand before running.",
+                "!"]
         if self.rollback[0]:
             out += [f"! SAFETY NET: run `{self.rollback[0]}` first.",
                     f"!   {self.rollback[1]}", self.rollback[0], "!"]
@@ -152,7 +170,11 @@ def build_plan(device_assessment, *, controls_by_id=None, sbm=None) -> Plan:
             rollback = rb
             break
 
-    plan = Plan(platform=platform, rollback=rollback)
+    # The model is what makes the lockout check possible; record whether we
+    # had one, so a script emitted without it says so rather than looking
+    # clean.
+    plan = Plan(platform=platform, rollback=rollback,
+                lockout_checked=sbm is not None)
     scored = score_assessment(device_assessment)
     live = _live_transports(sbm) if sbm is not None else []
 
