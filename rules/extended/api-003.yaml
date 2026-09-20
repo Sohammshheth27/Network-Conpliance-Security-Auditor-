@@ -8,7 +8,7 @@ tier: extended
 rationale: >-
   A 1024-bit RSA key is below every current recommendation and is considered breakable by a well-resourced attacker.
 frameworks:
-  nist_800_53: ['IA-5(2)', 'SC-12', 'SC-13']
+  nist_800_53: ['IA-5.2', 'SC-12', 'SC-13']
   iso_27001_2022: ['A.8.24']
   # STIG/CIS ids are per-platform and belong in the vendor pack.
 

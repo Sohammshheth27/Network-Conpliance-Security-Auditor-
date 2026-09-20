@@ -13,7 +13,7 @@ tier: category
 rationale: >-
   An administrative port reachable from 0.0.0.0/0 is exposed to continuous automated scanning. This is the most frequently exploited cloud misconfiguration and needs no further vulnerability to be dangerous.
 frameworks:
-  nist_800_53: [AC-17(1), SC-7, SC-7(5)]
+  nist_800_53: [AC-17.1, SC-7, SC-7.5]
   iso_27001_2022: [A.5.14, A.6.7, A.8.16, A.8.20, A.8.22, A.8.23]
   # AWS has no DISA STIG. CIS Foundations recommendation numbers
   # belong in the vendor pack, not here (plan 6.1).

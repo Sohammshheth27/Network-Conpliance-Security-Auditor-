@@ -168,8 +168,21 @@ mappings:
     value: {as: list}
   - field: authentication.local_accounts
     path: "adminName*"
-  - field: authorization.role_based
-    path: "radiusDfltUserGroup"
+  # One `iface_port_disabled_N` per physical port -- 36 on this appliance,
+  # which is precisely the per-interface shape the note further down predicted
+  # and then went looking for under the wrong key (iface_enable_PD, a single
+  # IPv6 prefix-delegation flag). Reading the list STATES each port's
+  # administrative state; it asserts nothing about which ports ought to be off.
+  - field: interfaces.shutdown
+    path: "iface_port_disabled_*"
+    value: {as: list}
+  # authorization.role_based was mapped to `radiusDfltUserGroup`, a key that
+  # does not occur once in a 92,635-setting export -- so it matched nothing and
+  # reported UNKNOWN while appearing, in this file, to be mapped. Withdrawn:
+  # a mapping that cannot fire is worse than an absent one, because it stops
+  # anybody looking again. The real evidence is userGroupObjPrivMask_* (16
+  # groups, values mixed 0 and non-zero) and needs an "any group holds a
+  # non-zero privilege mask" derivation, which does not exist yet.
   # snmp.version comes from a derivation -- SonicOS has no version key, it is
   # implied by Snmp3_Mand_Required + whether a community string exists.
   - field: logging.log_denied
@@ -332,3 +345,24 @@ derivations:
     op: sonicos_weak_ssh_crypto
   - field: snmp.version
     op: sonicos_snmp_version
+  # EXT-015 asks whether an external authentication method is configured at
+  # all, which is the same question `aaa_enabled` answers from the same keys.
+  # Verified on this export: ldapSrvrEnabled_0=on with ldapSrvrHostName_0 and
+  # ldapSrvrPort_0=389 populated. The per-ZONE keys (zoneObjEnableLDAP_*) are
+  # all 0 and are a different setting -- user authentication per zone, not the
+  # appliance's admin authentication source -- so they are deliberately not
+  # part of this.
+  - field: authentication.aaa_authentication
+    op: path_any_true
+    params:
+      paths: ["ldapSrvrEnabled*", "userRadiusSelect*", "tacEnabled*"]
+  # NetFlow export, enabled per interface: eth_enable_netflow_N is `on` for all
+  # 36 ports, and the collector is configured (swFlowServerAddress set,
+  # swFlowServerPort=2055, the registered NetFlow port). Distinct from
+  # flowReportingViaHgms, which is reporting to the management system and is
+  # correctly off here -- the earlier rejection read only that key and
+  # concluded the feature was absent.
+  - field: logging.netflow
+    op: path_any_true
+    params:
+      paths: ["eth_enable_netflow_*"]

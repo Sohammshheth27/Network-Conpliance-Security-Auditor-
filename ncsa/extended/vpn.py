@@ -172,7 +172,7 @@ def check_tunnel(t: VpnTunnel) -> list[ExtendedFinding]:
 
     # --- VPN-001: perfect forward secrecy -----------------------------------
     cid, title = "NCSA-X-VPN-001", "IPsec tunnels must use perfect forward secrecy"
-    nist, sev = ["SC-12", "SC-8(1)"], "medium"
+    nist, sev = ["SC-12", "SC-8.1"], "medium"
     why = ("Without PFS every IPsec key is derived from the one IKE key "
            "exchange, so recovering that key exposes all traffic the tunnel "
            "ever carried rather than a single rekey interval.")

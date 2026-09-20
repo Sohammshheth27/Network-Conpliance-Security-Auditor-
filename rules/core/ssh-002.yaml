@@ -8,7 +8,7 @@ tier: core
 rationale: >-
   SSHv1 has known cryptographic weaknesses and cannot be considered confidential. Only version 2 is acceptable.
 frameworks:
-  nist_800_53: [AC-17(2), SC-8(1), IA-5]
+  nist_800_53: [AC-17.2, SC-8.1, IA-5]
   iso_27001_2022: [A.5.10, A.5.14, A.5.16, A.5.17, A.5.33, A.6.7, A.8.20, A.8.26]
   # STIG: Junos V-223209 was cited here and withdrawn -- it audits telnet,
   # FTP, SNMPv1/v2c and SSHv1 together, so no single control covers it.

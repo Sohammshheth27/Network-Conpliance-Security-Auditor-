@@ -8,7 +8,7 @@ tier: core
 rationale: >-
   SNMP v1 and v2c authenticate with a cleartext community string and provide no confidentiality.
 frameworks:
-  nist_800_53: [AC-17(2), IA-3, SC-8]
+  nist_800_53: [AC-17.2, IA-3, SC-8]
   iso_27001_2022: [A.5.10, A.5.14, A.5.33, A.6.7, A.8.20, A.8.26]
   # STIG Vuln IDs are per-platform. Derived from the downloaded
   # XCCDF files, not recalled -- a control may map to several.

@@ -44,7 +44,7 @@ def test_addresses_are_still_masked():
 def test_redacted_sonicwall_equals_unredacted():
     raw = _sw(False)
     red = _sw(True)
-    assert (red.coverage()["score_pct"], red.coverage()["assessed_pct"]) == (36.2, 70.1)
+    assert (red.coverage()["score_pct"], red.coverage()["assessed_pct"]) == (40.0, 74.6)
     assert red.coverage() == raw.coverage()
     states = lambda da: {f.control_id: f.state.value for f in da.assessment.findings}
     assert states(red) == states(raw)

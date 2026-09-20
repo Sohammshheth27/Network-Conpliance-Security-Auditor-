@@ -1,4 +1,4 @@
-import { useMemo, useState, type FC } from 'react';
+import { Fragment, useMemo, useState, type FC } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -23,12 +23,43 @@ import {
   failuresBySeverity,
   vendorLabel,
   type Assessment,
+  type Finding,
   type Severity,
 } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { AnalysisTabs } from '../components/analysis/AnalysisTabs';
 
 type DetailTab = 'overview' | 'execution' | 'findings' | 'compliance' | 'analysis';
+
+/** The framework an organisation aligns to, or all of them. */
+type FrameworkKey = 'all' | 'nist_800_53' | 'iso_27001' | 'cis_ids' | 'stig_ids';
+
+const FRAMEWORK_TABS: { key: FrameworkKey; label: string }[] = [
+  { key: 'all', label: 'All frameworks' },
+  { key: 'nist_800_53', label: 'NIST 800-53' },
+  { key: 'iso_27001', label: 'ISO 27001' },
+  { key: 'cis_ids', label: 'CIS' },
+  { key: 'stig_ids', label: 'STIG' },
+];
+
+const CITATIONS = [
+  { key: 'nist_800_53', label: 'NIST' },
+  { key: 'iso_27001', label: 'ISO 27001' },
+  { key: 'cis_ids', label: 'CIS' },
+  { key: 'stig_ids', label: 'STIG' },
+] as const;
+
+/** How many findings cite one framework. Takes the key already narrowed away
+ *  from 'all', because TypeScript drops that narrowing inside a callback. */
+const countCiting = (rows: Finding[], key: Exclude<FrameworkKey, 'all'>) =>
+  rows.filter((f) => (f.frameworks?.[key]?.length ?? 0) > 0).length;
+
+/** A value as the engine reported it. Null and empty are shown as a dash
+ *  rather than "null": the finding's reason says what the absence means. */
+const show = (v: unknown): string => {
+  if (v === null || v === undefined || v === '') return '—';
+  return typeof v === 'object' ? JSON.stringify(v) : String(v);
+};
 
 const AssessmentDetail: FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -37,6 +68,7 @@ const AssessmentDetail: FC = () => {
   const [pdfError, setPdfError] = useState<any>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [findingFilter, setFindingFilter] = useState<'all' | Severity>('all');
+  const [frameworkFilter, setFrameworkFilter] = useState<FrameworkKey>('all');
   const [expandedFinding, setExpandedFinding] = useState<string | null>(null);
 
   const { data, loading, error, reload } = useApi<Assessment>(
@@ -45,11 +77,28 @@ const AssessmentDetail: FC = () => {
     { enabled: Boolean(id), cacheKey: `assessment-${id}` },
   );
 
+  /** Failing now, and badly enough that nobody should have to be looking at
+   *  the right framework to see it. An any/any rule or an unauthenticated
+   *  management service is an incident waiting to happen whichever catalogue
+   *  an organisation aligns to, so these survive the framework filter. */
+  const isUrgent = (f: Finding) =>
+    (f.severity === 'critical' || f.severity === 'high') &&
+    (f.state === 'FAIL' || f.state === 'PARTIAL');
+
+  const citesSelected = (f: Finding) => {
+    if (frameworkFilter === 'all') return true;
+    return (f.frameworks?.[frameworkFilter]?.length ?? 0) > 0;
+  };
+
   const findings = useMemo(() => {
     if (!data) return [];
-    if (findingFilter === 'all') return data.findings;
-    return data.findings.filter((f) => f.severity === findingFilter);
-  }, [data, findingFilter]);
+    return data.findings.filter(
+      (f) =>
+        (findingFilter === 'all' || f.severity === findingFilter) &&
+        (citesSelected(f) || isUrgent(f)),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, findingFilter, frameworkFilter]);
 
   if (loading) return <Loading label="Loading assessment" />;
   if (error) return <ErrorPanel error={error} onRetry={reload} />;
@@ -399,6 +448,38 @@ const AssessmentDetail: FC = () => {
                 </div>
               </div>
 
+              {/* The framework an organisation aligns to. Everything it cites
+                  is shown; so is anything failing badly, whatever it cites. */}
+              <div className="px-4 py-3 border-b border-[var(--color-hairline)] flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-slate-gray)] mr-1">
+                  Align to
+                </span>
+                {FRAMEWORK_TABS.map((t) => {
+                  const count =
+                    t.key === 'all'
+                      ? data.findings.length
+                      : countCiting(data.findings, t.key);
+                  return (
+                    <button
+                      key={t.key}
+                      onClick={() => setFrameworkFilter(t.key)}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                        frameworkFilter === t.key
+                          ? 'bg-[var(--color-signal-blue)] text-white'
+                          : 'bg-[var(--color-cloud)] text-[var(--color-slate-gray)] hover:bg-[var(--color-pebble)] hover:text-[var(--color-ink-navy)]'
+                      }`}
+                    >
+                      {t.label} ({count})
+                    </button>
+                  );
+                })}
+                {frameworkFilter !== 'all' && (
+                  <span className="text-[11px] text-[var(--color-slate-gray)]">
+                    plus critical and high failures from every framework
+                  </span>
+                )}
+              </div>
+
               {findings.length === 0 ? (
                 <div className="p-12 text-center">
                   <ShieldCheck className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
@@ -438,8 +519,8 @@ const AssessmentDetail: FC = () => {
                         const isExpanded = expandedFinding === f.control_id;
 
                         return (
+                          <Fragment key={idx}>
                           <tr
-                            key={idx}
                             onClick={() => setExpandedFinding(isExpanded ? null : f.control_id)}
                             className="cursor-pointer transition-colors hover:bg-[var(--color-pebble)] group"
                           >
@@ -451,32 +532,24 @@ const AssessmentDetail: FC = () => {
                             </td>
                             <td className="px-4 py-3.5 font-bold text-[var(--color-ink-navy)] group-hover:text-[var(--color-signal-blue)] transition-colors">
                               {f.title}
-                              {isExpanded && (
-                                <div className="mt-2 text-xs font-normal text-[var(--color-slate-gray)] leading-relaxed">
-                                  <p className="font-semibold text-[var(--color-ink-navy)] mb-1">Reason:</p>
-                                  <p>{f.reason}</p>
-                                  {f.evidence?.length > 0 && (
-                                    <div className="mt-2 p-2 rounded bg-[var(--color-pebble)] font-mono text-[11px] text-[var(--color-ink-navy)]">
-                                      {f.evidence[0].line && (
-                                        <div className="text-[10px] text-[var(--color-slate-gray)] mb-1 flex items-center gap-1">
-                                          <Terminal className="w-3 h-3" /> line reference: {f.evidence[0].line}
-                                        </div>
-                                      )}
-                                      <code>{f.evidence[0].raw}</code>
-                                    </div>
-                                  )}
-                                </div>
+                              {frameworkFilter !== 'all' && !citesSelected(f) && (
+                                <span className="ml-2 align-middle px-2 py-0.5 rounded-full bg-rose-50 border border-rose-200 text-[10px] font-bold text-rose-700">
+                                  Urgent · outside this framework
+                                </span>
                               )}
                             </td>
                             <td className="px-4 py-3.5 font-mono text-[11px] text-[var(--color-slate-gray)]">
                               {f.control_id}
                             </td>
                             <td className="px-4 py-3.5 font-mono text-[11px] text-[var(--color-slate-gray)]">
-                              {f.frameworks?.cis_ids?.[0] || f.frameworks?.nist_800_53?.[0] || 'Unmapped'}
+                              {(frameworkFilter !== 'all'
+                                ? f.frameworks?.[frameworkFilter]?.join(', ')
+                                : f.frameworks?.nist_800_53?.[0] ||
+                                  f.frameworks?.cis_ids?.[0]) || 'Unmapped'}
                             </td>
                             <td className="px-4 py-3.5">
                               <span className={`inline-flex px-2 py-0.5 rounded-full text-[10.5px] font-semibold border ${
-                                f.state === 'FAIL' ? 'bg-rose-50 text-rose-700 border-rose-200' : 
+                                f.state === 'FAIL' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                                 f.state === 'PASS' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                                 'bg-slate-50 text-slate-700 border-slate-200'
                               }`}>
@@ -487,6 +560,89 @@ const AssessmentDetail: FC = () => {
                               <ChevronRight className={`inline w-4 h-4 text-[var(--color-mist-gray)] transition-transform ${isExpanded ? 'rotate-90 text-[var(--color-ink-navy)]' : 'group-hover:text-[var(--color-ink-navy)]'}`} />
                             </td>
                           </tr>
+                          {/* The detail gets the full table width. Inside the
+                              title cell it was ~280px wide, which broke field
+                              names mid-word and squeezed the evidence lines --
+                              the one thing here that has to be read exactly. */}
+                          {isExpanded && (
+                            <tr className="bg-[var(--color-cloud)]">
+                              <td colSpan={6} className="px-4 py-4">
+                                <div className="space-y-3 text-xs font-normal text-[var(--color-slate-gray)] leading-relaxed">
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    <div>
+                                      <span className="block text-[10px] uppercase tracking-wider font-bold">Setting checked</span>
+                                      <code className="font-mono text-[11px] text-[var(--color-ink-navy)] break-all">{f.field}</code>
+                                    </div>
+                                    <div>
+                                      <span className="block text-[10px] uppercase tracking-wider font-bold">Required</span>
+                                      <code className="font-mono text-[11px] text-[var(--color-ink-navy)] break-all">{show(f.expected)}</code>
+                                    </div>
+                                    <div>
+                                      <span className="block text-[10px] uppercase tracking-wider font-bold">Found</span>
+                                      <code className="font-mono text-[11px] text-[var(--color-ink-navy)] break-all">{show(f.observed)}</code>
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <span className="block text-[10px] uppercase tracking-wider font-bold mb-0.5">Why this fired</span>
+                                    <p className="text-[var(--color-ink-navy)]">{f.reason}</p>
+                                  </div>
+
+                                  {f.evidence?.length > 0 ? (
+                                    <div>
+                                      <span className="block text-[10px] uppercase tracking-wider font-bold mb-1">
+                                        Evidence from the configuration ({f.evidence.length})
+                                      </span>
+                                      <div className="space-y-1">
+                                        {f.evidence.map((e, i) => (
+                                          <div key={i} className="p-2 rounded bg-[var(--color-pebble)] font-mono text-[11px] text-[var(--color-ink-navy)]">
+                                            <div className="text-[10px] text-[var(--color-slate-gray)] mb-1 flex items-center gap-1">
+                                              <Terminal className="w-3 h-3" />
+                                              {e.file}
+                                              {e.line !== null
+                                                ? ` · line ${e.line}`
+                                                : e.record_id
+                                                  ? ` · ${e.record_id}`
+                                                  : ''}
+                                            </div>
+                                            <code className="break-all">{e.raw}</code>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <p className="italic">
+                                      No line in the configuration states this setting. The absence is the finding.
+                                    </p>
+                                  )}
+
+                                  <div>
+                                    <span className="block text-[10px] uppercase tracking-wider font-bold mb-1">Cited by</span>
+                                    <div className="flex flex-wrap gap-1">
+                                      {CITATIONS.map(({ key, label }) => {
+                                        const ids = f.frameworks?.[key] ?? [];
+                                        if (!ids.length) return null;
+                                        return (
+                                          <span
+                                            key={key}
+                                            className="px-2 py-0.5 rounded-full bg-[var(--color-cloud)] border border-[var(--color-hairline)] text-[10.5px] font-semibold text-[var(--color-ink-navy)]"
+                                          >
+                                            {label}: {ids.join(', ')}
+                                          </span>
+                                        );
+                                      })}
+                                      {!CITATIONS.some(({ key }) => (f.frameworks?.[key] ?? []).length) && (
+                                        <span className="text-[11px]">
+                                          Not cited by any framework in this run.
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          </Fragment>
                         );
                       })}
                     </tbody>

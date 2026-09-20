@@ -3,7 +3,7 @@
 The contract, in order of importance:
 
   1. Selecting NOTHING is the assessment exactly as it has always been. The
-     SonicWall figures below are the proof -- 36.2% on 70.1% coverage (47 of 67 applicable controls decided).
+     SonicWall figures below are the proof -- 40.0% on 74.6% coverage (50 of 67 applicable controls decided).
   2. Selecting a framework scores the device against ONLY the controls that
      framework cites, so "CIS: 71%" is a statement about CIS.
   3. A framework with nothing to evaluate says so. CIS publishes no SonicWall
@@ -54,7 +54,7 @@ def test_selection_is_validated_not_ignored():
 @sw_only
 def test_the_default_assessment_is_unchanged():
     cov = _sw(False).coverage()
-    assert (cov["score_pct"], cov["assessed_pct"]) == (36.2, 70.1)
+    assert (cov["score_pct"], cov["assessed_pct"]) == (40.0, 74.6)
 
 
 @sw_only
@@ -140,7 +140,7 @@ def test_undecided_checks_are_not_counted_as_passes():
 @sw_only
 def test_sonicwall_frameworks_score_differently_and_the_overall_is_unchanged():
     da = _sw(False)
-    assert (da.coverage()["score_pct"], da.coverage()["assessed_pct"]) == (36.2, 70.1)
+    assert (da.coverage()["score_pct"], da.coverage()["assessed_pct"]) == (40.0, 74.6)
     rows = {r["framework"]: r for r in framework_coverage(da.assessment.findings)}
     for r in rows.values():
         assert r["requirements_met"] <= r["requirements_decided"] <= r["requirements"]

@@ -8,7 +8,7 @@ tier: core
 rationale: >-
   Without synchronised time, log correlation across devices is unreliable and forensic timelines cannot be defended.
 frameworks:
-  nist_800_53: [AU-8, AU-8(1)]
+  nist_800_53: [AU-8, AU-8.1]
   iso_27001_2022: [A.8.17]
   # STIG Vuln IDs are per-platform. Derived from the downloaded
   # XCCDF files, not recalled -- a control may map to several.

@@ -8,7 +8,7 @@ tier: core
 rationale: >-
   Unauthenticated NTP allows an attacker to shift device time and invalidate or misdirect audit records.
 frameworks:
-  nist_800_53: [AU-8(1), SC-45]
+  nist_800_53: [AU-8.1, SC-45]
   iso_27001_2022: [A.8.17]
   # STIG Vuln IDs are per-platform. Derived from the downloaded
   # XCCDF files, not recalled -- a control may map to several.

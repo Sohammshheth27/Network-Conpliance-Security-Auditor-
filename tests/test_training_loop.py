@@ -275,4 +275,4 @@ def test_teaching_another_vendor_leaves_the_sonicwall_untouched(clean_packs):
     new = dict(vendor="SONiC", reader="json", signature=["$.DEVICE_METADATA"])
     _teach("NTP_SERVER", "time.servers", "sonic", kind="keys", **new)
     cov = assess(SW, redact=False, assessment_id="TEST-SW-ISO").coverage()
-    assert (cov["score_pct"], cov["assessed_pct"]) == (36.2, 70.1)
+    assert (cov["score_pct"], cov["assessed_pct"]) == (40.0, 74.6)

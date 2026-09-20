@@ -8,7 +8,7 @@ tier: core
 rationale: >-
   Default community strings are the first thing an attacker tries and grant device-wide read or write access.
 frameworks:
-  nist_800_53: [IA-5, AC-17(2)]
+  nist_800_53: [IA-5, AC-17.2]
   iso_27001_2022: [A.5.14, A.5.16, A.5.17, A.6.7]
   # CIS recommendation numbers live in the vendor pack (plan 6.1).
 
