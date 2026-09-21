@@ -1,4 +1,5 @@
 import { Search, Bell, ChevronDown } from 'lucide-react';
+import { sessionUser } from '../../lib/api';
 
 interface HeaderProps {
   searchQuery?: string;
@@ -6,6 +7,11 @@ interface HeaderProps {
 }
 
 export default function Header({ searchQuery = '', onSearchChange }: HeaderProps) {
+  // Falls back to the one account this console accepts, which is what is
+  // shown when authentication is disabled for a local run.
+  const who = sessionUser() || 'Administrator';
+  const initial = who.charAt(0).toUpperCase();
+
   return (
     <header className="z-20 flex h-14 select-none items-center justify-between px-6 bg-transparent">
       {/* Left: Search Bar */}
@@ -45,14 +51,18 @@ export default function Header({ searchQuery = '', onSearchChange }: HeaderProps
         {/* User Profile */}
         <div className="flex items-center gap-2.5 pl-2 cursor-pointer group">
           <div className="h-8 w-8 rounded-full bg-[var(--color-pebble)] text-[var(--color-ink-navy)] font-bold text-xs flex items-center justify-center border border-[var(--color-hairline)]">
-            T
+            {initial}
           </div>
           <div className="flex flex-col text-left">
             <span className="text-xs font-bold leading-none text-[var(--color-ink-navy)] group-hover:text-[var(--color-signal-blue)] transition-colors">
-              Tanss
+              {who}
             </span>
+            {/* Not the role -- the console has exactly one -- but whether a
+                session was actually presented. With NCSA_CONSOLE_AUTH=0 the
+                name above is a default, and saying "signed in" would be a
+                claim nobody made. */}
             <span className="text-[10px] text-[var(--color-slate-gray)] leading-tight mt-0.5">
-              Administrator
+              {sessionUser() ? 'Signed in' : 'Local access'}
             </span>
           </div>
           <ChevronDown className="h-3.5 w-3.5 text-[var(--color-slate-gray)] group-hover:text-[var(--color-ink-navy)] transition-colors ml-0.5" />

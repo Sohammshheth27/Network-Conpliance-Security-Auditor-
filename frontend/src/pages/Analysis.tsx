@@ -60,7 +60,7 @@ const Analysis: FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <span className="mb-1 block text-xs font-bold tracking-[0.25em] text-[var(--color-slate-gray)] uppercase">
-            N C S A
+            M E R I D I A N
           </span>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[var(--color-ink-navy)]">
             Global Topology

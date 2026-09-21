@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { setSessionToken } from '../../lib/api';
+import BrandMark from '../BrandMark';
 
 const primaryNav = [
   { name: 'Dashboard', to: '/', icon: Home },
@@ -48,20 +49,9 @@ export default function Sidebar() {
           className="w-10 h-10 bg-white rounded-full flex items-center justify-center transition-transform hover:scale-105 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0a]"
           title="MERIDIAN Overview"
         >
-          {/* A sphere with its meridian struck through it in Signal Blue.
-              A meridian is the fixed line a position is measured against,
-              which is what this tool does to a configuration -- so the one
-              coloured element is the reference, not decoration.
-
-              Filled, and cut ONCE. An earlier version also cut the equator,
-              which split the circle into four blobs and read as a fidget
-              spinner at 20px. Three hairline strokes had the same problem
-              from the other direction: they closed into a smudge. One solid
-              form with one clean cut survives down to a 16px favicon. */}
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="9.5" fill="#0a0a0a" />
-            <ellipse cx="12" cy="12" rx="3.7" ry="9.5" fill="#006bff" />
-          </svg>
+          {/* Ink sphere, because the chip behind it is white. See BrandMark
+              for why the meridians are carved rather than drawn. */}
+          <BrandMark className="w-5 h-5" disc="#0a0a0a" />
         </NavLink>
       </div>
 

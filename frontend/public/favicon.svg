@@ -1,5 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <!-- Eight meridians converging on a pole, carved out of the sphere so the
+       silhouette stays a circle at 16px. Kept in step with
+       frontend/src/components/BrandMark.tsx -- same geometry, same colours. -->
+  <clipPath id="meridian-favicon">
+    <circle cx="12" cy="12" r="9.2"/>
+  </clipPath>
   <rect width="24" height="24" rx="6" fill="#0a0a0a"/>
-  <circle cx="12" cy="12" r="7.8" fill="#ffffff"/>
-  <ellipse cx="12" cy="12" rx="3" ry="7.8" fill="#006bff"/>
+  <circle cx="12" cy="12" r="9.2" fill="#ffffff"/>
+  <g clip-path="url(#meridian-favicon)" fill="#006bff">
+    <path d="M12 9.4 Q14.4 5.76 13.5 0.2 L10.5 0.2 Q9.6 5.76 12 9.4 Z"/>
+    <path d="M12 9.4 Q14.4 5.76 13.5 0.2 L10.5 0.2 Q9.6 5.76 12 9.4 Z" transform="rotate(45 12 12)"/>
+    <path d="M12 9.4 Q14.4 5.76 13.5 0.2 L10.5 0.2 Q9.6 5.76 12 9.4 Z" transform="rotate(90 12 12)"/>
+    <path d="M12 9.4 Q14.4 5.76 13.5 0.2 L10.5 0.2 Q9.6 5.76 12 9.4 Z" transform="rotate(135 12 12)"/>
+    <path d="M12 9.4 Q14.4 5.76 13.5 0.2 L10.5 0.2 Q9.6 5.76 12 9.4 Z" transform="rotate(180 12 12)"/>
+    <path d="M12 9.4 Q14.4 5.76 13.5 0.2 L10.5 0.2 Q9.6 5.76 12 9.4 Z" transform="rotate(225 12 12)"/>
+    <path d="M12 9.4 Q14.4 5.76 13.5 0.2 L10.5 0.2 Q9.6 5.76 12 9.4 Z" transform="rotate(270 12 12)"/>
+    <path d="M12 9.4 Q14.4 5.76 13.5 0.2 L10.5 0.2 Q9.6 5.76 12 9.4 Z" transform="rotate(315 12 12)"/>
+  </g>
 </svg>

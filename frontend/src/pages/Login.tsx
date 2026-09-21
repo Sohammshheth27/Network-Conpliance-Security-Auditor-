@@ -11,9 +11,11 @@ import { Loader2, LockKeyhole, ShieldCheck } from 'lucide-react';
 import {
   api,
   setSessionToken,
+  setSessionUser,
   type AuthEnrollment,
   type AuthStatus,
 } from '../lib/api';
+import BrandMark from '../components/BrandMark';
 
 /**
  * Console sign-in.
@@ -94,6 +96,9 @@ const Login: FC = () => {
       const r = await api.login(username, password, otp);
       if (r.ok && r.token) {
         setSessionToken(r.token);
+        // The engine echoes the account it authenticated; the header shows
+        // that, not the name that was in the design mock.
+        setSessionUser(r.username || username);
         navigate('/', { replace: true });
         return;
       }
@@ -208,10 +213,7 @@ const Login: FC = () => {
               concentric shapes -- square, ring, sphere -- and the eye reads
               the ring instead of the meridian. */}
           <div className="w-11 h-11 shrink-0 bg-[#0a0a0a] rounded-[14px] flex items-center justify-center shadow-[0_10px_24px_-8px_rgba(0,0,0,0.35)]">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="12" cy="12" r="9.5" fill="#ffffff" />
-              <ellipse cx="12" cy="12" rx="3.7" ry="9.5" fill="#006bff" />
-            </svg>
+            <BrandMark size={26} disc="#ffffff" />
           </div>
           <div className="min-w-0">
             {/* Positive tracking, not tracking-tight. Capitals are drawn to

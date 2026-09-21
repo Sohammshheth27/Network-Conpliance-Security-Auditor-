@@ -871,9 +871,42 @@ export function sessionToken(): string {
 export function setSessionToken(token: string): void {
   try {
     if (token) sessionStorage.setItem(SESSION_KEY, token);
-    else sessionStorage.removeItem(SESSION_KEY);
+    else {
+      sessionStorage.removeItem(SESSION_KEY);
+      sessionStorage.removeItem(SESSION_USER_KEY);
+    }
   } catch {
     /* private mode; the session simply will not persist a reload */
+  }
+}
+
+const SESSION_USER_KEY = "ncsa_session_user";
+
+/**
+ * Who is signed in, for display only.
+ *
+ * The header used to show a name baked into the design mock, which meant the
+ * console named somebody who was not the operator sitting at it. An audit
+ * trail that misattributes the actor is worse than one that says nothing, so
+ * this reads the account the engine actually authenticated.
+ *
+ * It is not a credential and nothing is authorised by it -- every request is
+ * still judged on the signed session token.
+ */
+export function sessionUser(): string {
+  try {
+    return sessionStorage.getItem(SESSION_USER_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function setSessionUser(username: string): void {
+  try {
+    if (username) sessionStorage.setItem(SESSION_USER_KEY, username);
+    else sessionStorage.removeItem(SESSION_USER_KEY);
+  } catch {
+    /* as above */
   }
 }
 

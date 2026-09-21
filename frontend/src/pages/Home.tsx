@@ -51,7 +51,7 @@ const Home: FC = () => {
               {/* Left Column: Editorial Intro */}
               <div className="md:col-span-7 z-10">
                 <span className="mb-1 block text-[10px] font-bold tracking-[0.25em] text-[var(--color-slate-gray)] uppercase">
-                  N C S A
+                  M E R I D I A N
                 </span>
                 <h1 className="text-2xl sm:text-3xl lg:text-3xl font-bold tracking-tight text-[var(--color-ink-navy)] mb-1.5 leading-tight">
                   Network Security
