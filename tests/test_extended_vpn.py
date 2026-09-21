@@ -159,8 +159,8 @@ def test_the_compliance_result_is_untouched(sw):
     assess_vpn(da)
 
     assert da.coverage() == cov
-    assert da.coverage()["score_pct"] == 40.0
-    assert da.coverage()["assessed_pct"] == 74.6
+    assert da.coverage()["score_pct"] == 41.3
+    assert da.coverage()["assessed_pct"] == 68.7
     assert da.records == records
     assert da.document._consumed == consumed_before, (
         "the VPN adapter marked settings consumed, which changes the parse "

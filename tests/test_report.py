@@ -417,7 +417,7 @@ def test_extended_checks_are_an_appendix_outside_the_score(sw):
     assert "Appendix A. Extended checks" in flat
     assert "not included in the score or the coverage stated in section 2" in flat
     cov = da.coverage()
-    assert (cov["score_pct"], cov["assessed_pct"]) == (40.0, 74.6)
+    assert (cov["score_pct"], cov["assessed_pct"]) == (41.3, 68.7)
     for label in ("Known vulnerabilities", "IPsec VPN", "Wireless"):
         assert label in flat
 

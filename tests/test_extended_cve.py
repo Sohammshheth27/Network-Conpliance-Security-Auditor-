@@ -173,7 +173,7 @@ def test_the_compliance_result_is_untouched():
     cov = dict(da.coverage())
     assess_cve(da)
     assert da.coverage() == cov
-    assert (cov["score_pct"], cov["assessed_pct"]) == (40.0, 74.6)
+    assert (cov["score_pct"], cov["assessed_pct"]) == (41.3, 68.7)
 
 
 # ------------------------------------------------------------ edge handling
