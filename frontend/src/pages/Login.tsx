@@ -18,21 +18,26 @@ import {
 /**
  * Console sign-in.
  *
- * Built to design/NCSA_APP_DESIGN_SYSTEM.md rather than around it: the
- * .ncsa-card language, the black brand mark from the sidebar rail, Signal Blue
- * as the single primary action, the 8px spacing scale and the established page
- * transition. No new radius, colour, shadow or button style is introduced.
+ * Built to design/NCSA_APP_DESIGN_SYSTEM.md: the .ncsa-card language, the
+ * black brand mark from the sidebar rail, Signal Blue as the single primary
+ * action, the 8px rhythm and the established page transition. No new radius,
+ * colour, shadow or button style.
  *
- * The page has two shapes. Paired, it is one narrow centred card -- the
- * invariants call NCSA "an operational auditing tool, not a consumer SaaS
- * app", and a returning operator wants three fields and an action. Unpaired,
- * it widens into two columns so the QR can be large enough to scan
- * comfortably from a phone held at arm's length, which a 128px code beside a
- * form is not.
+ * IT MUST FIT ONE SCREEN WITHOUT SCROLLING, on a laptop as well as a desktop.
+ * A sign-in page that scrolls is one where the button is below the fold, and
+ * the first thing a new operator does is hunt for it. The whole layout is
+ * built to a budget of roughly 600px:
  *
- * It is LOCAL AUTHENTICATION WITH MFA and the wording says so. Calling it
- * single sign-on would claim a federation to an identity provider that does
- * not exist here.
+ *   - the brand sits BESIDE its title rather than above it, which is the
+ *     single biggest saving (about 110px of pure vertical)
+ *   - the QR is 200px, still comfortably scannable from a phone
+ *   - card padding is 24px, the design system's own figure for card internals
+ *
+ * NOTE ON SPACING UTILITIES: the design system defines --spacing-8, -16, -24,
+ * -32, -40, -48, -56, -64, -72 and -96 in @theme, which REDEFINES those
+ * numeric utilities -- `p-8` is 8px, not 32px, and `w-56` is 56px, not 224px.
+ * Every class here deliberately uses a number ABSENT from that list (3, 4, 6,
+ * 11) so it resolves to the normal Tailwind scale, or an explicit pixel value.
  */
 const Login: FC = () => {
   const navigate = useNavigate();
@@ -70,8 +75,6 @@ const Login: FC = () => {
     };
   }, [navigate]);
 
-  // A lockout is a real wait, so it counts down rather than sitting on a
-  // number that looks stuck.
   useEffect(() => {
     if (locked <= 0) return;
     const t = setInterval(() => setLocked((s) => Math.max(0, s - 1)), 1000);
@@ -108,16 +111,16 @@ const Login: FC = () => {
   const pairing = Boolean(enrollment);
 
   const form = (
-    <form onSubmit={submit} className="ncsa-card p-[32px] h-full flex flex-col">
-      <div className="flex items-center gap-2">
+    <form onSubmit={submit} className="ncsa-card p-6 h-full flex flex-col">
+      <div className="flex items-center gap-2 mb-1">
         <LockKeyhole className="w-4 h-4 text-[var(--color-signal-blue)]" />
-        <h2 className="text-[16px] font-bold">Sign in</h2>
+        <h2 className="text-[15px] font-bold">Sign in</h2>
         {pairing && <StepChip n={2} />}
       </div>
-      <p className="mt-2 mb-6 text-[12px] leading-[1.5] text-[var(--color-slate-gray)]">
+      <p className="mb-4 text-[12px] leading-[1.5] text-[var(--color-slate-gray)]">
         {pairing
-          ? 'Once your authenticator is paired, enter the code it shows.'
-          : 'Enter your credentials and the current code from your authenticator.'}
+          ? 'Then enter the code your authenticator shows.'
+          : 'Enter your credentials and the current authenticator code.'}
       </p>
 
       <Field
@@ -139,10 +142,10 @@ const Login: FC = () => {
         inputRef={passwordRef}
       />
 
-      <div className="mb-6">
+      <div className="mb-3">
         <label
           htmlFor="otp"
-          className="block text-[12px] leading-[1.5] font-semibold text-[var(--color-slate-gray)] mb-2"
+          className="block text-[11px] leading-[1.4] font-semibold text-[var(--color-slate-gray)] mb-1.5"
         >
           Authentication code
         </label>
@@ -155,17 +158,14 @@ const Login: FC = () => {
           value={otp}
           disabled={disabled}
           onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-          className="w-full h-12 px-3 rounded-[8px] border border-[var(--color-hairline)] bg-[var(--color-paper)] font-mono text-[20px] tracking-[0.45em] text-center text-[var(--color-ink-navy)] placeholder:text-[var(--color-mist-gray)] outline-none transition-colors focus:border-[var(--color-signal-blue)] focus:ring-2 focus:ring-[var(--color-signal-blue)]/20 disabled:bg-[var(--color-pebble)]"
+          className="w-full h-11 px-3 rounded-[8px] border border-[var(--color-hairline)] bg-[var(--color-paper)] font-mono text-[18px] tracking-[0.4em] text-center text-[var(--color-ink-navy)] placeholder:text-[var(--color-mist-gray)] outline-none transition-colors focus:border-[var(--color-signal-blue)] focus:ring-2 focus:ring-[var(--color-signal-blue)]/20 disabled:bg-[var(--color-pebble)]"
         />
-        <p className="mt-2 text-[12px] leading-[1.5] text-[var(--color-mist-gray)]">
-          Six digits, refreshed every 30 seconds.
-        </p>
       </div>
 
       {error && (
         <p
           role="alert"
-          className="mb-4 rounded-[8px] border border-[#EF4444]/25 bg-[#EF4444]/[0.08] px-3 py-2 text-[12px] leading-[1.5] text-[#EF4444]"
+          className="mb-3 rounded-[8px] border border-[#EF4444]/25 bg-[#EF4444]/[0.08] px-3 py-1.5 text-[12px] leading-[1.4] text-[#EF4444]"
         >
           {error}
         </p>
@@ -174,43 +174,39 @@ const Login: FC = () => {
       <button
         type="submit"
         disabled={disabled}
-        className="ncsa-btn-primary mt-auto w-full h-12 text-[14px] font-semibold flex items-center justify-center gap-2 transition-transform active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal-blue)] focus-visible:ring-offset-2"
+        className="ncsa-btn-primary mt-auto w-full h-11 text-[14px] font-semibold flex items-center justify-center gap-2 transition-transform active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal-blue)] focus-visible:ring-offset-2"
       >
         {busy && <Loader2 className="w-4 h-4 animate-spin" />}
         {locked > 0 ? `Locked — ${locked}s` : busy ? 'Verifying' : 'Sign in'}
       </button>
 
       {status && !status.required && (
-        <p className="mt-4 text-[12px] leading-[1.5] text-[var(--color-slate-gray)]">
-          Sign-in enforcement is disabled on this engine
-          (<code className="font-mono">NCSA_CONSOLE_AUTH=0</code>), so the API
-          will answer without a session.
+        <p className="mt-2 text-[11px] leading-[1.4] text-[var(--color-slate-gray)]">
+          Enforcement is off (<code className="font-mono">NCSA_CONSOLE_AUTH=0</code>).
         </p>
       )}
     </form>
   );
 
   return (
-    <div className="min-h-screen w-full bg-[var(--color-cloud)] text-[var(--color-ink-navy)] font-sans flex items-center justify-center px-6 py-12">
+    // h-screen with overflow-hidden is the promise: this page does not scroll.
+    // overflow-y-auto is kept as the escape hatch for a genuinely tiny window,
+    // because an unreachable button is worse than a scrollbar.
+    <div className="h-screen w-full overflow-y-auto bg-[var(--color-cloud)] text-[var(--color-ink-navy)] font-sans flex items-center justify-center px-6 py-6">
       <div
         className={`w-full animate-page-transition ${
-          pairing ? 'max-w-[900px]' : 'max-w-[420px]'
+          pairing ? 'max-w-[860px]' : 'max-w-[400px]'
         }`}
       >
-        {/* NOTE ON SPACING UTILITIES
-            design/NCSA_APP_DESIGN_SYSTEM.md defines --spacing-8, -16, -24 …
-            in @theme, which REDEFINES what Tailwind's numeric utilities mean:
-            `p-8` resolves to 8px, not 32px, and `w-56` to 56px, not 224px.
-            Numbers absent from that list (4, 6, 12) still fall through to the
-            default scale. Explicit pixel values are used here where the two
-            collide -- each one still lands on the system's own 8px rhythm,
-            so this is not the arbitrary spacing the contract prohibits. */}
-        <div className="flex flex-col items-center mb-[32px]">
-          <div className="w-14 h-14 bg-[#0a0a0a] rounded-[20px] flex items-center justify-center shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3)]">
-            <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center">
+        {/* Brand BESIDE the title, not above it. Stacked, this block cost
+            about 160px of vertical; inline it costs about 50, which is the
+            difference between fitting a laptop screen and not. */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-11 h-11 shrink-0 bg-[#0a0a0a] rounded-[14px] flex items-center justify-center shadow-[0_10px_24px_-8px_rgba(0,0,0,0.35)]">
+            <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center">
               <svg
-                width="18"
-                height="18"
+                width="15"
+                height="15"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="#0a0a0a"
@@ -223,14 +219,16 @@ const Login: FC = () => {
               </svg>
             </div>
           </div>
-          <h1 className="mt-4 text-[28px] leading-[1.4] font-bold tracking-tight">NCSA</h1>
-          <p className="text-[14px] leading-[1.4] text-[var(--color-slate-gray)]">
-            Network Compliance &amp; Security Auditor
-          </p>
+          <div className="min-w-0">
+            <h1 className="text-[20px] leading-[1.2] font-bold tracking-tight">NCSA</h1>
+            <p className="text-[12px] leading-[1.4] text-[var(--color-slate-gray)] truncate">
+              Network Compliance &amp; Security Auditor
+            </p>
+          </div>
         </div>
 
         {pairing ? (
-          <div className="grid md:grid-cols-2 gap-6 items-stretch">
+          <div className="grid md:grid-cols-2 gap-4 items-stretch">
             <Pairing e={enrollment as AuthEnrollment} />
             {form}
           </div>
@@ -238,18 +236,16 @@ const Login: FC = () => {
           form
         )}
 
-        <p className="mt-6 text-center text-[12px] leading-[1.5] text-[var(--color-mist-gray)]">
-          Local account with multi-factor authentication. Not single sign-on —
-          no external identity provider is involved.
+        <p className="mt-3 text-center text-[11px] leading-[1.4] text-[var(--color-mist-gray)]">
+          Local account with multi-factor authentication. Not single sign-on.
         </p>
       </div>
     </div>
   );
 };
 
-/** The step number, so a first-time operator knows there are exactly two. */
 const StepChip: FC<{ n: number }> = ({ n }) => (
-  <span className="ml-auto inline-flex items-center justify-center w-6 h-6 rounded-full bg-[var(--color-pebble)] border border-[var(--color-hairline)] text-[11px] font-bold text-[var(--color-slate-gray)]">
+  <span className="ml-auto inline-flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-pebble)] border border-[var(--color-hairline)] text-[10px] font-bold text-[var(--color-slate-gray)]">
     {n}
   </span>
 );
@@ -257,61 +253,55 @@ const StepChip: FC<{ n: number }> = ({ n }) => (
 /**
  * First-run pairing.
  *
- * The QR is 224px, not the 128px it started at: a code meant to be read by a
- * phone held away from the screen has to be comfortably larger than a
- * thumbnail, and this is the one moment the whole sign-in depends on working
- * first time.
+ * The QR is 200px. Big enough to scan from a phone held at arm's length,
+ * small enough that the page still fits a laptop screen -- the earlier 240px
+ * version pushed the sign-in button below the fold on a 1366x768 display.
  *
  * It is drawn by the engine and shown through <img> rather than injected as
- * markup -- the rule the topology panel already follows -- which also means
- * the console needs no QR library and works on a machine with no network.
+ * markup, the rule the topology panel already follows, which also means the
+ * console needs no QR library and works with no network.
  */
 const Pairing: FC<{ e: AuthEnrollment }> = ({ e }) => (
-  <div className="ncsa-card p-[32px] flex flex-col">
-    <div className="flex items-center gap-2">
+  <div className="ncsa-card p-6 flex flex-col">
+    <div className="flex items-center gap-2 mb-1">
       <ShieldCheck className="w-4 h-4 text-[var(--color-signal-blue)]" />
-      <h2 className="text-[16px] font-bold">Pair your authenticator</h2>
+      <h2 className="text-[15px] font-bold">Pair your authenticator</h2>
       <StepChip n={1} />
     </div>
-    <p className="mt-2 mb-6 text-[12px] leading-[1.5] text-[var(--color-slate-gray)]">
-      No authenticator is paired with this console yet. Scan this once with
-      Google Authenticator, Microsoft Authenticator, Authy, 1Password or the
-      RSA Authenticator app.
+    <p className="mb-4 text-[12px] leading-[1.5] text-[var(--color-slate-gray)]">
+      Scan once with Google Authenticator, Microsoft Authenticator, Authy,
+      1Password or the RSA Authenticator app.
     </p>
 
-    {/* 240px. This is the one moment the whole sign-in depends on working
-        first time, and a code read by a phone held away from the screen has
-        to be comfortably larger than a thumbnail. */}
     <div className="flex justify-center">
       <img
         src={`data:image/svg+xml;utf8,${encodeURIComponent(e.qr_svg)}`}
         alt="Pairing QR code for an authenticator app"
-        width={240}
-        height={240}
-        className="w-[240px] h-[240px] rounded-[12px] border border-[var(--color-hairline)] bg-white p-[12px]"
+        width={200}
+        height={200}
+        // 200px on any normal screen, shrinking on a short one rather than
+        // pushing the sign-in button below the fold. 150px is the floor:
+        // below that a phone starts having to hunt for focus.
+        className="w-[clamp(150px,30vh,200px)] h-[clamp(150px,30vh,200px)] rounded-[10px] border border-[var(--color-hairline)] bg-white p-2"
       />
     </div>
 
-    <div className="mt-6">
-      <p className="text-[12px] leading-[1.5] font-semibold text-[var(--color-slate-gray)] mb-2">
+    <div className="mt-4">
+      <p className="text-[11px] leading-[1.4] font-semibold text-[var(--color-slate-gray)] mb-1.5">
         Or enter this key by hand
       </p>
-      <code className="block break-all font-mono text-[12px] leading-[1.6] text-[var(--color-ink-navy)] bg-[var(--color-pebble)] border border-[var(--color-hairline)] rounded-[8px] px-3 py-2">
+      <code className="block break-all font-mono text-[11px] leading-[1.5] text-[var(--color-ink-navy)] bg-[var(--color-pebble)] border border-[var(--color-hairline)] rounded-[8px] px-2 py-1.5">
         {e.secret}
       </code>
     </div>
 
-    {/* No icon: a phone glyph at this size renders as a bare rectangle and
-        reads as a missing character, which undermines the one screen that has
-        to look trustworthy. */}
-    <p className="mt-4 text-[12px] leading-[1.5] text-[var(--color-mist-gray)]">
+    <p className="mt-3 text-[11px] leading-[1.4] text-[var(--color-mist-gray)]">
       RSA SecurID hardware tokens use a different scheme and cannot be paired
       here.
     </p>
   </div>
 );
 
-/** One labelled field, so the three of them cannot drift apart. */
 const Field: FC<{
   id: string;
   label: string;
@@ -322,10 +312,10 @@ const Field: FC<{
   disabled?: boolean;
   inputRef?: RefObject<HTMLInputElement | null>;
 }> = ({ id, label, value, onChange, type = 'text', autoComplete, disabled, inputRef }) => (
-  <div className="mb-4">
+  <div className="mb-3">
     <label
       htmlFor={id}
-      className="block text-[12px] leading-[1.5] font-semibold text-[var(--color-slate-gray)] mb-2"
+      className="block text-[11px] leading-[1.4] font-semibold text-[var(--color-slate-gray)] mb-1.5"
     >
       {label}
     </label>
@@ -337,7 +327,7 @@ const Field: FC<{
       autoComplete={autoComplete}
       disabled={disabled}
       onChange={(ev) => onChange(ev.target.value)}
-      className="w-full h-12 px-3 rounded-[8px] border border-[var(--color-hairline)] bg-[var(--color-paper)] text-[14px] text-[var(--color-ink-navy)] outline-none transition-colors focus:border-[var(--color-signal-blue)] focus:ring-2 focus:ring-[var(--color-signal-blue)]/20 disabled:bg-[var(--color-pebble)]"
+      className="w-full h-11 px-3 rounded-[8px] border border-[var(--color-hairline)] bg-[var(--color-paper)] text-[14px] text-[var(--color-ink-navy)] outline-none transition-colors focus:border-[var(--color-signal-blue)] focus:ring-2 focus:ring-[var(--color-signal-blue)]/20 disabled:bg-[var(--color-pebble)]"
     />
   </div>
 );
