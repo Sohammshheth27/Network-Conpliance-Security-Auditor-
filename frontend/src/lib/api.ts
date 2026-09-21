@@ -1,5 +1,5 @@
 /**
- * The one place the UI talks to the NCSA engine.
+ * The one place the UI talks to the Meridian engine.
  *
  * Every type here mirrors what `ncsa/api/app.py` actually returns. They were
  * written by reading real responses from the running engine against a real
@@ -929,7 +929,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   } catch {
     throw new ApiError(
       0,
-      "Cannot reach the NCSA engine. Start it with: uvicorn ncsa.api.app:app --port 8000",
+      "Cannot reach the Meridian engine. Start it with: uvicorn ncsa.api.app:app --port 8000",
     );
   }
 

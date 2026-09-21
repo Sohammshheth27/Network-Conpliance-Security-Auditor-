@@ -1,4 +1,4 @@
-# NCSA — Network Compliance & Security Auditor
+# Meridian — Network Compliance & Security Auditor
 
 Multi-vendor firewall and network configuration auditing. A configuration file
 goes in; a compliance assessment comes out, with the exact line of the exact

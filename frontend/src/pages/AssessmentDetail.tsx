@@ -155,7 +155,7 @@ const AssessmentDetail: FC = () => {
     .map((f) => f.name);
   const bySeverity = failuresBySeverity(data.findings);
   const totalFindingsCount = data.findings.length;
-  const assessmentDisplayId = id?.startsWith('NCSA') ? id : `NCSA-2026-${id?.slice(0, 4).toUpperCase() || '0014'}`;
+  const assessmentDisplayId = id?.startsWith('MRD') ? id : `MRD-2026-${id?.slice(0, 4).toUpperCase() || '0014'}`;
   const deviceName = identity.hostname || identity.source_file || 'Device';
   const vendorClean = vendorLabel(identity.vendor);
   const platformClean = identity.os || identity.platform || 'Platform';
@@ -363,7 +363,7 @@ const AssessmentDetail: FC = () => {
                   setPdfError(null);
                   setDownloadingPdf(true);
                   try {
-                    await download(api.reportUrl(id!), `NCSA_Report_${id}.pdf`);
+                    await download(api.reportUrl(id!), `Meridian_Report_${id}.pdf`);
                   } catch (e: any) {
                     setPdfError(e);
                   } finally {

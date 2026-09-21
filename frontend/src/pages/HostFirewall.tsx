@@ -57,13 +57,13 @@ const HostFirewall: FC = () => {
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="text-center sm:text-left">
         <span className="text-[11px] font-bold uppercase tracking-widest text-[var(--color-signal-blue)] block mb-1">
-          NCSA AUDIT ENGINE
+          MERIDIAN AUDIT ENGINE
         </span>
         <h1 className="text-3xl font-semibold tracking-tight text-[var(--color-ink-navy)]">
           Host Firewall
         </h1>
         <p className="text-sm text-[var(--color-slate-gray)] mt-1">
-          Upload an iptables-save dump to assess a Linux host firewall, or assess the local server running NCSA.
+          Upload an iptables-save dump to assess a Linux host firewall, or assess the local server running Meridian.
         </p>
       </div>
 

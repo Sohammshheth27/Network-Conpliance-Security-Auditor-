@@ -34,7 +34,7 @@ from .schemas import (ApprovalIn, ApprovalOut, AssessmentOut, AuthStatusOut,
                       TrainingCandidateOut)
 
 app = FastAPI(
-    title="NCSA -- Network Compliance & Security Auditor",
+    title="Meridian -- Network Compliance & Security Auditor",
     version="0.1.0",
     description="Vendor-agnostic configuration compliance. Every finding "
                 "carries the file and line it came from.")
@@ -133,7 +133,7 @@ async def _require_access(request: Request, call_next):
         host = request.client.host if request.client else ""
         if host not in _LOOPBACK:
             return JSONResponse(
-                {"detail": "this NCSA instance answers the local machine only; "
+                {"detail": "this Meridian instance answers the local machine only; "
                            "set NCSA_API_TOKEN to allow remote clients"},
                 status_code=403)
     return await call_next(request)
@@ -269,8 +269,13 @@ def auth_enroll(request: Request):
         raise HTTPException(
             403, "an authenticator is already paired; sign in before pairing "
                  "another")
+    from .auth import ISSUER
+
     return {"username": admin_user(),
-            "issuer": "NCSA",
+            # From the constant, not a second copy: the provisioning URI and
+            # this field must agree, and when they were separate literals a
+            # rename moved one and left the other saying the old name.
+            "issuer": ISSUER,
             "secret": totp_secret(),
             "uri": provisioning_uri(),
             "qr_svg": qr_svg(),
@@ -1551,7 +1556,7 @@ def ai_governance():
         by_function.setdefault(g["ai_rmf"], []).append(g["guardrail"])
 
     return {
-        "scope": "Governs the AI inside NCSA -- the mapping suggester that "
+        "scope": "Governs the AI inside Meridian -- the mapping suggester that "
                  "reads untrusted configuration text. It does NOT assess the "
                  "audited device against these frameworks.",
         "atlas": {"techniques": techniques, "mitigations": mitigations,

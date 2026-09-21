@@ -417,9 +417,9 @@ const Assessments: FC = () => {
                 {filtered.map((item) => {
                   const isCompleted = item.score_pct >= 50;
                   const deviceClean = item.device.length > 25 ? item.device.slice(0, 20) + '...' : item.device;
-                  const assessmentDisplayId = item.assessment_id.startsWith('NCSA') 
+                  const assessmentDisplayId = item.assessment_id.startsWith('MRD') 
                     ? item.assessment_id 
-                    : `NCSA-2026-${item.assessment_id.slice(0, 4).toUpperCase()}`;
+                    : `MRD-2026-${item.assessment_id.slice(0, 4).toUpperCase()}`;
 
                   return (
                     <tr

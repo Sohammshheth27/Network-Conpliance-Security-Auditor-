@@ -96,7 +96,7 @@ const NewAudit: FC = () => {
     <div className="space-y-6">
       <div className="text-center sm:text-left">
         <span className="text-[11px] font-bold uppercase tracking-widest text-[var(--color-signal-blue)] block mb-1">
-          NCSA AUDIT ENGINE
+          MERIDIAN AUDIT ENGINE
         </span>
         <h1 className="text-3xl font-semibold tracking-tight text-[var(--color-ink-navy)]">
           New Audit

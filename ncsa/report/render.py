@@ -948,7 +948,7 @@ def build_report(da, assessment_id: str = "") -> str:
                 + _undecided(d) + _policy(d) + _remediation(d) + _method(d)
                 + _extended(da, d))
 
-    title = (f"NCSA Assessment — "
+    title = (f"Meridian Assessment — "
              f"{d['identity'].hostname or d['identity'].source_file}")
     return (f"<!DOCTYPE html>\n<html lang=\"en\"><head>"
             f"<meta charset=\"utf-8\">"

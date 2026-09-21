@@ -52,7 +52,7 @@ DEFAULT_USER = "Administrator"
 #: deployment with NCSA_ADMIN_PASSWORD_HASH.
 DEFAULT_PASSWORD_HASH = "$2b$12$EmXVZKnEWbyx19OsDwDGge5rJ1KttcH4/vBbgZoqmJpJmHS/Y53sq"
 
-ISSUER = "NCSA"
+ISSUER = "Meridian"
 SESSION_HOURS = 8
 
 #: NCSA-EXT-013 (account lockout) applied to ourselves.

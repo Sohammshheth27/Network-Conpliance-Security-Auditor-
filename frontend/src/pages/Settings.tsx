@@ -153,7 +153,7 @@ const Settings: FC = () => {
     <div className="max-w-5xl space-y-6">
       <div>
         <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-[var(--color-slate-gray)]">
-          NCSA CONFIGURATION
+          MERIDIAN CONFIGURATION
         </span>
         <h1 className="text-3xl font-semibold tracking-tight text-[var(--color-ink-navy)]">
           Settings

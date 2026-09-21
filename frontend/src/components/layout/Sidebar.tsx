@@ -46,18 +46,30 @@ export default function Sidebar() {
         <NavLink 
           to="/"
           className="w-10 h-10 bg-white rounded-full flex items-center justify-center transition-transform hover:scale-105 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0a]"
-          title="NCSA Overview"
+          title="Meridian Overview"
         >
-          <svg
-            className="w-5 h-5 text-[#0a0a0a]"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12 3L2 20h20L12 3z" />
+          {/* The mark: a sphere with its meridian cut out as negative space.
+              A meridian is the fixed line a position is measured against,
+              which is what this tool does to a configuration.
+
+              Filled rather than stroked on purpose. Three hairlines at 20px
+              close up into a smudge; a solid form with one clean cut stays
+              legible down to a favicon. The cut is a lens, not a straight
+              bar, because that is the shape a meridian plane actually makes
+              when you view a sphere edge-on. */}
+          {/* A sphere with its meridian struck through it in Signal Blue.
+              A meridian is the fixed line a position is measured against,
+              which is what this tool does to a configuration -- so the one
+              coloured element is the reference, not decoration.
+
+              Filled, and cut ONCE. An earlier version also cut the equator,
+              which split the circle into four blobs and read as a fidget
+              spinner at 20px. Three hairline strokes had the same problem
+              from the other direction: they closed into a smudge. One solid
+              form with one clean cut survives down to a 16px favicon. */}
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="9.5" fill="#0a0a0a" />
+            <ellipse cx="12" cy="12" rx="3.7" ry="9.5" fill="#006bff" />
           </svg>
         </NavLink>
       </div>
@@ -118,7 +130,7 @@ export default function Sidebar() {
             // looked like signing out and was not. Dropping the session token
             // is what actually ends the session; the next API call has no
             // credential to present.
-            if (window.confirm("Sign out of the NCSA console?")) {
+            if (window.confirm("Sign out of the Meridian console?")) {
               setSessionToken("");
               navigate("/login", { replace: true });
             }

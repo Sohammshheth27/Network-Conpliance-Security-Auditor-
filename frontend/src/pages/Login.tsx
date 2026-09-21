@@ -69,7 +69,7 @@ const Login: FC = () => {
           }
         }
       })
-      .catch(() => live && setError('Cannot reach the NCSA engine.'));
+      .catch(() => live && setError('Cannot reach the Meridian engine.'));
     return () => {
       live = false;
     };
@@ -101,7 +101,7 @@ const Login: FC = () => {
       setLocked(r.locked_seconds || 0);
       setOtp('');
     } catch {
-      setError('Cannot reach the NCSA engine.');
+      setError('Cannot reach the Meridian engine.');
     } finally {
       setBusy(false);
     }
@@ -202,25 +202,19 @@ const Login: FC = () => {
             about 160px of vertical; inline it costs about 50, which is the
             difference between fitting a laptop screen and not. */}
         <div className="flex items-center gap-3 mb-4">
+          {/* The mark sits straight on the tile here. The sidebar nests it in
+              a white chip because that chip is what lifts the brand off a
+              black rail; repeating the chip on a black tile gave three
+              concentric shapes -- square, ring, sphere -- and the eye reads
+              the ring instead of the meridian. */}
           <div className="w-11 h-11 shrink-0 bg-[#0a0a0a] rounded-[14px] flex items-center justify-center shadow-[0_10px_24px_-8px_rgba(0,0,0,0.35)]">
-            <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center">
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#0a0a0a"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M12 3L2 20h20L12 3z" />
-              </svg>
-            </div>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="9.5" fill="#ffffff" />
+              <ellipse cx="12" cy="12" rx="3.7" ry="9.5" fill="#006bff" />
+            </svg>
           </div>
           <div className="min-w-0">
-            <h1 className="text-[20px] leading-[1.2] font-bold tracking-tight">NCSA</h1>
+            <h1 className="text-[20px] leading-[1.2] font-bold tracking-tight">Meridian</h1>
             <p className="text-[12px] leading-[1.4] text-[var(--color-slate-gray)] truncate">
               Network Compliance &amp; Security Auditor
             </p>
