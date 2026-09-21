@@ -34,7 +34,7 @@ from .schemas import (ApprovalIn, ApprovalOut, AssessmentOut, AuthStatusOut,
                       TrainingCandidateOut)
 
 app = FastAPI(
-    title="Meridian -- Network Compliance & Security Auditor",
+    title="MERIDIAN -- Network Compliance & Security Auditor",
     version="0.1.0",
     description="Vendor-agnostic configuration compliance. Every finding "
                 "carries the file and line it came from.")

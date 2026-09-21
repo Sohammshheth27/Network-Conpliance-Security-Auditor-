@@ -46,17 +46,8 @@ export default function Sidebar() {
         <NavLink 
           to="/"
           className="w-10 h-10 bg-white rounded-full flex items-center justify-center transition-transform hover:scale-105 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0a]"
-          title="Meridian Overview"
+          title="MERIDIAN Overview"
         >
-          {/* The mark: a sphere with its meridian cut out as negative space.
-              A meridian is the fixed line a position is measured against,
-              which is what this tool does to a configuration.
-
-              Filled rather than stroked on purpose. Three hairlines at 20px
-              close up into a smudge; a solid form with one clean cut stays
-              legible down to a favicon. The cut is a lens, not a straight
-              bar, because that is the shape a meridian plane actually makes
-              when you view a sphere edge-on. */}
           {/* A sphere with its meridian struck through it in Signal Blue.
               A meridian is the fixed line a position is measured against,
               which is what this tool does to a configuration -- so the one

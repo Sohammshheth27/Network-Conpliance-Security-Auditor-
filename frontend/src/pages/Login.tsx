@@ -214,7 +214,10 @@ const Login: FC = () => {
             </svg>
           </div>
           <div className="min-w-0">
-            <h1 className="text-[20px] leading-[1.2] font-bold tracking-tight">Meridian</h1>
+            {/* Positive tracking, not tracking-tight. Capitals are drawn to
+                sit apart; set at the spacing that suits lower-case they jam
+                together and read as one block. */}
+            <h1 className="text-[20px] leading-[1.2] font-bold tracking-[0.08em]">MERIDIAN</h1>
             <p className="text-[12px] leading-[1.4] text-[var(--color-slate-gray)] truncate">
               Network Compliance &amp; Security Auditor
             </p>

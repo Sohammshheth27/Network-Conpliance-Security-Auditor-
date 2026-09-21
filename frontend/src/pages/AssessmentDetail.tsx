@@ -363,7 +363,7 @@ const AssessmentDetail: FC = () => {
                   setPdfError(null);
                   setDownloadingPdf(true);
                   try {
-                    await download(api.reportUrl(id!), `Meridian_Report_${id}.pdf`);
+                    await download(api.reportUrl(id!), `MERIDIAN_Report_${id}.pdf`);
                   } catch (e: any) {
                     setPdfError(e);
                   } finally {

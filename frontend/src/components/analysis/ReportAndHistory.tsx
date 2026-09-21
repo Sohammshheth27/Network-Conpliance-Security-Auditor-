@@ -55,7 +55,7 @@ const ReportAndHistory: FC<{ aid: string }> = ({ aid }) => {
               setPdfError(null);
               setDownloadingFull(true);
               try {
-                await download(api.reportUrl(aid), `Meridian_Report_${aid}.pdf`);
+                await download(api.reportUrl(aid), `MERIDIAN_Report_${aid}.pdf`);
               } catch (e: any) {
                 setPdfError(e);
               } finally {
@@ -75,7 +75,7 @@ const ReportAndHistory: FC<{ aid: string }> = ({ aid }) => {
                 setPdfError(null);
                 setDownloadingFramework(key);
                 try {
-                  await download(api.reportUrl(aid, key), `Meridian_Report_${aid}_${key}.pdf`);
+                  await download(api.reportUrl(aid, key), `MERIDIAN_Report_${aid}_${key}.pdf`);
                 } catch (e: any) {
                   setPdfError(e);
                 } finally {
