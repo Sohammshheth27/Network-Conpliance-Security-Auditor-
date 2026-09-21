@@ -1118,8 +1118,14 @@ export const api = {
     redact: boolean,
     solid = true,
   ): Promise<string> => {
+    // withAuth is NOT optional here. This is the one call in the file that
+    // builds its own request instead of going through `request()`, because it
+    // wants SVG text rather than JSON -- and it silently omitted the session,
+    // so the topology map was the one panel that 401'd for a signed-in
+    // operator while everything around it worked.
     const res = await fetch(
       `${BASE}/assessment/${id}/topology-map.svg?redact=${redact}&solid=${solid}`,
+      withAuth(),
     );
     if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText}`);
     return res.text();

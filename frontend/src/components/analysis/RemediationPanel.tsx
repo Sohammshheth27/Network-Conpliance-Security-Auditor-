@@ -2,7 +2,7 @@ import { useMemo, useState, type FC } from 'react';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Empty, ErrorPanel, Loading } from '../ui/States';
-import { api, type HardenedResponse, type RemediationStep } from '../../lib/api';
+import { api, download, type HardenedResponse, type RemediationStep } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 
 /**
@@ -334,12 +334,18 @@ const HardenedConfig: FC<{ id: string }> = ({ id }) => {
 
           {data.changes.length > 0 && (
             <div className="mt-3 flex flex-wrap items-center gap-3">
-              <a
-                href={`/api/assessment/${id}/hardened.conf`}
+              {/* A plain <a href> to an API route is fetched by the browser
+                  with no Authorization header, so it 401s for a signed-in
+                  operator. `download()` makes the request through fetch with
+                  the session attached and then saves the blob. */}
+              <button
+                onClick={() =>
+                  download(`/assessment/${id}/hardened.conf`, `hardened-${id}.exp`)
+                }
                 className="rounded-xl bg-[var(--color-signal-blue)] px-3 py-2 text-xs font-semibold text-white"
               >
                 Download hardened configuration
-              </a>
+              </button>
               <p className="text-xs text-[var(--color-slate-gray)]">
                 Carries this device's real addressing. Import is unverified —
                 test it on a sandbox appliance before a live device.
