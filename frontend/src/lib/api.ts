@@ -81,6 +81,35 @@ export const SEVERITY_STYLE: Record<Severity, string> = {
 
 // ---------------------------------------------------------------------- types
 
+/** Whether the console is locked, and whether an authenticator is paired. */
+export interface AuthStatus {
+  required: boolean;
+  authenticated: boolean;
+  username: string;
+  enrolled: boolean;
+  locked_seconds: number;
+}
+
+/** The one-time pairing payload. `qr_svg` is rendered by the engine so the
+ *  console needs no QR library and works with no network. */
+export interface AuthEnrollment {
+  username: string;
+  issuer: string;
+  secret: string;
+  uri: string;
+  qr_svg: string;
+  note: string;
+}
+
+export interface LoginResult {
+  ok: boolean;
+  token: string;
+  username: string;
+  expires_hours: number;
+  detail: string;
+  locked_seconds: number;
+}
+
 export interface Identity {
   vendor: string;
   platform: string;
@@ -822,8 +851,47 @@ export function apiToken(): string {
   }
 }
 
+/**
+ * The console session from /auth/login.
+ *
+ * sessionStorage, not localStorage: a session is meant to end when the
+ * browser tab does. An audit console left signed in on a shared machine is
+ * the kind of finding this product reports about other people's systems.
+ */
+const SESSION_KEY = "ncsa_session";
+
+export function sessionToken(): string {
+  try {
+    return sessionStorage.getItem(SESSION_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function setSessionToken(token: string): void {
+  try {
+    if (token) sessionStorage.setItem(SESSION_KEY, token);
+    else sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* private mode; the session simply will not persist a reload */
+  }
+}
+
+/** Where the router lives, so a redirect works in dev ("/") and under
+ *  /dashboard alike. */
+function basePath(): string {
+  return import.meta.env.BASE_URL.replace(/\/$/, "");
+}
+
+export function goToLogin(): void {
+  const to = `${basePath()}/login`;
+  if (!window.location.pathname.endsWith("/login")) window.location.assign(to);
+}
+
 function withAuth(init?: RequestInit): RequestInit | undefined {
-  const token = apiToken();
+  // The session comes first: a signed-in operator is the normal case, and the
+  // API token is for scripts and CI.
+  const token = sessionToken() || apiToken();
   if (!token) return init;
   const headers = new Headers(init?.headers);
   headers.set("Authorization", `Bearer ${token}`);
@@ -863,6 +931,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       0,
       "Cannot reach the NCSA engine. Start it with: uvicorn ncsa.api.app:app --port 8000",
     );
+  }
+
+  // An expired or missing session is not an error to render inside the app --
+  // there is nothing to show without one. Drop it and go to sign-in.
+  if (res.status === 401 && !path.startsWith("/auth/")) {
+    setSessionToken("");
+    goToLogin();
   }
 
   if (!res.ok) {
@@ -994,6 +1069,14 @@ export const api = {
   history: (id: string) => request<HistoryPoint[]>(`/assessment/${id}/history`),
   recordSnapshot: (id: string) =>
     request<unknown>(`/assessment/${id}/snapshot`, { method: "POST" }),
+  authStatus: () => request<AuthStatus>("/auth/status"),
+  authEnroll: () => request<AuthEnrollment>("/auth/enroll"),
+  login: (username: string, password: string, otp: string) =>
+    request<LoginResult>("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password, otp }),
+    }),
   /** Browser URL of the report; `framework` scopes it to one framework. */
   reportUrl: (id: string, framework?: string, format: "pdf" | "html" = "pdf") =>
     `${BASE}/assessment/${id}/report?format=${format}` +

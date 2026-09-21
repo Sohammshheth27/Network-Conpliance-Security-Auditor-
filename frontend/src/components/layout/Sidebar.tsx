@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Home, 
   Settings,
@@ -12,6 +12,7 @@ import {
   Monitor
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { setSessionToken } from '../../lib/api';
 
 const primaryNav = [
   { name: 'Dashboard', to: '/', icon: Home },
@@ -26,6 +27,7 @@ const primaryNav = [
 
 export default function Sidebar() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const navRef = useRef<HTMLElement>(null);
   const [indicatorOffset, setIndicatorOffset] = useState<number | null>(null);
 
@@ -108,12 +110,17 @@ export default function Sidebar() {
 
       {/* Bottom Navigation / Action */}
       <div className="mt-auto pt-4 w-full flex justify-center">
-        <button 
-          title="Sign Out / Exit"
+        <button
+          title="Sign out"
           className="w-12 h-12 rounded-[16px] flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0a]"
           onClick={() => {
-            if (window.confirm("Return to overview?")) {
-              window.location.href = "/";
+            // This used to ask "Return to overview?" and navigate home, which
+            // looked like signing out and was not. Dropping the session token
+            // is what actually ends the session; the next API call has no
+            // credential to present.
+            if (window.confirm("Sign out of the NCSA console?")) {
+              setSessionToken("");
+              navigate("/login", { replace: true });
             }
           }}
         >

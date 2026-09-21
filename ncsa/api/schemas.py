@@ -295,6 +295,46 @@ class ScoreOut(BaseModel):
     states: dict[str, int] = Field(default_factory=dict)
 
 
+class LoginIn(BaseModel):
+    """A credential and a one-time code, together.
+
+    Both are sent in one request rather than password-then-prompt: a two-stage
+    flow has to hold "this password was correct" somewhere between the calls,
+    and that half-authenticated state is a thing to steal.
+    """
+
+    username: str
+    password: str
+    otp: str = Field(default="", description="Six digits from the authenticator app")
+
+
+class LoginOut(BaseModel):
+    ok: bool = False
+    token: str = ""
+    username: str = ""
+    expires_hours: int = 0
+    detail: str = Field(
+        default="",
+        description="Why a sign-in failed. Deliberately unspecific about "
+                    "WHICH factor was wrong -- naming it tells an attacker "
+                    "which half to keep working on.")
+    locked_seconds: int = 0
+
+
+class AuthStatusOut(BaseModel):
+    """What the console needs before it draws the sign-in page."""
+
+    required: bool = Field(
+        description="Whether the API is enforcing sign-in at all.")
+    authenticated: bool = False
+    username: str = ""
+    enrolled: bool = Field(
+        default=False,
+        description="Whether an authenticator has been paired. False means "
+                    "the page should show the QR code first.")
+    locked_seconds: int = 0
+
+
 class HardenedOut(BaseModel):
     """A hardened configuration, and the compliance gain it MEASURES.
 

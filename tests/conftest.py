@@ -49,6 +49,13 @@ def _isolated_audit_logs(tmp_path, monkeypatch, _session_store):
     from ncsa.api import app as api_app
     from ncsa.training import apply as training_apply
 
+    # The console requires a browser sign-in by default, which is right for a
+    # deployment and wrong for these tests: they call the API directly and have
+    # no session to present, so every one of them would be a 401 testing
+    # nothing. The sign-in itself is tested in test_auth.py, which turns this
+    # back on deliberately.
+    monkeypatch.setenv("NCSA_CONSOLE_AUTH", "0")
+
     monkeypatch.setattr(api_app, "APPROVALS_LOG", tmp_path / "approved_mappings.jsonl")
     monkeypatch.setattr(training_apply, "DECISIONS_PATH", tmp_path / "decisions.jsonl")
     # Never write uploaded configs or the assessment database to ./data.

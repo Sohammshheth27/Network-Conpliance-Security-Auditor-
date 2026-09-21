@@ -28,9 +28,10 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .convert import assessment_out, candidate_out, remediation_out
-from .schemas import (ApprovalIn, ApprovalOut, AssessmentOut, CollectIn,
-                      HardenedOut, MonitorIn, ReachQueryIn, RemediationOut,
-                      TopologyIn, TrainingCandidateOut)
+from .schemas import (ApprovalIn, ApprovalOut, AssessmentOut, AuthStatusOut,
+                      CollectIn, HardenedOut, LoginIn, LoginOut, MonitorIn,
+                      ReachQueryIn, RemediationOut, TopologyIn,
+                      TrainingCandidateOut)
 
 app = FastAPI(
     title="NCSA -- Network Compliance & Security Auditor",
@@ -59,7 +60,12 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 _PUBLIC = ("/", "/app", "/health", "/docs", "/openapi.json", "/redoc",
-           "/report-signing-key")
+           "/report-signing-key",
+           # Sign-in itself cannot require being signed in. `/auth/status`
+           # tells the console whether to draw the page at all, and
+           # `/auth/enroll` is what pairs the authenticator -- it is gated
+           # separately, on whether pairing has already happened.
+           "/auth/login", "/auth/status", "/auth/enroll")
 _LOOPBACK = {"127.0.0.1", "::1", "localhost",
              # Starlette's in-process TestClient; no network peer can present
              # this as its address.
@@ -77,6 +83,21 @@ def _os_env(name: str) -> str:
     return os.environ.get(name, "")
 
 
+def _console_auth_on() -> bool:
+    """Whether the API requires a console sign-in.
+
+    ON by default, so a demo is protected without anyone remembering to set a
+    variable -- the opposite default would mean the console ships unlocked and
+    nobody notices until it is on a network.
+
+    The test suite sets NCSA_CONSOLE_AUTH=0. Its calls go straight to the API
+    rather than through a browser, so they have no session to present, and
+    every one of them would otherwise be a 401 testing nothing.
+    """
+    return (_os_env("NCSA_CONSOLE_AUTH") or "1").strip().lower() not in (
+        "0", "false", "off", "no")
+
+
 @app.middleware("http")
 async def _require_access(request: Request, call_next):
     path = request.url.path
@@ -86,14 +107,28 @@ async def _require_access(request: Request, call_next):
             # call the page then makes goes through the checks below.
             or path.startswith("/dashboard")):
         return await call_next(request)
+    sent = request.headers.get("authorization", "")
+    bearer = sent[7:].strip() if sent.startswith("Bearer ") else ""
+
     token = _os_env("NCSA_API_TOKEN")
+    # A script or CI job carries the API token; the console carries a signed
+    # session from /auth/login. Either proves access, and they are checked in
+    # that order so automation never depends on a browser sign-in.
+    if token and bearer and _hmac.compare_digest(bearer, token):
+        return await call_next(request)
+
+    if _console_auth_on():
+        from .auth import verify_session
+
+        if bearer and verify_session(bearer):
+            return await call_next(request)
+        return JSONResponse({"detail": "sign-in required"}, status_code=401,
+                            headers={"WWW-Authenticate": "Bearer"})
+
     if token:
-        sent = request.headers.get("authorization", "")
-        if not (sent.startswith("Bearer ")
-                and _hmac.compare_digest(sent[7:].strip(), token)):
-            return JSONResponse({"detail": "missing or invalid API token"},
-                                status_code=401,
-                                headers={"WWW-Authenticate": "Bearer"})
+        return JSONResponse({"detail": "missing or invalid API token"},
+                            status_code=401,
+                            headers={"WWW-Authenticate": "Bearer"})
     else:
         host = request.client.host if request.client else ""
         if host not in _LOOPBACK:
@@ -198,6 +233,92 @@ _UPLOADS = _STORE.uploads
 APPROVALS_LOG = Path("reference/approved_mappings.jsonl")
 
 MAX_UPLOAD_MB = 64
+
+
+# ----------------------------------------------------------------- sign-in
+@app.get("/auth/status", response_model=AuthStatusOut, tags=["auth"])
+def auth_status(request: Request):
+    """What the console needs before it draws the sign-in page."""
+    from .auth import _load, admin_user, lockout_state, verify_session
+
+    sent = request.headers.get("authorization", "")
+    who = verify_session(sent[7:].strip()) if sent.startswith("Bearer ") else None
+    lock = lockout_state()
+    return AuthStatusOut(
+        required=_console_auth_on(),
+        authenticated=bool(who),
+        username=who or "",
+        enrolled=bool(_load().get("enrolled")),
+        locked_seconds=lock.seconds_left)
+
+
+@app.get("/auth/enroll", tags=["auth"])
+def auth_enroll(request: Request):
+    """The QR code that pairs an authenticator app.
+
+    Open only until the first successful sign-in. After that it needs a valid
+    session -- otherwise anyone who can reach the console could fetch the
+    shared secret and pair their own phone, which would make the second factor
+    a formality rather than a factor.
+    """
+    from .auth import _load, admin_user, provisioning_uri, qr_svg, totp_secret, verify_session
+
+    sent = request.headers.get("authorization", "")
+    who = verify_session(sent[7:].strip()) if sent.startswith("Bearer ") else None
+    if _load().get("enrolled") and not who:
+        raise HTTPException(
+            403, "an authenticator is already paired; sign in before pairing "
+                 "another")
+    return {"username": admin_user(),
+            "issuer": "NCSA",
+            "secret": totp_secret(),
+            "uri": provisioning_uri(),
+            "qr_svg": qr_svg(),
+            "note": "Scan with Google Authenticator, Microsoft Authenticator, "
+                    "Authy, 1Password or the RSA Authenticator app. RSA "
+                    "SecurID hardware tokens use a different scheme and "
+                    "cannot be paired here."}
+
+
+@app.post("/auth/login", response_model=LoginOut, tags=["auth"])
+def auth_login(body: LoginIn):
+    """Verify the credential and the one-time code, and issue a session.
+
+    The failure message never says WHICH factor was wrong. Telling an attacker
+    that the password was right and only the code failed hands them the one
+    fact they most want.
+    """
+    from .auth import (_load, _save, check_otp, check_password, clear_failures,
+                       issue_session, lockout_state, record_failure)
+
+    lock = lockout_state()
+    if lock.locked:
+        return LoginOut(
+            ok=False, locked_seconds=lock.seconds_left,
+            detail=f"Too many failed attempts. Try again in "
+                   f"{lock.seconds_left} seconds.")
+
+    if not (check_password(body.username, body.password) and check_otp(body.otp)):
+        after = record_failure()
+        return LoginOut(
+            ok=False, locked_seconds=after.seconds_left,
+            detail=("Too many failed attempts. Locked for "
+                    f"{after.seconds_left} seconds."
+                    if after.locked else
+                    "The username, password or authentication code is not "
+                    "correct."))
+
+    clear_failures()
+    state = _load()
+    if not state.get("enrolled"):
+        # The first successful sign-in proves an authenticator is paired, and
+        # closes /auth/enroll to anonymous callers.
+        state["enrolled"] = True
+        _save(state)
+    from .auth import SESSION_HOURS
+
+    return LoginOut(ok=True, token=issue_session(body.username),
+                    username=body.username, expires_hours=SESSION_HOURS)
 
 
 # --------------------------------------------------------------- ingestion
