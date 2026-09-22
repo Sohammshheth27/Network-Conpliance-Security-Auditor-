@@ -330,8 +330,13 @@ class AuthStatusOut(BaseModel):
     username: str = ""
     enrolled: bool = Field(
         default=False,
-        description="Whether an authenticator has been paired. False means "
-                    "the page should show the QR code first.")
+        description="Whether an authenticator has been paired. Reports the "
+                    "stored fact and nothing else.")
+    pairing_open: bool = Field(
+        default=True,
+        description="Whether the page should show the pairing QR. Normally "
+                    "the inverse of `enrolled`, but held true when the "
+                    "engine runs with NCSA_SHOW_PAIRING=1.")
     locked_seconds: int = 0
 
 

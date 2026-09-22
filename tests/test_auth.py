@@ -200,6 +200,34 @@ def test_enrolment_closes_after_the_first_sign_in(client, auth):
         "Authorization": f"Bearer {r.json()['token']}"}).status_code == 200
 
 
+def test_the_pairing_gate_is_shut_unless_it_is_opened_on_purpose(client, auth,
+                                                                 monkeypatch):
+    """NCSA_SHOW_PAIRING is the only thing that reopens enrolment.
+
+    The demo switch exists so the pairing step can be filmed repeatedly. This
+    pins the half that matters: with the variable absent or set to anything
+    that is not an affirmative, the gate behaves exactly as it always did.
+    """
+    monkeypatch.delenv("NCSA_SHOW_PAIRING", raising=False)
+    r = client.post("/auth/login", json={"username": USER, "password": PASSWORD,
+                                         "otp": _code(auth)})
+    assert r.json()["ok"] is True
+    assert client.get("/auth/enroll").status_code == 403
+    assert client.get("/auth/status").json()["pairing_open"] is False
+
+    for off in ("0", "no", "off", "", "maybe"):
+        monkeypatch.setenv("NCSA_SHOW_PAIRING", off)
+        assert client.get("/auth/enroll").status_code == 403, off
+
+    monkeypatch.setenv("NCSA_SHOW_PAIRING", "1")
+    assert client.get("/auth/enroll").status_code == 200
+    status = client.get("/auth/status").json()
+    assert status["pairing_open"] is True
+    # The switch changes what is OFFERED, never what is reported: an
+    # authenticator really is paired, and the engine must keep saying so.
+    assert status["enrolled"] is True
+
+
 # ------------------------------------------------------------- the promise
 def test_the_plaintext_password_is_not_in_the_shipped_package():
     """The reason for hashing, asserted rather than trusted.

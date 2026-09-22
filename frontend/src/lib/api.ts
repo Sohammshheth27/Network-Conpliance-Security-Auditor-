@@ -87,6 +87,9 @@ export interface AuthStatus {
   authenticated: boolean;
   username: string;
   enrolled: boolean;
+  /** Whether to draw the pairing QR. Normally !enrolled, but the engine
+   *  holds it true when started with NCSA_SHOW_PAIRING=1. */
+  pairing_open?: boolean;
   locked_seconds: number;
 }
 

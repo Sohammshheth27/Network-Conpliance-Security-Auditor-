@@ -62,7 +62,13 @@ const Login: FC = () => {
         setStatus(s);
         setLocked(s.locked_seconds);
         if (s.authenticated) navigate('/', { replace: true });
-        if (!s.enrolled) {
+        // The engine decides whether the QR is on offer, not the page. It is
+        // normally the inverse of `enrolled`, but an engine started with
+        // NCSA_SHOW_PAIRING=1 keeps it open so the pairing step can be shown
+        // repeatedly. Older engines omit the field; fall back to `enrolled`
+        // so a stale build still behaves the way it always did.
+        const showPairing = s.pairing_open ?? !s.enrolled;
+        if (showPairing) {
           try {
             const e = await api.authEnroll();
             if (live) setEnrollment(e);

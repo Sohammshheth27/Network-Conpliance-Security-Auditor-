@@ -60,6 +60,30 @@ MAX_FAILURES = 5
 LOCKOUT_SECONDS = 300
 
 
+def pairing_always_open() -> bool:
+    """Whether the pairing QR stays on the sign-in page after enrolment.
+
+    NORMALLY IT DOES NOT, AND THAT IS THE POINT
+    -------------------------------------------
+    `/auth/enroll` hands out the shared TOTP secret. It is open only until the
+    first successful sign-in, because after that anybody who can reach the
+    console could fetch the secret and pair their own phone -- which would
+    make the second factor a formality rather than a factor. The gate closing
+    is the control, not a side effect.
+
+    Setting NCSA_SHOW_PAIRING=1 holds it open. That is a demonstration
+    affordance: it lets the pairing step be shown on camera without resetting
+    state between takes. It is off by default, it is never the deployed
+    configuration, and the engine says so loudly at startup when it is on.
+
+    It is a deliberate switch rather than a deleted check so that the default
+    build keeps the property, and so the trade-off is written down where
+    somebody reading the code will find it.
+    """
+    return (os.environ.get("NCSA_SHOW_PAIRING") or "").strip().lower() in {
+        "1", "true", "yes", "on"}
+
+
 def _data_dir() -> Path:
     d = Path(os.environ.get("NCSA_DATA_DIR")
              or Path(__file__).resolve().parents[2] / "data")

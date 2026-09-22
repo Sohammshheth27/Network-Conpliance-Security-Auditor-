@@ -239,16 +239,22 @@ MAX_UPLOAD_MB = 64
 @app.get("/auth/status", response_model=AuthStatusOut, tags=["auth"])
 def auth_status(request: Request):
     """What the console needs before it draws the sign-in page."""
-    from .auth import _load, admin_user, lockout_state, verify_session
+    from .auth import (_load, admin_user, lockout_state, pairing_always_open,
+                       verify_session)
 
     sent = request.headers.get("authorization", "")
     who = verify_session(sent[7:].strip()) if sent.startswith("Bearer ") else None
     lock = lockout_state()
+    enrolled = bool(_load().get("enrolled"))
     return AuthStatusOut(
         required=_console_auth_on(),
         authenticated=bool(who),
         username=who or "",
-        enrolled=bool(_load().get("enrolled")),
+        # `enrolled` stays the stored fact. Whether to DRAW the QR is a
+        # separate question, so the demo switch does not make the engine
+        # misreport whether an authenticator is paired.
+        enrolled=enrolled,
+        pairing_open=(not enrolled) or pairing_always_open(),
         locked_seconds=lock.seconds_left)
 
 
@@ -260,12 +266,16 @@ def auth_enroll(request: Request):
     session -- otherwise anyone who can reach the console could fetch the
     shared secret and pair their own phone, which would make the second factor
     a formality rather than a factor.
+
+    NCSA_SHOW_PAIRING=1 holds it open for demonstrations. See
+    auth.pairing_always_open for why that is a switch and not a deletion.
     """
-    from .auth import _load, admin_user, provisioning_uri, qr_svg, totp_secret, verify_session
+    from .auth import (_load, admin_user, pairing_always_open, provisioning_uri,
+                       qr_svg, totp_secret, verify_session)
 
     sent = request.headers.get("authorization", "")
     who = verify_session(sent[7:].strip()) if sent.startswith("Bearer ") else None
-    if _load().get("enrolled") and not who:
+    if _load().get("enrolled") and not who and not pairing_always_open():
         raise HTTPException(
             403, "an authenticator is already paired; sign in before pairing "
                  "another")
@@ -447,6 +457,24 @@ def _monitor():
 
 def _monitor_ingest(dest, name, redact, fws, notes):
     return _ingest(dest, name, redact, fws, notes=notes)
+
+
+@app.on_event("startup")
+def _warn_pairing_open():
+    """Say it out loud when the pairing gate is being held open.
+
+    A weakened control that announces itself is a demo setting. One that
+    stays quiet is the finding this product reports about other people's
+    systems.
+    """
+    from .auth import pairing_always_open
+
+    if pairing_always_open():
+        import logging
+        logging.getLogger("uvicorn.error").warning(
+            "NCSA_SHOW_PAIRING=1: the authenticator pairing QR stays on the "
+            "sign-in page and /auth/enroll serves the shared TOTP secret to "
+            "anonymous callers. Demonstration only -- do not deploy this way.")
 
 
 @app.on_event("startup")
